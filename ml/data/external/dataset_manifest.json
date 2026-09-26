@@ -103,5 +103,31 @@
       "license": "Public domain (CC0)",
       "reason_not_ingested": "License and structure fully verified (peer-reviewed in Nature Scientific Data, DOI 10.1038/s41597-022-01592-z), but the raw CSV download is behind an anti-bot challenge (Anubis/BotStopper) that this session's tools could not mechanically pass, and the in-browser preview truncates before reaching India alphabetically in the country-sorted file. Rather than fabricate India rows, this was left unfetched. Recommend a manual download by a teammate in a normal browser session for R3/R10 norm cross-checking."
     }
-  ]
+  ],
+  "train_dataset_version": {
+    "description": "Built train/val/test table for the fertilizer-type classifier",
+    "path": "data/processed/train.csv",
+    "committed": false,
+    "seed": 42,
+    "split_ratios": {
+      "train": 0.7,
+      "val": 0.15,
+      "test": 0.15
+    },
+    "split_sizes": {
+      "train": 34,
+      "test": 8,
+      "val": 8
+    },
+    "content_hash": "ae608486a797522e",
+    "feature_schema_hash": "e5382c70e374f4e6",
+    "feature_columns": [
+      "crop_id",
+      "variety_id",
+      "temperature_c",
+      "humidity_pct",
+      "moisture_pct"
+    ],
+    "classifier_target": "fertilizer_product_id"
+  }
 }
