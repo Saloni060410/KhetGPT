@@ -18,7 +18,7 @@ notebooks/                        # EDA.ipynb, model_experiments.ipynb — explo
                                    # nothing here is imported by src/
 src/
 ├── data_pipeline/    # ingest.py, clean.py, feature_engineering.py         → Richa
-├── weather/          # weather_client.py (OpenWeatherMap)                  → Richa
+├── weather/          # weather_client.py (Open-Meteo)                     → Richa
 ├── evaluation/        # metrics.py, explainability.py                      → Richa
 ├── models/            # train.py, predict.py, model_registry/               → Saloni
 └── api/               # main.py (FastAPI app), schemas.py, endpoints/       → Saloni

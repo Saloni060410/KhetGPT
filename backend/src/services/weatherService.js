@@ -1,11 +1,25 @@
 import axios from 'axios'
-import { env } from '../config/env.js'
 
-const client = axios.create({ baseURL: 'https://api.openweathermap.org/data/2.5', timeout: 5000 })
+const FORECAST_DAYS = 5
 
-export async function getForecast({ latitude, longitude }) {
+const client = axios.create({ baseURL: 'https://api.open-meteo.com/v1', timeout: 5000 })
+
+// Returns the `weather` block of the /predict payload (docs/api-contract.md).
+export async function getWeather({ latitude, longitude }) {
   const { data } = await client.get('/forecast', {
-    params: { lat: latitude, lon: longitude, units: 'metric', appid: env.OPENWEATHER_API_KEY },
+    params: {
+      latitude,
+      longitude,
+      current: 'temperature_2m,relative_humidity_2m',
+      daily: 'precipitation_sum',
+      forecast_days: FORECAST_DAYS,
+      timezone: 'auto',
+    },
   })
-  return data
+
+  return {
+    temperature_c: data.current.temperature_2m,
+    humidity_pct: data.current.relative_humidity_2m,
+    rainfall_mm_forecast: data.daily.precipitation_sum.reduce((sum, mm) => sum + (mm ?? 0), 0),
+  }
 }

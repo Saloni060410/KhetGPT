@@ -11,7 +11,6 @@ const schema = z.object({
   JWT_REFRESH_TTL: z.string().default('7d'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   ML_SERVICE_URL: z.string().url().default('http://localhost:8001'),
-  OPENWEATHER_API_KEY: z.string().default(''),
 })
 
 export const env = schema.parse(process.env)

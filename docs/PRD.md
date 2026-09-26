@@ -80,7 +80,7 @@ Sep 26, 2026 · Owner: @saloni
 | Data handling | pandas, numpy | Cleaning / feature engineering |
 | Modeling | scikit-learn + XGBoost | Strong on tabular data, fast to train/tune, easy to explain via feature importance |
 | Model serving | FastAPI | Async, typed request/response schemas (Pydantic), easy to containerize |
-| Weather data | OpenWeatherMap (or Weatherbit) API | Free tier, current + forecast |
+| Weather data | Open-Meteo API | Free, no API key, current + forecast (non-commercial use) |
 | Model persistence | joblib | Simple artifact save/load |
 | Notebooks | Jupyter | EDA and experiment tracking |
 
@@ -103,7 +103,7 @@ Sep 26, 2026 · Owner: @saloni
                                               │                                │
                                               ▼                                ▼
                                    Users / Farms / Fields /              Weather API
-                                   SoilTests / Recommendations           (OpenWeatherMap)
+                                   SoilTests / Recommendations           (Open-Meteo)
                                    (Postgres)
 ```
 
@@ -146,7 +146,7 @@ The ML service is a separate deployable unit on purpose, so Saloni/Richa can ite
 - **Fertilizer recommendation dataset** — Kaggle "Fertilizer Prediction" dataset (soil N-P-K, moisture, temperature, humidity, crop → fertilizer label), as the seed for the classification model.
 - **Soil Health Card data** — data.gov.in Soil Health Card scheme datasets, for realistic N/P/K/pH ranges per district.
 - **Crop nutrient requirement norms** — ICAR / state agriculture department fertilizer recommendation tables (per-crop, per-stage NPK requirement), used both as training features and as a rule-based sanity check / explainability layer on top of the ML output.
-- **Weather data** — OpenWeatherMap (current + 5-day forecast) by lat/long or pincode.
+- **Weather data** — Open-Meteo (current conditions + 5-day forecast) by lat/long. No API key needed.
 - **(Stretch) Satellite soil reference** — SoilGrids / Bhuvan, for fields with no manual soil test.
 
 Richa owns sourcing/cleaning these; Saloni owns turning them into model-ready features. Keep raw files out of git (large/licensed) — see the `.gitignore` and `ml/data/README.md` for how to fetch them locally.
@@ -283,7 +283,7 @@ git push origin feature/<your-branch>
 ## 11. Risks & Open Questions
 
 - **Data quality/coverage:** public datasets may not cover every crop/region the team wants to demo — mitigate by scoping to 4–6 well-covered crops (see §1 non-goals).
-- **Weather API rate limits/keys:** get an API key early (Richa), don't leave it to the last day.
+- **Weather API availability:** Open-Meteo needs no key but is free for non-commercial use only, so cache responses per field and confirm the terms before any commercial launch.
 - **Model ⇄ backend contract drift:** locked down by writing `docs/api-contract.md` first (see §9).
 - **Time split for the AI/ML pair:** Saloni and Richa's work is sequential (data → model), not parallel by default — start Richa's pipeline work immediately so Saloni isn't blocked.
 - **Open question:** confirm target crops and target region (for soil-norm data) with the team before Richa starts data collection.
