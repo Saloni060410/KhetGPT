@@ -152,3 +152,50 @@ class HealthResponse(BaseModel):
     status: Literal["ok", "degraded"]
     model_version: str
     detail: str | None = None
+
+
+class ReferenceVariety(BaseModel):
+    id: str
+    name_en: str
+    name_hi: str | None = None
+
+
+class ReferenceStage(BaseModel):
+    id: str
+    name_en: str
+    name_hi: str | None = None
+    order: int
+
+
+class ReferenceCrop(BaseModel):
+    id: str
+    name_en: str
+    name_hi: str | None = None
+    varieties: list[ReferenceVariety] = []
+    stages: list[ReferenceStage] = []
+
+
+class SoilRating(BaseModel):
+    parameter: str
+    unit: str
+    very_low_below: float | None = None
+    low_below: float
+    high_above: float
+
+
+class FertilizerProduct(BaseModel):
+    id: str
+    name: str
+    n_pct: float
+    p2o5_pct: float
+    k2o_pct: float
+    price_inr_per_kg: float
+    price_date: date | None = None
+    bag_size_kg: float | None = None
+
+
+class SeasonalWeather(BaseModel):
+    temperature_c: float
+    humidity_pct: float
+    rainfall_mm_forecast: float
+    source: Literal["seasonal_average"] = "seasonal_average"
