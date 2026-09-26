@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: khetgpt
+      POSTGRES_PASSWORD: khetgpt
+      POSTGRES_DB: khetgpt
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U khetgpt"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ml:
+    build: ./ml
+    env_file:
+      - path: ./ml/.env
+        required: false
+    ports:
+      - "8001:8001"
+
+  backend:
+    build: ./backend
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://khetgpt:khetgpt@postgres:5432/khetgpt
+      ML_SERVICE_URL: http://ml:8001
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml:
+        condition: service_started
+
+volumes:
+  pgdata:
