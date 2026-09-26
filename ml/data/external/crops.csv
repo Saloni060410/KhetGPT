@@ -1,0 +1,7 @@
+crop_id,name_en,name_hi,dataset_label,season,source
+wheat,Wheat,गेहूं,,rabi,"PAU Package of Practices for Crops of Punjab, Rabi 2025-26, Vol. 42 (Aug 2025), p.1"
+rice,Rice,चावल,,kharif,"PAU Package of Practices for Crops of Punjab, Kharif 2026, Vol. 43 (Mar 2026), p.1"
+maize,Maize,मक्का,,kharif,"PAU Package of Practices for Crops of Punjab, Kharif 2026, Vol. 43 (Mar 2026), p.28"
+cotton,Cotton,कपास,,kharif,"PAU Package of Practices for Crops of Punjab, Kharif 2026, Vol. 43 (Mar 2026), p.45"
+sugarcane,Sugarcane,गन्ना,,annual,"PAU Package of Practices for Crops of Punjab, Kharif 2026, Vol. 43 (Mar 2026), p.76 (spring-planted, ~12-month duration spanning kharif and rabi)"
+chickpea,Chickpea (Gram),चना,,rabi,"PAU Package of Practices for Crops of Punjab, Rabi 2025-26, Vol. 42 (Aug 2025), p.34"

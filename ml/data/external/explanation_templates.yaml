@@ -1,0 +1,8 @@
+# Plain-language explanation templates (contract C6). template_id -> {en, hi} sentence with
+# {placeholders}. Saloni's rule_trace emits rule_id values; Richa's explain() (R9) maps them
+# here. Header-only + one example as of R1/R3 -- the full set (covering every rule_id the
+# engine emits, every risk reason, and soil/yield impact statements) lands in R9.
+
+low_k_soil_test_adjustment:
+  en: "Soil potassium is low ({value} kg/ha), so {adjustment} kg/ha of extra potash was added to the standard dose."
+  hi: "मिट्टी में पोटैशियम की मात्रा कम है ({value} किग्रा/हेक्टेयर), इसलिए मानक खुराक में {adjustment} किग्रा/हेक्टेयर अतिरिक्त पोटाश जोड़ा गया है।"

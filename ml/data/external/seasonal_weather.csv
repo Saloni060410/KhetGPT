@@ -1,0 +1,2 @@
+region_key,month,temperature_c,humidity_pct,rainfall_mm_5day,source
+punjab_ludhiana,1,13.5,59,4.3,"Climate-data.org Ludhiana normals (avg of Jan mean high 19.9C/low 7.1C = 13.5C; humidity 59%; monthly rainfall 26mm over ~3.9 rain days, scaled to a 5-day window as 26/30*5=4.3mm -- an approximation, not a directly-published 5-day figure). Remaining 11 months are placeholders for a later pass."
