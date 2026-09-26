@@ -29,16 +29,20 @@ MIN_ROWS_TO_SPLIT_ACROSS_ALL_THREE = 3  # a class with fewer rows can't appear i
 def _stratified_split(df: pd.DataFrame, target_col: str, seed: int, ratios: dict[str, float]) -> pd.Series:
     """Per-class shuffle-and-slice split at the given proportions (must sum to ~1, in the
     order they should be filled -- earlier names get priority on rounding). A class with
-    fewer rows than there are split names goes entirely to the first (largest) split, rather
-    than being silently dropped or duplicated to force a fit -- see R5's finding that
-    npk_10_26_26 has only 2 total rows and can't be meaningfully split, let alone learned."""
+    fewer than MIN_ROWS_TO_SPLIT_ACROSS_ALL_THREE total rows goes entirely to the first
+    (largest) split, rather than being silently dropped or duplicated to force a fit -- see
+    R5's finding that npk_10_26_26 has only 2 total rows and can't be meaningfully split, let
+    alone learned. This threshold is fixed at 3 (not len(ratios)) deliberately: this function
+    is called twice per build -- once with 3 split names on a fresh build, once with only 2
+    (train/val) when re-deriving from a frozen test set -- and the same class must be treated
+    identically either way, not differently depending on which call happens to run."""
     names = list(ratios)
     split = pd.Series(index=df.index, dtype=object)
 
     for _, group in df.groupby(target_col):
         shuffled = group.sample(frac=1, random_state=seed)
         n = len(shuffled)
-        if n < len(names):
+        if n < MIN_ROWS_TO_SPLIT_ACROSS_ALL_THREE:
             split.loc[shuffled.index] = names[0]
             continue
 

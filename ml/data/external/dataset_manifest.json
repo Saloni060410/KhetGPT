@@ -115,11 +115,11 @@
       "test": 0.15
     },
     "split_sizes": {
-      "train": 34,
+      "train": 35,
       "test": 8,
-      "val": 8
+      "val": 7
     },
-    "content_hash": "ae608486a797522e",
+    "content_hash": "18fb1191ea0c2f3b",
     "feature_schema_hash": "e5382c70e374f4e6",
     "feature_columns": [
       "crop_id",
