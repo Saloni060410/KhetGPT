@@ -9,6 +9,7 @@ from src.data_pipeline.feature_engineering import (
     load_training_frame,
     request_to_record,
     rule_inputs,
+    weather_features,
 )
 from src.data_pipeline.soil_data_loader import (
     SoilValidationError,
@@ -133,6 +134,14 @@ def test_rule_inputs_flags_rain_hold_above_threshold():
     low_rain_req["weather"]["rainfall_mm_forecast"] = 0.0
     result = rule_inputs(low_rain_req)
     assert result["rain_hold"] is False
+
+
+def test_weather_features_rain_hold_threshold():
+    rules = {"rain_hold_mm": 20}
+    assert weather_features({"rainfall_mm_forecast": 25}, rules)["rain_hold"] is True
+    assert weather_features({"rainfall_mm_forecast": 20}, rules)["rain_hold"] is True  # >=, boundary
+    assert weather_features({"rainfall_mm_forecast": 19.9}, rules)["rain_hold"] is False
+    assert weather_features({"rainfall_mm_forecast": None}, rules)["rain_hold"] is False
 
 
 def test_feature_columns_and_target_are_stable_constants():

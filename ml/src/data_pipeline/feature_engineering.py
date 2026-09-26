@@ -161,7 +161,11 @@ def rule_inputs(req: dict, tables: ReferenceTables | None = None) -> dict:
     record = request_to_record(req, tables=tables)
 
     agronomy = _load_agronomy_rules()
-    rain_hold = record["rainfall_mm_forecast"] is not None and record["rainfall_mm_forecast"] >= agronomy["rain_hold_mm"]
+    weather = {
+        "temperature_c": record["temperature_c"],
+        "humidity_pct": record["humidity_pct"],
+        "rainfall_mm_forecast": record["rainfall_mm_forecast"],
+    }
 
     return {
         "soil_ratings": {
@@ -172,9 +176,19 @@ def rule_inputs(req: dict, tables: ReferenceTables | None = None) -> dict:
             "ph": record["soil_rating_ph"],
         },
         "previous_fertilizer_usage": record["previous_fertilizer_usage"],
-        "rain_hold": rain_hold,
+        **weather_features(weather, agronomy),
         "weather_source": record["weather_source"],
     }
+
+
+def weather_features(weather: dict, rules: dict) -> dict:
+    """Derive a rain_hold flag (and the weather values it was computed from) from a weather
+    block and agronomy_rules.yaml's rain_hold_mm -- shared by rule_inputs() here and by
+    anything else (e.g. the risk analyzer) that needs the same rain-hold decision, so the
+    threshold is applied identically everywhere rather than re-implemented."""
+    rainfall = weather.get("rainfall_mm_forecast")
+    rain_hold = rainfall is not None and rainfall >= rules["rain_hold_mm"]
+    return {"rain_hold": rain_hold, "rainfall_mm_forecast": rainfall}
 
 
 def _load_agronomy_rules() -> dict:

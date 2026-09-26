@@ -293,9 +293,12 @@ Fallback weather when a live/cached call isn't available (`weather.source = seas
 | `temperature_c`, `humidity_pct`, `rainfall_mm_5day` | Seasonal-average weather | °C, %, mm |
 | `source` | Citation | free text |
 
-One example row (`punjab_ludhiana`, January) — climate normals from a public aggregator, not
-IMD directly; `rainfall_mm_5day` is a derived approximation (monthly total scaled to a 5-day
-window), noted as such in the row's source cell. Remaining 11 months are a follow-up pass.
+**Full 12-month coverage (R7)** for `punjab_ludhiana`, built by `weather_client.build_seasonal_fallback()`
+from real Open-Meteo archive data (2022-2024 daily values, averaged per month) -- not the R1/R3
+placeholder (a single January row estimated from a secondary climate aggregator, now replaced).
+`rainfall_mm_5day` is mean daily rainfall x5, not a directly-published 5-day figure; every row's
+`source` cell states the exact years and coordinates averaged, and says plainly it's an average,
+not a forecast. Regenerate with `python -c "from src.weather.weather_client import build_seasonal_fallback; build_seasonal_fallback([{'region_key': 'punjab_ludhiana', 'lat': 30.9010, 'lon': 75.8573}], years=[2022,2023,2024])"`.
 
 ### agronomy_rules.yaml
 
