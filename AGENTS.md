@@ -1,46 +1,44 @@
 # AGENTS.md — KhetGPT
 
-Canonical context for any AI coding agent (Claude Code, Antigravity/Gemini CLI, Codex, Cursor, etc.)
-working in this repo. `CLAUDE.md` and `GEMINI.md` at the root just point here — this file is the
-one to keep up to date.
+Canonical context for any AI coding agent (Claude Code, Antigravity/Gemini CLI, Codex, Cursor, etc.) working in this repo. `CLAUDE.md` and `GEMINI.md` at the root just point here. This file is the one to keep up to date.
 
 ## What this project is
 
-KhetGPT — a data-driven fertilizer optimization app (PSAI01: Sustainable Fertilizer Usage
-Optimizer). It recommends fertilizer type, quantity, and application schedule based on soil
-health, crop type, growth stage, prior fertilizer usage, and local weather, and flags the
-soil-degradation risk of over-/under-application. Full requirements: `docs/PRD.md`.
+KhetGPT is a data-driven fertilizer optimization app (PSAI01: Sustainable Fertilizer Usage Optimizer). It recommends fertilizer type, quantity and a dated application schedule from soil health, crop type, growth stage, previous fertilizer usage and local weather. It flags the risk of over- and under-application and explains the impact on soil health and yield. Full requirements: `docs/PRD.md`. Prioritised features: `docs/FEATURES.md`.
 
-## Repo layout (see docs/PRD.md §7 for the full tree)
+## Repo layout (see docs/ARCHITECTURE.md for the full tree)
 
-- `frontend/` — React (Vite, JS) + React Three Fiber/drei + GSAP + Tailwind + Zustand. Owner: Darsh.
-- `backend/` — Node.js/Express + PostgreSQL (Prisma) + JWT auth. Owner: Josh.
-- `ml/` — Python + scikit-learn/XGBoost + FastAPI serving. Owners: Saloni (models/api),
-  Richa (data/weather/evaluation).
-- `docs/` — PRD, architecture notes, and `api-contract.md` — the source of truth for the
-  backend ⇄ ML request/response shape. Read `api-contract.md` before changing either side
-  of that boundary.
+- `frontend/`: React (Vite, JS) + React Three Fiber/drei + GSAP + Tailwind + Zustand. Owner: Darsh.
+- `backend/`: Node.js/Express + PostgreSQL (Prisma) + JWT auth. Owner: Josh.
+- `ml/`: Python + FastAPI. Stateless. Owners: Saloni (`src/api`, `src/engine`, `src/models`) and Richa (`data/`, `src/data_pipeline`, `src/weather`, `src/degradation`, `src/evaluation`).
+- `docs/`: PRD, FEATURES, ARCHITECTURE, GIT_WORKFLOW, TEAM_ASSIGNMENTS, `api-contract.md` (backend to ML), `backend-api.md` (frontend to backend), `data-dictionary.md`, `contract-fixtures/`, `prompt-packs/` (one step-by-step pack per person).
 
-Each of `frontend/`, `backend/`, `ml/` has its own `AGENTS.md` with area-specific conventions.
-An agent working inside one of those folders should read the nearer file too.
+Data flow: `frontend -> backend -> ml`. The frontend never calls the ML service. The ML service never touches the database.
+
+Each of `frontend/`, `backend/`, `ml/` has its own `AGENTS.md`. An agent working inside one of those folders should read the nearer file too.
+
+## Fixed decisions (do not change without the team)
+
+- **The soil schema is fixed by the problem statement:** `n`, `p`, `k`, `ph`, `organic_carbon`, `moisture` (`organicCarbon` in the backend and frontend). Never add, remove or rename soil fields.
+- The core method is the transparent deficit formula: fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications. Every recommendation shows those inputs.
+- ML endpoints: `POST /recommend`, `POST /risk-score`, `GET /health`, `GET /reference/*`.
+- Weather and geocoding come from Open-Meteo (no key). Live, then cached, then a seasonal-average fallback.
+- Crop variety is optional and only exists if Richa's chosen data has varieties.
+- No cloud deployment. The demo runs locally with docker-compose.
 
 ## Cross-cutting rules
 
-- Stay inside your area's folder. Don't reach into another service's folder to "fix" something —
-  flag it in `docs/api-contract.md` or ask the human instead; the four areas are owned by
-  different people working on separate git branches (see `docs/PRD.md` §8), so cross-folder
-  edits are the most common source of merge conflicts.
-- Never commit secrets. Each service has its own `.env`, none of them committed — see `.gitignore`.
-  Add new env vars to that service's `.env.example`, not `.env`.
-- Keep the backend ⇄ ML contract (`docs/api-contract.md`) in sync with the actual request/response
-  code on both sides. If you change one, update the doc in the same change.
-- Region/crop/fertilizer reference numbers belong in data/config files (`ml/data/`, or a backend
-  config table), never hardcoded in application logic.
-- Commit messages: `<area>: <what changed>`, e.g. `ml: add XGBoost quantity regressor`.
+- Stay inside your area's folder. Cross-folder edits are the most common source of merge conflicts. Flag the need in the contract doc or ask the owner.
+- The contracts (`docs/api-contract.md`, `docs/backend-api.md`) are the source of truth. Change them only through a docs-only PR to `main` that both owners approve, then update code and fixtures in the same change.
+- Never commit secrets. Each service has its own `.env` (never committed). Add new variables to that service's `.env.example`.
+- Region, crop, price and threshold numbers belong in data or config files (`ml/data/external/`, a backend config), never hardcoded in application logic. Every value has a source.
+- Recommendations must be explainable and reproducible. Keep `model_version` in every response.
+- Weather and reference calls degrade gracefully. They must not hard-fail a recommendation.
+- Commit messages: `<area>: <what changed>`, for example `ml: add NPK deficit calculator`. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
 
 ## Commands
 
-Run these from inside the relevant service folder, not the repo root.
+Run from inside the relevant service folder.
 
 ```bash
 # frontend
@@ -54,15 +52,15 @@ pip install -r requirements.txt
 uvicorn src.api.main:app --reload --port 8001
 ```
 
-`docker-compose up` at the repo root brings up backend + ml + Postgres together.
+`docker-compose up` at the repo root brings up backend, ml and Postgres together.
 
 ## Team
 
 | Person | Area |
 |---|---|
-| Saloni | AI/ML — models, FastAPI serving |
-| Richa | AI/ML — data pipeline, weather, evaluation |
-| Josh | Backend — auth, database, API |
-| Darsh | Frontend — UI, 3D, animation |
+| Saloni | AI/ML: deficit engine, model, FastAPI serving |
+| Richa | AI/ML: datasets, reference tables, weather, risk analyzer, evaluation |
+| Josh | Backend: auth, database, API, compose and CI |
+| Darsh | Frontend: UI, 3D, animation |
 
-Full work breakdown and rationale: `docs/PRD.md` §9.
+Work breakdown: `docs/TEAM_ASSIGNMENTS.md` and the packs in `docs/prompt-packs/`.
