@@ -3,9 +3,14 @@ import { env } from '../config/env.js'
 
 const client = axios.create({ baseURL: env.ML_SERVICE_URL, timeout: 5000 })
 
-// Request/response shape: docs/api-contract.md
-export async function predict(payload) {
-  const { data } = await client.post('/predict', payload)
+// Request/response shapes: docs/api-contract.md
+export async function recommend(payload) {
+  const { data } = await client.post('/recommend', payload)
+  return data
+}
+
+export async function riskScore(payload) {
+  const { data } = await client.post('/risk-score', payload)
   return data
 }
 

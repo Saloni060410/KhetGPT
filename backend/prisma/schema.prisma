@@ -61,7 +61,9 @@ model Field {
   longitude       Float?
   pincode         String?
   cropType        String?
+  cropVariety     String?
   growthStage     String?
+  sowingDate      DateTime?
   soilTests       SoilTest[]
   recommendations Recommendation[]
   fertilizerLogs  FertilizerLog[]
@@ -104,12 +106,18 @@ model Recommendation {
   soilTestId        String
   soilTest          SoilTest  @relation(fields: [soilTestId], references: [id])
   cropType          String
+  cropVariety       String?
   growthStage       String
   fertilizerType    String
   quantityKgPerAcre Float
   schedule          Json
   riskLevel         RiskLevel
   riskReason        String
+  soilHealthImpact  String?
+  yieldImpact       String?
+  explanation       Json?
+  weatherSource     String?
+  inputSnapshot     Json?
   topFactors        String[]
   estimatedCost     Float?
   estimatedSaving   Float?

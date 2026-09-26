@@ -18,17 +18,21 @@ src/
 ├── config/       # db.js, env.js — all env var reads happen here, nowhere else
 ├── models/       # Prisma-generated + any thin domain wrappers: User, Farm, Field,
 │                 # SoilTest, Recommendation, FertilizerLog
-├── routes/       # auth, farm, field, recommendation, weather
+├── routes/       # auth, farm, field, recommendation, weather, geocode, trends, reference
 ├── controllers/   # request handling per route
 ├── middleware/    # auth.middleware.js, error.middleware.js, validate.middleware.js
-├── services/      # mlService.js (calls the ML FastAPI service), weatherService.js
+├── services/      # mlService.js (POST /recommend, /risk-score), weatherService.js (Open-Meteo), geocodeService.js
 └── utils/
 ```
 
 ## Conventions
 
+- The soil schema is fixed by the problem statement (`n`, `p`, `k`, `ph`, `organicCarbon`, `moisture`). Never change it.
+- Location: coordinates are canonical. Search by place name goes through `services/geocodeService.js` (Open-Meteo geocoding). `pincode` is a label only.
+- Weather: live, then cached (up to 6 hours), then the ML service's seasonal average. Report the `source`.
+
 - The request/response shape you send to and expect from the ML service (`services/mlService.js`)
-  must match `docs/api-contract.md` exactly. If the shape needs to change, update that doc in
+  must match `docs/api-contract.md` and `docs/contract-fixtures/` exactly. If the shape needs to change, update that doc in
   the same PR — Saloni builds against it independently.
 - Validate all incoming request bodies (a `validate.middleware.js` schema per route) before they
   hit a controller — don't trust frontend input.
