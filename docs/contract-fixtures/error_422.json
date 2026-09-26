@@ -1,0 +1,1 @@
+{ "detail": [ { "loc": ["body", "soil", "ph"], "msg": "ensure this value is less than or equal to 14", "type": "value_error" } ] }

@@ -1,0 +1,14 @@
+{
+  "_note": "Illustrative fixture for contract tests and mocks. Values are examples, not agronomic advice.",
+  "field_id": "fld_demo_wheat_1",
+  "crop_type": "wheat",
+  "variety": null,
+  "growth_stage": "sowing",
+  "sowing_date": "2026-11-05",
+  "soil": { "n": 210, "p": 9, "k": 150, "ph": 7.4, "organic_carbon": 0.42, "moisture": 18 },
+  "weather": { "temperature_c": 24, "humidity_pct": 55, "rainfall_mm_forecast": 3.2, "source": "live" },
+  "previous_fertilizer_usage": [
+    { "type": "dap", "quantity_kg_per_acre": 80, "applied_on": "2026-03-10" },
+    { "type": "urea", "quantity_kg_per_acre": 200, "applied_on": "2026-03-25" }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "_note": "Illustrative fixture.",
+  "risk": {
+    "level": "high",
+    "reason": "The planned nitrogen is about 1.75 times what this crop needs, and no phosphorus or potash is planned.",
+    "soil_health_impact": "Heavy nitrogen acidifies soil, harms soil life and leaches into groundwater.",
+    "yield_impact": "Yield does not rise past crop demand. Unbalanced feeding can lower it, and phosphorus is left short.",
+    "over_application_pct": 75
+  },
+  "nutrient_balance": {
+    "n": { "applied_kg_ha": 227.3, "recommended_kg_ha": 130, "ratio": 1.75 },
+    "p": { "applied_kg_ha": 0, "recommended_kg_ha": 80, "ratio": 0 },
+    "k": { "applied_kg_ha": 0, "recommended_kg_ha": 30, "ratio": 0 }
+  },
+  "model_version": "fixture-0.0.0+rules-fixture"
+}

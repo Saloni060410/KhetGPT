@@ -1,0 +1,11 @@
+{
+  "_note": "Illustrative fixture: what if the farmer applies 200 kg of urea per acre?",
+  "crop_type": "wheat",
+  "variety": null,
+  "growth_stage": "sowing",
+  "sowing_date": "2026-11-05",
+  "soil": { "n": 210, "p": 9, "k": 150, "ph": 7.4, "organic_carbon": 0.42, "moisture": 18 },
+  "weather": { "temperature_c": 24, "humidity_pct": 55, "rainfall_mm_forecast": 3.2, "source": "live" },
+  "previous_fertilizer_usage": [],
+  "planned_application": [ { "fertilizer_type": "urea", "quantity_kg_per_acre": 200 } ]
+}

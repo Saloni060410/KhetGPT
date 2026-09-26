@@ -1,0 +1,36 @@
+{
+  "_note": "Illustrative fixture. Prices, efficiencies and thresholds are placeholders until Richa's reference tables are merged.",
+  "recommendation": {
+    "fertilizer_type": "urea",
+    "quantity_kg_per_acre": 86.8,
+    "schedule": [
+      { "stage": "sowing", "fertilizer_type": "dap", "quantity_kg_per_acre": 70.4, "apply_by": "2026-11-05" },
+      { "stage": "sowing", "fertilizer_type": "mop", "quantity_kg_per_acre": 20.2, "apply_by": "2026-11-05" },
+      { "stage": "sowing", "fertilizer_type": "urea", "quantity_kg_per_acre": 10.6, "apply_by": "2026-11-05" },
+      { "stage": "crown_root_initiation", "fertilizer_type": "urea", "quantity_kg_per_acre": 38.1, "apply_by": "2026-11-26" },
+      { "stage": "jointing", "fertilizer_type": "urea", "quantity_kg_per_acre": 38.1, "apply_by": "2026-12-25" }
+    ]
+  },
+  "risk": {
+    "level": "medium",
+    "reason": "Last season's fertilizer was about 1.5 times what this crop needs.",
+    "soil_health_impact": "Nitrogen beyond crop demand acidifies soil over time and leaches into groundwater.",
+    "yield_impact": "Extra nitrogen adds cost without adding yield and can make wheat fall over before harvest."
+  },
+  "explanation": {
+    "top_factors": [
+      "Soil nitrogen is low (210 kg/ha), so 130 kg/ha of nitrogen fertilizer is needed after counting what the soil supplies.",
+      "Soil phosphorus is low (9 kg/ha), so DAP goes on at sowing.",
+      "Your last-season use was about 1.5 times what this crop needs, so this plan is smaller."
+    ],
+    "nutrient_balance": {
+      "n": { "crop_demand_kg_ha": 120, "soil_supply_kg_ha": 55, "deficit_kg_ha": 65, "use_efficiency": 0.5, "prior_credit_kg_ha": 0, "fertilizer_needed_kg_ha": 130 },
+      "p": { "crop_demand_kg_ha": 60, "soil_supply_kg_ha": 20, "deficit_kg_ha": 40, "use_efficiency": 0.5, "prior_credit_kg_ha": 0, "fertilizer_needed_kg_ha": 80 },
+      "k": { "crop_demand_kg_ha": 40, "soil_supply_kg_ha": 25, "deficit_kg_ha": 15, "use_efficiency": 0.5, "prior_credit_kg_ha": 0, "fertilizer_needed_kg_ha": 30 }
+    },
+    "formula": "fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications"
+  },
+  "cost": { "estimated_cost_inr_per_acre": 3100, "previous_cost_inr_per_acre": 3340, "saving_inr_per_acre": 240 },
+  "impact": { "over_application_reduction_pct": 32.2 },
+  "model_version": "fixture-0.0.0+rules-fixture"
+}
