@@ -50,10 +50,17 @@ PRD draft specified OpenWeatherMap; that was superseded (see commit `9f25bf5`).
 ## External reference tables (`ml/data/external/`, contract C5)
 
 Crop, region and fertilizer reference data live here, not in application code (NFR5). Richa
-owns these files; Saloni's dosage engine and Josh's reference proxy read them. Column schemas
-below are locked as of R1; values are filled in incrementally (v0 for wheat/rice in R3, full
-coverage after). Cells marked `TODO(data)` mean a value could not be verified against an
-authoritative source and was deliberately left blank rather than invented.
+owns these files; Saloni's NPK calculator and Josh's reference proxy read them. Column schemas
+below are locked as of R1/R3; values are filled in incrementally (v0 for wheat/rice landed in
+R3, full coverage after). Cells marked `TODO(data)` mean a value could not be verified against
+an authoritative source and was deliberately left blank rather than invented.
+
+**Engine formula (R3):** the NPK calculator computes, per nutrient, `fertilizer needed =
+(crop demand - soil supply) / use efficiency - credit from recent applications`. `crop demand`
+comes from `crop_requirements.csv`, `soil supply` and `use efficiency` from
+`nutrient_efficiency.csv`; `credit` uses `agronomy_rules.yaml`'s `credit_window_days`. This
+superseded R1's `crop_nutrient_norms.csv` (renamed/restructured to `crop_requirements.csv`)
+and its `soil_rating_multipliers` block (removed — doesn't fit this formula).
 
 ### crops.csv
 
@@ -84,18 +91,41 @@ season and variety. This is flagged in each affected row's `source` cell. Anythi
 these rice stage windows (e.g. `rain_hold` logic, split-schedule timing) must treat them as
 DAT, not DAS, for rice specifically.
 
-### crop_nutrient_norms.csv
+### crop_requirements.csv
+
+(Replaces R1's `crop_nutrient_norms.csv` — renamed and restructured for the R3 engine formula.)
 
 | Column | Meaning | Unit |
 |---|---|---|
 | `crop_id` | Foreign key into crops.csv | snake_case id |
-| `irrigation` | Irrigation condition the norm applies to | `irrigated` / `rainfed` |
-| `n_kg_ha`, `p2o5_kg_ha`, `k2o_kg_ha` | Recommended nutrient dose | kg/ha (source tables are in kg/acre; converted at 1 acre = 0.4047 ha, i.e. x2.4711) |
-| `region` | State/region the norm applies to | e.g. `Punjab` |
+| `variety` | Variety/cultivar the row applies to, or a generic label if the source doesn't split by variety | string |
+| `irrigation` | Irrigation condition the requirement applies to | `irrigated` / `rainfed` |
+| `n_kg_ha`, `p2o5_kg_ha`, `k2o_kg_ha` | Seasonal crop nutrient demand (the engine's "crop demand") | kg/ha (source tables are in kg/acre; converted at 1 acre = 0.4047 ha, i.e. x2.4711) |
+| `region` | State/region the requirement applies to | e.g. `Punjab` |
 | `source` | Citation, including page number | free text |
-| `notes` | Caveats (soil-test-conditional additions, variety exceptions, etc.) | free text |
+| `notes` | Caveats (soil-test-conditional additions, variety exceptions, alternative STCR equations, etc.) | free text |
 
-Header + one sourced example row only as of R1 (wheat); full coverage lands in R3.
+**v0 as of R3: wheat and rice** (real, PAU-sourced). Remaining crops land in a follow-up pass.
+
+### nutrient_efficiency.csv
+
+New in R3, feeds the engine's `soil supply` and `use efficiency` terms directly.
+
+| Column | Meaning | Unit |
+|---|---|---|
+| `nutrient` | `n` / `p` / `k` | string |
+| `soil_supply_factor` | Share of a soil-test kg/ha value that's actually crop-available (the STCR "Cs" coefficient) | 0–1, or `TODO(data)` |
+| `fertilizer_use_efficiency` | Share of applied nutrient the crop recovers (STCR "Cf" / recovery efficiency) | 0–1, or `TODO(data)` |
+| `source` | Citation, or an explicit "no defensible source found" statement — never left blank | free text |
+| `notes` | Caveats (national-average vs. region-specific, decomposition limitations, etc.) | free text |
+
+**Known gap, flagged rather than guessed:** ICAR-IISS's national STCR compilation ("Four
+Decades of STCR Research") publishes only combined regression coefficients per crop/variety
+targeted-yield equation (e.g. wheat: `FN = 5.65T - 1.34SN`), not a separable
+`soil_supply_factor`/`fertilizer_use_efficiency` pair — decomposing them would require an
+unpublished nutrient-requirement constant, so `soil_supply_factor` is `TODO(data)` for all
+three nutrients as of R3. `fertilizer_use_efficiency` for N uses a real but *national-average,
+rice-only* recovery-efficiency figure (42.6%) as an interim stand-in; P and K are `TODO(data)`.
 
 ### split_schedule.csv
 
@@ -104,41 +134,49 @@ Header + one sourced example row only as of R1 (wheat); full coverage lands in R
 | `crop_id`, `stage_id` | Foreign keys into crops.csv / growth_stages.csv | snake_case id |
 | `n_fraction`, `p_fraction`, `k_fraction` | Share of that nutrient's total dose applied at this stage | 0–1, each nutrient's fractions sum to 1 across a crop's stages |
 
-Header + one sourced example (wheat) only as of R1; full coverage lands in R3.
+**v0 as of R3: wheat and rice.** Note rice's stage timing is in Days After Transplanting
+(DAT), not DAS — see the growth_stages.csv note above.
 
 ### fertilizer_products.csv
 
 | Column | Meaning | Unit |
 |---|---|---|
-| `product_id` | Stable snake_case identifier | e.g. `urea` |
+| `product_id` | Stable snake_case identifier | e.g. `urea`, `dap`, `npk_10_26_26` |
 | `name` | Display name | string |
-| `n_pct`, `p2o5_pct`, `k2o_pct` | Nutrient content by weight | % (0–100) |
-| `price_inr_per_kg` | Retail price | INR/kg |
+| `n_pct`, `p2o5_pct`, `k2o_pct` | Nutrient content by weight (guaranteed grade, per FCO 1985 nomenclature) | % (0–100) |
+| `price_inr_per_kg` | Retail price | INR/kg, or `TODO(data)` if no defensible dated price was found |
 | `price_date` | Date the price was current as of | ISO date, or `TODO(data)` if not confirmed |
-| `source` | Citation (Department of Fertilizers notification, state MRP, etc.) | free text |
+| `source` | Citation (IFFCO price list, Department of Fertilizers notification, state MRP, etc.) | free text |
 
-Header + one sourced example (urea) only as of R1; full coverage lands in R3. Prices are
-never estimated — an unconfirmed price is `TODO(data)`, never a guess.
+**As of R3:** all 9 grades appearing in the chosen training dataset are populated with real
+N/P2O5/K2O percentages (FCO nomenclature is definitional, not looked up per-product). Prices
+are real and dated for urea, DAP, NP 28-28-0 and NPK 10-26-26 (all from IFFCO's published
+price list); MOP, SSP, and the remaining NPK grades are `price_inr_per_kg: TODO(data)` because
+they aren't under a statutory uniform MRP and no single defensible current figure was found —
+never guessed.
 
 ### soil_test_ratings.csv
 
 | Column | Meaning | Unit |
 |---|---|---|
-| `parameter` | Soil parameter name | e.g. `organic_carbon`, `n`, `p`, `k`, `ph` |
-| `unit` | Unit that parameter is measured in | e.g. `%`, `kg/ha` |
+| `parameter` | Soil parameter name | `organic_carbon`, `n`, `p`, `k`, `ph` |
+| `unit` | Unit that parameter is measured in | e.g. `%`, `kg/ha`, `pH units` |
 | `low_below` / `high_above` | Cutoffs separating low / medium / high ratings | same unit as `unit` |
 | `source` | Citation | free text |
 
-Header + one sourced example (organic_carbon, ICAR-IISS Bhopal ranges) only as of R1; N, P,
-K and pH cutoffs land in R3.
+**Full coverage as of R3** (organic_carbon, n, p, k, ph) — all from ICAR-IISS Bhopal's
+national soil-test interpretation ranges, as used on Soil Health Cards. `p`'s cutoffs are the
+Olsen-P method figures, applicable to Punjab's predominantly alkaline soils.
 
 ### agronomy_rules.yaml
 
-Rule-layer parameters for the dosage/risk engine: soil-rating multipliers, nutrient credit
-window (days), rain-hold thresholds (mm / days), over-application risk ratios, and norm
-tolerance (%). Every key carries an inline comment with either a source citation or the words
-"team assumption" — R1 ships placeholder values labelled `team assumption`; these get
-validated/replaced with sourced values or confirmed as intentional design choices in R3.
+Rule-layer parameters for the NPK calculator / risk engine: nutrient credit window (days),
+rain-hold thresholds (mm / days), over- and under-application risk ratios, and the sanity-test
+formula tolerance (%). Every key carries an inline comment with either a source citation or
+the words "team assumption". R1's `soil_rating_multipliers` block was **removed in R3** — it
+doesn't fit the `(crop demand - soil supply) / use efficiency - credit` formula, which uses
+`nutrient_efficiency.csv`'s `soil_supply_factor` instead. All keys remain `team assumption`
+placeholders as of R3; validating them against real guidance is follow-up work.
 
 ## Reference tables (`ml/data/external/`, schemas in the prompt packs, contract C5)
 

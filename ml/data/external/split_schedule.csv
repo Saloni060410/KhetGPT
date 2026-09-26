@@ -2,3 +2,8 @@ crop_id,stage_id,n_fraction,p_fraction,k_fraction
 wheat,sowing,0,1,1
 wheat,crown_root_initiation,0.5,0,0
 wheat,second_irrigation,0.5,0,0
+rice,nursery_sowing,0,0,0
+rice,transplanting,0,1,1
+rice,first_n_split,0.333,0,0
+rice,active_tillering,0.333,0,0
+rice,panicle_initiation,0.334,0,0

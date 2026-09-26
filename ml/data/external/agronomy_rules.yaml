@@ -1,13 +1,10 @@
-# Rule-layer parameters for the dosage/risk engine (contract C5, Richa + Saloni).
-# R1 delivers structure + one placeholder value per key so Saloni can code against it.
-# Real, sourced values (or explicit "team assumption" values) land in R3.
-
-soil_rating_multipliers:
-  # Multiplier applied to the norm dose based on the field's soil-test rating for that nutrient.
-  # team assumption -- placeholder for R3; not yet validated against ICAR guidance.
-  low: 1.25
-  medium: 1.0
-  high: 0.75
+# Rule-layer parameters for the NPK calculator / dosage engine (contract C5, Richa + Saloni).
+# Engine formula: fertilizer needed = (crop demand - soil supply) / use efficiency - credit
+# from recent applications. crop demand comes from crop_requirements.csv, soil supply and
+# use efficiency from nutrient_efficiency.csv. This file holds everything else the formula
+# and the risk/explanation layer need. Every key below has a source comment or the words
+# "team assumption" -- see R3 prompt. Supersedes the R1 placeholder soil_rating_multipliers
+# block, which doesn't fit this formula and has been removed.
 
 credit_window_days: 60
   # team assumption -- placeholder. Number of days a previous fertilizer application is
@@ -24,13 +21,18 @@ rain_hold_days: 2
   # rain-hold trigger.
 
 over_application_ratio_medium: 1.25
-  # team assumption -- placeholder. Actual-to-norm nutrient ratio above which risk.level
-  # is flagged "medium".
+  # team assumption -- placeholder. Actual-to-computed-need nutrient ratio above which
+  # risk.level is flagged "medium".
 
 over_application_ratio_high: 1.5
-  # team assumption -- placeholder. Actual-to-norm nutrient ratio above which risk.level
-  # is flagged "high".
+  # team assumption -- placeholder. Actual-to-computed-need nutrient ratio above which
+  # risk.level is flagged "high".
 
-norm_tolerance_pct: 10
-  # team assumption -- placeholder. Percent tolerance band around the ICAR/PAU norm used by
-  # evaluation.norm_conformity() to count a recommendation as "within norm".
+under_application_ratio: 0.75
+  # team assumption -- placeholder. Actual-to-computed-need nutrient ratio below which the
+  # recommendation flags under-application (yield-risk direction, not just over-use/runoff).
+
+formula_tolerance_pct: 10
+  # team assumption -- placeholder. Percent tolerance band used by the sanity test / by
+  # evaluation.norm_conformity() to count a computed recommendation as consistent with the
+  # crop_requirements.csv + nutrient_efficiency.csv formula output.
