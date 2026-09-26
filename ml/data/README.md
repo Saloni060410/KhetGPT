@@ -20,8 +20,10 @@ TODO(data): Richa fills in the chosen datasets (prompt pack, step R2).
 | File | Purpose |
 |---|---|
 | `crops.csv`, `crop_varieties.csv`, `growth_stages.csv` | Vocabulary used by every service |
-| `crop_requirements.csv` | Crop nutrient demand (kg/ha of N, P2O5, K2O) |
-| `nutrient_efficiency.csv` | Soil supply factor and fertilizer use efficiency per nutrient |
+| `reference_doses.csv` | Published standard dose per crop, irrigation, variety (`generic` fallback), in kg/ha of N, P2O5, K2O |
+| `soil_adjustments.csv` | Signed dose adjustments by soil rating, from published soil-test rules |
+| `stcr_equations.csv` | Optional STCR targeted-yield equations: `a` x target yield - `b` x soil test |
+| `nutrient_efficiency.csv` | Fertilizer use efficiency per crop and nutrient (`default` fallback), used only for credit |
 | `split_schedule.csv` | Share of each nutrient per growth stage |
 | `fertilizer_products.csv` | Nutrient content, price, price date, source |
 | `soil_test_ratings.csv` | Low and high cut-offs per soil parameter |

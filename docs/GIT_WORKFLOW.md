@@ -29,7 +29,7 @@ Open a PR into `main` when a feature works end to end, not only when it is finis
 
 Form: `<area>: <what changed>`, present tense, at most 72 characters. One logical change per commit.
 
-- `ml: add NPK deficit calculator`
+- `ml: add NPK dose calculator`
 - `backend: add refresh token rotation`
 - `frontend: add schedule page with print styles`
 - `docs: api-contract add risk-score`

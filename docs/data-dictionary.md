@@ -38,12 +38,12 @@ Never add, remove or rename these fields.
 | Field | Meaning | Unit |
 |---|---|---|
 | `quantity_kg_per_acre` | Fertilizer product quantity | kg/acre |
-| `nutrient_balance.*_kg_ha` | Crop demand, soil supply, deficit, credit, fertilizer needed (P as P2O5, K as K2O) | kg/ha |
-| `use_efficiency` | Share of applied nutrient the crop recovers | 0 to 1 |
+| `nutrient_balance.*.method` | `reference_dose` or `stcr` | |
+| `nutrient_balance.*_kg_ha` | Standard dose, soil adjustment (signed), prior credit, fertilizer needed (P as P2O5, K as K2O) | kg/ha |
 | `risk.level` | Over- and under-application risk | `low`, `medium`, `high` |
 | `cost.*_inr_per_acre` | Plan cost, previous cost, saving | INR per acre |
 | `model_version` | `<model>-<semver>+rules-<hash8>` | string |
 
 ## Reference tables (`ml/data/external/`, schemas in the prompt packs, contract C5)
 
-`crops.csv`, `crop_varieties.csv`, `growth_stages.csv`, `crop_requirements.csv`, `split_schedule.csv`, `nutrient_efficiency.csv`, `fertilizer_products.csv`, `soil_test_ratings.csv`, `agronomy_rules.yaml`, `explanation_templates.yaml`, `seasonal_weather.csv`. Every value has a `source`.
+`crops.csv`, `crop_varieties.csv`, `growth_stages.csv`, `reference_doses.csv`, `soil_adjustments.csv`, `stcr_equations.csv` (optional), `split_schedule.csv`, `nutrient_efficiency.csv` (per crop, used for credit only), `fertilizer_products.csv`, `soil_test_ratings.csv`, `agronomy_rules.yaml`, `explanation_templates.yaml`, `seasonal_weather.csv`. Every value has a `source`.
