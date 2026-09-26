@@ -1,0 +1,60 @@
+{
+  "datasets": [
+    {
+      "id": "fertilizer_prediction",
+      "description": "Fertilizer-type classifier training seed",
+      "path": "data/raw/fertilizer_prediction.csv",
+      "committed": false,
+      "url": "https://www.kaggle.com/datasets/gdabhishek/fertilizer-prediction",
+      "license": "Unknown (not stated by uploader on Kaggle)",
+      "retrieved": "2026-09-26",
+      "retrieval_method": "Kaggle's public dataset-preview API (GetDataViewExternal), read via browser session -- the file_download button requires a logged-in Kaggle account, which was not available in this environment. All 99 rows were retrieved in two API pages (50 + 49) and verified against the file's own totalRows=99 metadata from GetDatabundleExternal before saving.",
+      "sha256": "2a32ca081dbc616ee17ff4c273345c0e520e3deae59502fb1057ff3704f5a0d8",
+      "rows": 99,
+      "columns": ["Temparature", "Humidity", "Moisture", "Soil Type", "Crop Type", "Nitrogen", "Potassium", "Phosphorous", "Fertilizer Name"],
+      "units": {
+        "Temparature": "degrees C",
+        "Humidity": "%",
+        "Moisture": "%",
+        "Nitrogen": "unspecified by source -- treat as relative/index value, not confirmed kg/ha",
+        "Potassium": "unspecified by source -- treat as relative/index value, not confirmed kg/ha",
+        "Phosphorous": "unspecified by source -- treat as relative/index value, not confirmed kg/ha"
+      },
+      "used_for": "Seed training data for the fertilizer-type classifier (contract C4 CLASSIFIER_TARGET). Quantity and schedule come from ml/data/external/crop_nutrient_norms.csv and split_schedule.csv (PAU-sourced), not from this dataset."
+    },
+    {
+      "id": "isric_sotwis_igp_soil_profiles",
+      "description": "Real SOTER soil-profile estimates for the Indo-Gangetic Plains (includes Punjab), 0-20cm depth",
+      "path": "data/external/isric_sotwis_igp_soil_profiles.csv",
+      "committed": true,
+      "url": "https://data.isric.org/geonetwork/srv/api/records/6eba341b-79d7-4b40-bc19-14a9066f1386",
+      "download_url": "https://files.isric.org/public/sotwis/SOTWIS_IGP-IN.zip",
+      "license": "CC BY 3.0",
+      "retrieved": "2026-09-26",
+      "retrieval_method": "Direct download of the public ISRIC SOTWIS_IGP-IN.zip archive; attribute table extracted from GIS/SOTWIS/SOTWIS_0-20cm_parametersestimates/IGP-IN_SOTWISv1_t1s1d1.dbf with dbfread. Geometry/shapefile discarded -- only the tabular soil-property attributes were kept.",
+      "sha256": "7b14c66d072fb1ad190b1cb90e61bf60750bd01b83f83102f8383a6017574519",
+      "rows": 497,
+      "columns": ["soter_unit_id", "suid", "profile_id", "fao88_soil_class", "drainage_class", "layer", "top_depth_cm", "bottom_depth_cm", "sand_pct", "silt_pct", "clay_pct", "particle_size_class", "bulk_density_g_cm3", "avail_water_capacity_mm_m", "cec_soil_cmol_kg", "base_saturation_pct", "cec_clay_cmol_kg", "ph_h2o", "caco3_pct", "gypsum_pct", "ec_ds_m", "total_carbon_pct", "total_nitrogen_pct", "al_saturation_pct", "exchangeable_sodium_pct", "proportion_of_map_unit_pct"],
+      "units": {
+        "top_depth_cm": "cm", "bottom_depth_cm": "cm",
+        "sand_pct": "%", "silt_pct": "%", "clay_pct": "%",
+        "bulk_density_g_cm3": "g/cm3", "avail_water_capacity_mm_m": "mm/m",
+        "cec_soil_cmol_kg": "cmol(+)/kg", "cec_clay_cmol_kg": "cmol(+)/kg",
+        "base_saturation_pct": "%", "ph_h2o": "pH units (H2O)",
+        "caco3_pct": "%", "gypsum_pct": "%", "ec_ds_m": "dS/m",
+        "total_carbon_pct": "%", "total_nitrogen_pct": "%",
+        "al_saturation_pct": "%", "exchangeable_sodium_pct": "%"
+      },
+      "used_for": "Complementary reference only -- cross-checking realistic soil parameter ranges (pH, organic carbon proxy via total_carbon_pct, N%, EC) for the Punjab/Indo-Gangetic-Plains region. Polygon/map-unit level (1:1,000,000 scale), not per-field; not used as classifier training rows. Not filtered to Punjab specifically -- covers the whole Indo-Gangetic Plains (497 SOTER units), which includes Punjab but is not exclusive to it."
+    }
+  ],
+  "evaluated_not_ingested": [
+    {
+      "id": "fubc_2017_18",
+      "description": "IFA/FAO Fertilizer Use by Crop (FUBC) 2017-18 survey + historical collation, includes India (rice/wheat/cotton/sugarcane) at country level",
+      "url": "https://datadryad.org/dataset/doi:10.5061/dryad.2rbnzs7qh",
+      "license": "Public domain (CC0)",
+      "reason_not_ingested": "License and structure fully verified (peer-reviewed in Nature Scientific Data, DOI 10.1038/s41597-022-01592-z), but the raw CSV download is behind an anti-bot challenge (Anubis/BotStopper) that this session's tools could not mechanically pass, and the in-browser preview truncates before reaching India alphabetically in the country-sorted file. Rather than fabricate India rows, this was left unfetched. Recommend a manual download by a teammate in a normal browser session for R3/R10 norm cross-checking."
+    }
+  ]
+}
