@@ -8,7 +8,7 @@ conventions. Owner: **Darsh**.
 - Vite + React, plain JavaScript (no TypeScript).
 - 3D: `@react-three/fiber` (Three.js in React) + `@react-three/drei` (helpers: `OrbitControls`,
   `Html`, `useGLTF`, etc.). Keep `<Canvas>` scenes in `src/scenes/`; reusable 3D pieces
-  (meshes, lights, the soil-health visualization) go in `src/components/scene/`.
+  (meshes, lights, the soil-health visualization) go in `src/components/three/`.
 - Animation: GSAP via `@gsap/react`'s `useGSAP` hook — always clean up timelines in the hook's
   return/cleanup, never leave a raw `gsap.timeline()` running outside a component lifecycle.
 - Styling: Tailwind CSS utility classes; avoid custom CSS files unless Tailwind genuinely can't
@@ -25,16 +25,22 @@ src/
 │   ├── ui/        # generic building blocks (Button, Card, Input) — no page-specific logic
 │   ├── layout/     # Navbar, Sidebar, Footer
 │   ├── forms/      # SoilInputForm, CropSelector, FieldMapPicker
-│   └── scene/      # 3D building blocks used inside a <Canvas>
+│   ├── three/      # 3D building blocks used inside a <Canvas>
+│   └── charts/     # 2D trend charts (library is your choice, lazy-loaded)
 ├── scenes/          # full <Canvas> compositions (one per visualization)
 ├── animations/      # useGSAP wrapper hooks, shared timelines
-├── pages/           # one file per route: Landing, Dashboard, SoilInput, Recommendation, History, Auth/
+├── pages/           # Landing, Dashboard, FieldProfile, SoilInput, Recommendation, Schedule, History, Auth/
 ├── store/           # Zustand stores
 ├── services/        # api.js — all backend calls live here, nowhere else
 └── hooks/, utils/, styles/
 ```
 
 ## Conventions
+
+- The soil fields are fixed by the problem statement (N, P, K, pH, organic carbon, moisture). Never add or rename them.
+- The design is Darsh's decision. The fixed parts are the API calls, the states every screen handles, and the basics in `docs/prompt-packs/darsh.md` (accessibility, low-end Android performance, Devanagari fonts, real content, tokens).
+- Set a field's location by browser location, place-name search (`GET /geocode`) or manual coordinates.
+- The schedule page is print-friendly so users can save it as PDF from the browser.
 
 - All backend calls go through `src/services/api.js` — components never call `fetch`/`axios`
   directly, so the base URL, auth header, and error handling live in one place.

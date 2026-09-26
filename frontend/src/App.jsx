@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard.jsx'
 import SoilInput from './pages/SoilInput.jsx'
 import Recommendation from './pages/Recommendation.jsx'
 import History from './pages/History.jsx'
+import Schedule from './pages/Schedule.jsx'
+import FieldProfile from './pages/FieldProfile.jsx'
 import Login from './pages/Auth/Login.jsx'
 import Register from './pages/Auth/Register.jsx'
 import NotFound from './pages/NotFound.jsx'
@@ -15,8 +17,10 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/fields/:fieldId" element={<FieldProfile />} />
       <Route path="/fields/:fieldId/soil" element={<SoilInput />} />
       <Route path="/fields/:fieldId/recommendation" element={<Recommendation />} />
+      <Route path="/fields/:fieldId/schedule" element={<Schedule />} />
       <Route path="/fields/:fieldId/history" element={<History />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
