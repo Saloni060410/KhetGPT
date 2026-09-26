@@ -3,6 +3,7 @@
   "field_id": "fld_demo_wheat_1",
   "crop_type": "wheat",
   "variety": null,
+  "irrigation": "irrigated",
   "growth_stage": "sowing",
   "sowing_date": "2026-11-05",
   "soil": {

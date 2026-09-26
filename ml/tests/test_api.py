@@ -9,6 +9,7 @@ from src.api.schemas import (
     RecommendResponse,
     RiskScoreRequest,
     RiskScoreResponse,
+    Soil,
 )
 
 client = TestClient(app)
@@ -44,3 +45,24 @@ def test_invalid_soil_is_rejected():
     payload = load("recommend_request.json")
     payload["soil"]["ph"] = 19
     assert client.post("/recommend", json=payload).status_code == 422
+
+
+def test_soil_schema_is_fixed_by_the_problem_statement():
+    assert set(Soil.model_fields) == {"n", "p", "k", "ph", "organic_carbon", "moisture"}
+
+
+def test_schedule_allows_an_unsourced_stage_date():
+    payload = load("recommend_response.json")
+    assert any(item["apply_by"] is None for item in payload["recommendation"]["schedule"])
+    RecommendResponse.model_validate(payload)
+
+
+def test_unknown_irrigation_is_rejected():
+    payload = load("recommend_request.json")
+    payload["irrigation"] = "flooded"
+    assert client.post("/recommend", json=payload).status_code == 422
+
+
+def test_cost_breakdown_adds_up_to_the_estimate():
+    cost = load("recommend_response.json")["cost"]
+    assert abs(sum(line["cost_inr_per_acre"] for line in cost["breakdown"]) - cost["estimated_cost_inr_per_acre"]) <= 1

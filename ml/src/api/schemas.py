@@ -39,6 +39,7 @@ class RecommendRequest(BaseModel):
     field_id: str
     crop_type: str
     variety: str | None = None
+    irrigation: Literal["irrigated", "rainfed"] | None = None
     growth_stage: str
     sowing_date: date | None = None
     soil: Soil
@@ -49,6 +50,7 @@ class RecommendRequest(BaseModel):
 class RiskScoreRequest(BaseModel):
     crop_type: str
     variety: str | None = None
+    irrigation: Literal["irrigated", "rainfed"] | None = None
     growth_stage: str
     sowing_date: date | None = None
     soil: Soil
@@ -61,7 +63,8 @@ class ScheduleItem(BaseModel):
     stage: str
     fertilizer_type: str
     quantity_kg_per_acre: float
-    apply_by: date
+    apply_by: date | None = None
+    timing_note: str | None = None
 
 
 class Recommendation(BaseModel):
@@ -97,12 +100,21 @@ class Explanation(BaseModel):
     top_factors: list[str]
     nutrient_balance: NutrientBalance
     formula: str
+    data_notes: list[str] = []
+
+
+class CostLine(BaseModel):
+    fertilizer_type: str
+    quantity_kg_per_acre: float
+    cost_inr_per_acre: float
 
 
 class Cost(BaseModel):
     estimated_cost_inr_per_acre: float
     previous_cost_inr_per_acre: float | None = None
     saving_inr_per_acre: float | None = None
+    prices_as_of: date | None = None
+    breakdown: list[CostLine] = []
 
 
 class Impact(BaseModel):

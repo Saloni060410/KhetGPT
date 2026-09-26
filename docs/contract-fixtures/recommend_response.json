@@ -1,13 +1,13 @@
 {
-  "_note": "Illustrative fixture. Doses, prices and adjustments are placeholders until Richa's reference tables are merged.",
+  "_note": "Illustrative fixture. Doses follow the PAU wheat dose, prices and the potash price are placeholders until Richa's tables are complete. The first-irrigation stage has no sourced timing, so its apply_by is null.",
   "recommendation": {
     "fertilizer_type": "urea",
     "quantity_kg_per_acre": 87.5,
     "schedule": [
-      { "stage": "sowing", "fertilizer_type": "dap", "quantity_kg_per_acre": 54.4, "apply_by": "2026-11-05" },
-      { "stage": "sowing", "fertilizer_type": "mop", "quantity_kg_per_acre": 20.0, "apply_by": "2026-11-05" },
-      { "stage": "sowing", "fertilizer_type": "urea", "quantity_kg_per_acre": 33.1, "apply_by": "2026-11-05" },
-      { "stage": "crown_root_initiation", "fertilizer_type": "urea", "quantity_kg_per_acre": 54.4, "apply_by": "2026-11-26" }
+      { "stage": "sowing", "fertilizer_type": "dap", "quantity_kg_per_acre": 54.4, "apply_by": "2026-11-05", "timing_note": "At sowing" },
+      { "stage": "sowing", "fertilizer_type": "mop", "quantity_kg_per_acre": 20.0, "apply_by": "2026-11-05", "timing_note": "At sowing" },
+      { "stage": "crown_root_initiation", "fertilizer_type": "urea", "quantity_kg_per_acre": 33.1, "apply_by": null, "timing_note": "At first irrigation" },
+      { "stage": "second_irrigation", "fertilizer_type": "urea", "quantity_kg_per_acre": 54.4, "apply_by": "2026-12-30", "timing_note": "At second irrigation, complete within 55 days of sowing" }
     ]
   },
   "risk": {
@@ -28,9 +28,23 @@
       "p": { "method": "reference_dose", "soil_rating": "low", "standard_dose_kg_ha": 61.8, "soil_adjustment_kg_ha": 0, "prior_credit_kg_ha": 0, "fertilizer_needed_kg_ha": 61.8 },
       "k": { "method": "reference_dose", "soil_rating": "low", "standard_dose_kg_ha": 0, "soil_adjustment_kg_ha": 29.7, "prior_credit_kg_ha": 0, "fertilizer_needed_kg_ha": 29.7 }
     },
-    "formula": "fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications"
+    "formula": "fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications",
+    "data_notes": [
+      "No credit was given for last season's fertilizer because no use-efficiency figure is available for wheat.",
+      "Fertilizer prices are from 1 January 2025."
+    ]
   },
-  "cost": { "estimated_cost_inr_per_acre": 2667, "previous_cost_inr_per_acre": 3344, "saving_inr_per_acre": 677 },
+  "cost": {
+    "estimated_cost_inr_per_acre": 2667,
+    "previous_cost_inr_per_acre": 3344,
+    "saving_inr_per_acre": 677,
+    "prices_as_of": "2025-01-01",
+    "breakdown": [
+      { "fertilizer_type": "dap", "quantity_kg_per_acre": 54.4, "cost_inr_per_acre": 1469 },
+      { "fertilizer_type": "mop", "quantity_kg_per_acre": 20.0, "cost_inr_per_acre": 680 },
+      { "fertilizer_type": "urea", "quantity_kg_per_acre": 87.5, "cost_inr_per_acre": 518 }
+    ]
+  },
   "impact": { "over_application_reduction_pct": 39.2 },
   "model_version": "fixture-0.0.0+rules-fixture"
 }

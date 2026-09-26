@@ -2,6 +2,7 @@
   "_note": "Illustrative fixture: what if the farmer applies 200 kg of urea per acre?",
   "crop_type": "wheat",
   "variety": null,
+  "irrigation": "irrigated",
   "growth_stage": "sowing",
   "sowing_date": "2026-11-05",
   "soil": {
