@@ -1,8 +1,22 @@
+import json
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from src.api.main import app
+from src.api.schemas import (
+    RecommendRequest,
+    RecommendResponse,
+    RiskScoreRequest,
+    RiskScoreResponse,
+)
 
 client = TestClient(app)
+FIXTURES = Path(__file__).resolve().parents[2] / "docs" / "contract-fixtures"
+
+
+def load(name: str) -> dict:
+    return json.loads((FIXTURES / name).read_text())
 
 
 def test_health_reports_ok():
@@ -11,12 +25,22 @@ def test_health_reports_ok():
     assert response.json()["status"] == "ok"
 
 
-def test_predict_is_not_implemented_until_model_is_trained():
-    payload = {
-        "field_id": "f1",
-        "crop_type": "wheat",
-        "growth_stage": "tillering",
-        "soil": {"n": 1, "p": 1, "k": 1, "ph": 7, "organic_carbon": 0.5, "moisture": 20},
-        "weather": {"temperature_c": 25, "humidity_pct": 60, "rainfall_mm_forecast": 0},
-    }
-    assert client.post("/predict", json=payload).status_code == 501
+def test_fixtures_match_the_schemas():
+    RecommendRequest.model_validate(load("recommend_request.json"))
+    RecommendResponse.model_validate(load("recommend_response.json"))
+    RiskScoreRequest.model_validate(load("risk_score_request.json"))
+    RiskScoreResponse.model_validate(load("risk_score_response.json"))
+
+
+def test_recommend_is_not_implemented_until_the_engine_exists():
+    assert client.post("/recommend", json=load("recommend_request.json")).status_code == 501
+
+
+def test_risk_score_is_not_implemented_until_the_analyzer_exists():
+    assert client.post("/risk-score", json=load("risk_score_request.json")).status_code == 501
+
+
+def test_invalid_soil_is_rejected():
+    payload = load("recommend_request.json")
+    payload["soil"]["ph"] = 19
+    assert client.post("/recommend", json=payload).status_code == 422

@@ -3,41 +3,63 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Soil(BaseModel):
-    n: float
-    p: float
-    k: float
-    ph: float
-    organic_carbon: float
-    moisture: float
+    """The soil schema is fixed by the problem statement. Do not add or rename fields."""
+
+    n: float = Field(ge=0)
+    p: float = Field(ge=0)
+    k: float = Field(ge=0)
+    ph: float = Field(ge=0, le=14)
+    organic_carbon: float = Field(ge=0, le=100)
+    moisture: float = Field(ge=0, le=100)
 
 
 class Weather(BaseModel):
     temperature_c: float
-    humidity_pct: float
-    rainfall_mm_forecast: float
+    humidity_pct: float = Field(ge=0, le=100)
+    rainfall_mm_forecast: float = Field(ge=0)
+    source: Literal["live", "cached", "seasonal_average"] = "live"
 
 
 class FertilizerUsage(BaseModel):
     type: str
-    quantity_kg_per_acre: float
+    quantity_kg_per_acre: float = Field(ge=0)
     applied_on: date
 
 
-class PredictRequest(BaseModel):
+class PlannedApplication(BaseModel):
+    fertilizer_type: str
+    quantity_kg_per_acre: float = Field(ge=0)
+
+
+class RecommendRequest(BaseModel):
     field_id: str
     crop_type: str
+    variety: str | None = None
     growth_stage: str
+    sowing_date: date | None = None
     soil: Soil
     weather: Weather
     previous_fertilizer_usage: list[FertilizerUsage] = []
 
 
+class RiskScoreRequest(BaseModel):
+    crop_type: str
+    variety: str | None = None
+    growth_stage: str
+    sowing_date: date | None = None
+    soil: Soil
+    weather: Weather
+    previous_fertilizer_usage: list[FertilizerUsage] = []
+    planned_application: list[PlannedApplication]
+
+
 class ScheduleItem(BaseModel):
     stage: str
+    fertilizer_type: str
     quantity_kg_per_acre: float
     apply_by: date
 
@@ -51,19 +73,70 @@ class Recommendation(BaseModel):
 class Risk(BaseModel):
     level: Literal["low", "medium", "high"]
     reason: str
+    soil_health_impact: str
+    yield_impact: str
+    over_application_pct: float | None = None
+
+
+class NutrientDeficit(BaseModel):
+    crop_demand_kg_ha: float
+    soil_supply_kg_ha: float
+    deficit_kg_ha: float
+    use_efficiency: float
+    prior_credit_kg_ha: float
+    fertilizer_needed_kg_ha: float
+
+
+class NutrientBalance(BaseModel):
+    n: NutrientDeficit
+    p: NutrientDeficit
+    k: NutrientDeficit
 
 
 class Explanation(BaseModel):
     top_factors: list[str]
+    nutrient_balance: NutrientBalance
+    formula: str
 
 
-class PredictResponse(BaseModel):
+class Cost(BaseModel):
+    estimated_cost_inr_per_acre: float
+    previous_cost_inr_per_acre: float | None = None
+    saving_inr_per_acre: float | None = None
+
+
+class Impact(BaseModel):
+    over_application_reduction_pct: float | None = None
+
+
+class RecommendResponse(BaseModel):
     recommendation: Recommendation
     risk: Risk
     explanation: Explanation
+    cost: Cost
+    impact: Impact
+    model_version: str
+
+
+class AppliedVsRecommended(BaseModel):
+    applied_kg_ha: float
+    recommended_kg_ha: float
+    ratio: float
+
+
+class AppliedBalance(BaseModel):
+    n: AppliedVsRecommended
+    p: AppliedVsRecommended
+    k: AppliedVsRecommended
+
+
+class RiskScoreResponse(BaseModel):
+    risk: Risk
+    nutrient_balance: AppliedBalance
     model_version: str
 
 
 class HealthResponse(BaseModel):
-    status: str
+    status: Literal["ok", "degraded"]
     model_version: str
+    detail: str | None = None

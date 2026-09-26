@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException
 
-from src.api.schemas import PredictRequest, PredictResponse
+from src.api.schemas import RecommendRequest, RecommendResponse
 
 router = APIRouter()
 
 
-@router.post("/predict", response_model=PredictResponse)
-def predict(request: PredictRequest) -> PredictResponse:
-    raise HTTPException(status_code=501, detail="Model not trained yet")
+@router.post("/recommend", response_model=RecommendResponse)
+def recommend(request: RecommendRequest) -> RecommendResponse:
+    raise HTTPException(status_code=501, detail="Recommendation engine not built yet")
