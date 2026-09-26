@@ -29,20 +29,25 @@ Sep 26, 2026 · Owner: @saloni
 
 - FR1: User can register/log in (farmer or agronomist role).
 - FR2: User can create a Farm and one or more Fields under it.
-- FR3: User can enter soil health parameters per field (N, P, K, pH, organic carbon, moisture) — manual entry, with soil-health-card upload as a stretch.
-- FR4: User can select crop type and current growth stage.
+- FR3: User can enter soil health parameters per field (N, P, K, pH, organic carbon, moisture). This soil schema is fixed by the problem statement and never changes. Manual entry only.
+- FR4: User can select crop type, optional variety (only where our data has varieties), sowing date and current growth stage.
 - FR5: User can log previous fertilizer usage for that field.
 - FR6: System fetches current + short-range weather forecast for the field's location.
-- FR7: System returns a fertilizer recommendation: type(s), quantity (kg/acre or kg/hectare), and a split-application schedule with dates.
-- FR8: System shows a soil-degradation / over-use risk indicator alongside the recommendation.
+- FR7: System returns a fertilizer recommendation computed with the NPK-deficit formula (crop demand minus soil supply): type(s), quantity (kg/acre), and a split-application schedule with dates.
+- FR8: System shows an over- and under-application risk indicator with the plain-language impact on soil health and crop productivity.
 - FR9: User can view recommendation history for a field.
-- FR10: System shows the estimated cost and cost-saving vs. the farmer's previous usage pattern.
+- FR10: System shows the estimated cost and cost-saving vs. the farmer's logged previous usage.
+- FR11: User can print the schedule or save it as PDF.
+- FR12: User can enter a planned dose and get the risk warning before applying it.
+- FR13: Location is set by browser location, place-name search or manual latitude and longitude.
 
 ### Non-Functional Requirements
 
 - NFR1: Recommendation response time under 3s for the ML call (excluding cold weather-API calls).
 - NFR2: Works on low-end Android devices / patchy connectivity (lightweight frontend bundle, graceful degradation).
-- NFR3: Model and API versioned so recommendations are reproducible/auditable.
+- NFR3: Model and rule tables versioned so recommendations are reproducible and auditable.
+- NFR7: Every recommendation shows its formula inputs (demand, supply, deficit), not only a number.
+- NFR8: Weather degrades gracefully: live, then cached, then a seasonal average.
 - NFR4: Auth tokens (JWT) expire and refresh; passwords hashed (bcrypt/argon2).
 - NFR5: Region/crop/fertilizer reference data kept in config/data files, not hardcoded, so the team can extend crop coverage without code changes.
 - NFR6: Codebase split cleanly by service (frontend / backend / ml) so all 4 people can work in parallel without merge conflicts.
@@ -78,7 +83,8 @@ Sep 26, 2026 · Owner: @saloni
 | --- | --- | --- |
 | Language | Python 3.11+ | Standard for the ML ecosystem |
 | Data handling | pandas, numpy | Cleaning / feature engineering |
-| Modeling | scikit-learn + XGBoost | Strong on tabular data, fast to train/tune, easy to explain via feature importance |
+| Core engine | Rule-based NPK-deficit calculator | Transparent, explainable, matches the agronomic formula the success metric checks |
+| Modeling | scikit-learn + XGBoost | Refines the product choice on top of the engine; easy to explain via feature importance |
 | Model serving | FastAPI | Async, typed request/response schemas (Pydantic), easy to containerize |
 | Weather data | Open-Meteo API | Free, no API key, current + forecast (non-commercial use) |
 | Model persistence | joblib | Simple artifact save/load |
@@ -86,7 +92,7 @@ Sep 26, 2026 · Owner: @saloni
 
 ### Infra / cross-cutting
 
-- Docker + docker-compose to run backend + ML service + Postgres together locally.
+- Docker + docker-compose to run backend + ML service + Postgres together locally. Cloud deployment is out of scope.
 - GitHub Actions for basic lint/test CI on PRs into main.
 - `.env` files per service, never committed.
 
@@ -107,114 +113,83 @@ Sep 26, 2026 · Owner: @saloni
                                    (Postgres)
 ```
 
-**Flow:** Farmer enters soil + crop + field data in the frontend → backend persists it and calls the ML service with the assembled feature payload (soil params + crop + growth stage + weather + prior usage) → ML service returns fertilizer type, quantity, schedule, and a confidence/explanation → backend stores the recommendation and returns it to the frontend → frontend renders the schedule + risk indicator (and the 3D soil-health visualization).
+**Flow:** Farmer enters soil, crop, stage, sowing date and previous usage in the frontend -> backend persists it, fetches weather for the field's coordinates and calls the ML service with the assembled payload -> ML service computes the nutrient deficit, picks products, dates a split schedule, scores risk and cost, and returns everything with the formula inputs and a model version -> backend stores the recommendation and returns it -> frontend renders the schedule, risk indicator, cost saving and reasons (and the 3D soil-health visualization).
 
 The ML service is a separate deployable unit on purpose, so Saloni/Richa can iterate on the model without touching the backend, and Josh can mock its response contract early and build against that mock while the model is still being trained.
 
 ## 5. Features
 
-### Must-have (directly from the PS — MVP)
+### Must-have (directly from the PS, MVP)
 
 1. Soil health input (N, P, K, pH, organic carbon, moisture)
-2. Crop type + growth-stage selection
-3. Weather integration (current + forecast, by field location)
-4. Fertilizer type + quantity recommendation
-5. Application schedule (what, how much, when — including split doses)
-6. Over-/under-fertilization impact warning (soil-health risk indicator)
-7. Previous fertilizer usage log, used to refine future recommendations
+2. Crop type, optional variety, sowing date and growth-stage selection
+3. Weather integration (current + forecast, by field location, with fallback)
+4. Fertilizer type + quantity recommendation from the deficit formula
+5. Application schedule (what, how much, when, including split doses)
+6. Over-/under-fertilization warning with soil-health and yield impact
+7. Previous fertilizer usage log, used in every later recommendation
 
 ### Should-have (strengthens the PS ask)
 
-8. Cost estimate + savings vs. the farmer's previous usage pattern
-9. Recommendation history per field, with trend view
-10. Plain-language "why this recommendation" explanation (top 2–3 driving factors)
-11. Hindi/regional-language UI toggle
+8. Cost estimate + savings vs. the farmer's logged previous usage
+9. Recommendation history and nutrient trends per field
+10. Plain-language "why this recommendation" with the deficit numbers
+11. Printable schedule and PDF
+12. "Check my own dose" what-if risk warning
+13. Hindi/regional-language UI toggle
 
 ### Could-have (differentiators, if time allows)
 
-12. 3D interactive soil/field visualization (React Three Fiber) — nutrient balance as an explorable 3D model, animated with GSAP on state change
-13. Offline-friendly / low-data mode (PWA, cached last recommendation)
-14. Geo/map field picker with satellite soil reference (e.g. SoilGrids) for farmers without a soil test report
-15. Voice input for soil/crop entry (regional-language speech-to-text) for low-literacy users
-16. "KhetGPT assistant" — a small Q&A chat surface answering farmer questions about the recommendation
-17. Agronomist/admin view — aggregated, anonymized regional over-use patterns
+14. 3D interactive soil/field visualization (React Three Fiber), animated with GSAP on state change
+15. Offline-friendly / low-data mode (cached last recommendation)
+16. Map field picker
+17. Voice input for soil/crop entry (regional-language speech-to-text)
+18. "KhetGPT assistant" Q&A on the recommendation
+19. Agronomist/admin view with anonymised regional summaries
 
-**Recommendation:** build 1–7 solid first — that's what's graded against the PS — get 8–11 in if time allows, and use #12 (3D visualization) as the single standout differentiator, since it's the one that makes the specified R3F/GSAP stack visibly pay off in the demo. Don't spread thin across many could-haves.
+**Recommendation:** build 1-7 solid first, since that is what the PS grades. Then 8-13, which directly support the PS goals (cost, warning, real users). Use #14 as the single standout differentiator. Do not spread thin across many could-haves.
 
 ## 6. Data Sources & Datasets
 
-- **Fertilizer recommendation dataset** — Kaggle "Fertilizer Prediction" dataset (soil N-P-K, moisture, temperature, humidity, crop → fertilizer label), as the seed for the classification model.
-- **Soil Health Card data** — data.gov.in Soil Health Card scheme datasets, for realistic N/P/K/pH ranges per district.
-- **Crop nutrient requirement norms** — ICAR / state agriculture department fertilizer recommendation tables (per-crop, per-stage NPK requirement), used both as training features and as a rule-based sanity check / explainability layer on top of the ML output.
-- **Weather data** — Open-Meteo (current conditions + 5-day forecast) by lat/long. No API key needed.
-- **(Stretch) Satellite soil reference** — SoilGrids / Bhuvan, for fields with no manual soil test.
+Richa finds, judges and chooses the datasets herself, using the criteria in her prompt pack (relevance to our crops, label type, units, size and honesty, licence, row independence). Every dataset is recorded in `ml/data/README.md` with URL, licence, date, hash, rows, columns and units. Anything paid, unlicensed or of unclear origin is rejected. Synthetic data is allowed only if it is labelled as synthetic wherever it is used.
 
-Richa owns sourcing/cleaning these; Saloni owns turning them into model-ready features. Keep raw files out of git (large/licensed) — see the `.gitignore` and `ml/data/README.md` for how to fetch them locally.
+Reference tables the engine needs (all in `ml/data/external/`, every value with a source):
+
+- **Crop requirements:** crop nutrient demand (kg/ha of N, P2O5, K2O) per crop and, where the data has varieties, per variety. ICAR and state agriculture university sources.
+- **Soil supply and use efficiency factors:** how much of the soil's available nutrient the crop can use, and what share of applied fertilizer it recovers.
+- **Split schedules and growth stages** per crop.
+- **Fertilizer products:** nutrient content and current retail price with date and source.
+- **Soil test ratings:** the low and high cut-offs Soil Health Cards use.
+- **Weather:** Open-Meteo forecast (current + 5-day) by lat/long, and a seasonal-average fallback built from Open-Meteo historical data.
+
+Keep raw files out of git (large or licensed). See `ml/data/README.md`.
 
 ## 7. Repository & File Structure
 
-Monorepo, one service per top-level folder so each person's work stays isolated:
+Monorepo, one service per top-level folder so each person's work stays isolated. The full tree is in `docs/ARCHITECTURE.md`.
 
 ```
 KhetGPT/
-├── AGENTS.md                   # canonical AI-agent context (see below)
-├── CLAUDE.md                   # Claude Code entry point → imports AGENTS.md
-├── GEMINI.md                   # Antigravity/Gemini CLI entry point → imports AGENTS.md
-├── README.md
-├── docker-compose.yml
-├── .gitignore
-├── .github/workflows/ci.yml
-├── docs/
-│   ├── PRD.md                  # exported copy of this doc
-│   ├── architecture.md
-│   ├── api-contract.md         # backend ⇄ ML schema — Josh + Saloni own together
-│   └── data-dictionary.md
-│
-├── frontend/                   # DARSH
-│   ├── AGENTS.md
-│   ├── index.html, package.json, vite.config.js, tailwind.config.js
-│   ├── public/
-│   └── src/
-│       ├── main.jsx / App.jsx
-│       ├── components/
-│       │   ├── ui/             # buttons, cards, inputs (lucide-react icons)
-│       │   ├── layout/         # Navbar, Sidebar, Footer
-│       │   ├── forms/          # SoilInputForm, CropSelector, FieldMapPicker
-│       │   └── scene/          # R3F <Canvas> pieces: SoilHealthGlobe, FieldModel
-│       ├── scenes/             # full R3F scene compositions per page
-│       ├── animations/         # GSAP timelines / useGSAP wrapper hooks
-│       ├── pages/              # Landing, Dashboard, SoilInput, Recommendation, History, Auth/
-│       ├── store/              # Zustand: useUserStore, useFarmStore, useRecommendationStore
-│       ├── services/           # api.js — calls to backend
-│       └── hooks/, utils/, styles/
-│
-├── backend/                     # JOSH
-│   ├── AGENTS.md
-│   ├── package.json
-│   ├── prisma/schema.prisma
-│   └── src/
-│       ├── server.js / app.js
-│       ├── config/             # db.js, env.js
-│       ├── models/             # User, Farm, Field, SoilTest, Recommendation, FertilizerLog
-│       ├── routes/             # auth, farm, field, recommendation, weather
-│       ├── controllers/, middleware/ (auth, error, validate)
-│       ├── services/           # mlService.js (calls the ML API), weatherService.js
-│       └── utils/
-│
-└── ml/                          # SALONI + RICHA
-    ├── AGENTS.md
-    ├── requirements.txt
-    ├── data/{raw,processed,external}/   # gitignored except README + small samples
-    ├── notebooks/               # EDA.ipynb, model_experiments.ipynb
+├── AGENTS.md, CLAUDE.md, GEMINI.md, README.md
+├── docker-compose.yml, .gitignore, .github/workflows/ci.yml
+├── docs/                    PRD, FEATURES, ARCHITECTURE, GIT_WORKFLOW, TEAM_ASSIGNMENTS,
+│                            api-contract, backend-api, data-dictionary, contract-fixtures/, prompt-packs/
+├── frontend/                DARSH   src/{components/{ui,layout,forms,three,charts}, scenes, animations,
+│                                    pages, store, services, hooks, utils, styles}
+├── backend/                 JOSH    prisma/schema.prisma, src/{config, routes, controllers, middleware, services, utils}
+└── ml/                      SALONI + RICHA
+    ├── data/{raw,processed,external}/, notebooks/
     └── src/
-        ├── data_pipeline/       # ingest.py, clean.py, feature_engineering.py   → RICHA
-        ├── weather/             # weather_client.py                               → RICHA
-        ├── evaluation/          # metrics.py, explainability.py                  → RICHA
-        ├── models/              # train.py, predict.py, model_registry/          → SALONI
-        └── api/                 # main.py (FastAPI app), schemas.py, endpoints/  → SALONI
+        ├── api/             SALONI   /recommend, /risk-score, /health, /reference/*
+        ├── engine/          SALONI   npk_calculator.py, recommendation_engine.py
+        ├── models/          SALONI   train.py, fertilizer_model.py, model_registry/
+        ├── degradation/     RICHA    risk_analyzer.py
+        ├── data_pipeline/   RICHA    ingest.py, clean.py, feature_engineering.py, soil_data_loader.py
+        ├── weather/         RICHA    weather_client.py
+        └── evaluation/      RICHA    metrics.py, explainability.py
 ```
 
-**Why AGENTS.md at the root, plus thin CLAUDE.md/GEMINI.md:** Claude Code auto-loads `CLAUDE.md`; Antigravity/Gemini CLI auto-loads `GEMINI.md` (or reads `AGENTS.md` directly if you set `context.fileName` in its settings). Rather than maintaining project context twice, `AGENTS.md` holds the real substance and `CLAUDE.md`/`GEMINI.md` are one-line shims pointing to it (Claude Code natively supports an `@AGENTS.md` import). Each service folder also gets its own small `AGENTS.md`, so an agent working inside `ml/` only loads ML-specific conventions instead of the whole project's context.
+**Why AGENTS.md at the root, plus thin CLAUDE.md/GEMINI.md:** Claude Code auto-loads `CLAUDE.md`, Antigravity/Gemini CLI auto-loads `GEMINI.md`, and both point to `AGENTS.md`, which holds the real context. Each service folder also has its own small `AGENTS.md`.
 
 ## 8. Git Branching Workflow
 
@@ -222,8 +197,8 @@ KhetGPT/
 
 | Branch | Owner | Scope |
 | --- | --- | --- |
-| `feature/saloni-ml-core` | Saloni | `ml/src/models`, `ml/src/api` |
-| `feature/richa-ml-data` | Richa | `ml/data`, `ml/src/data_pipeline`, `ml/src/weather`, `ml/src/evaluation` |
+| `feature/saloni-ml-core` | Saloni | `ml/src/api`, `ml/src/engine`, `ml/src/models` |
+| `feature/richa-ml-data` | Richa | `ml/data`, `ml/src/data_pipeline`, `ml/src/weather`, `ml/src/degradation`, `ml/src/evaluation` |
 | `feature/josh-backend` | Josh | `backend/**` |
 | `feature/darsh-frontend` | Darsh | `frontend/**` |
 
@@ -256,26 +231,29 @@ git push origin feature/<your-branch>
 
 **Merging into main:** open a PR from your branch once a feature works end-to-end (not mid-change); at least one other teammate reviews before merge, since everyone's code has to run together for the demo. Rebase onto main before opening the PR if main has moved.
 
-**Avoiding overlap:** folders are owned per-branch (see table above and §9), so two branches almost never touch the same file — the one shared surface is `docs/api-contract.md`, which Josh and Saloni should agree on first, before either builds against it.
+**Avoiding overlap:** folders are owned per-branch (see table above and §9), so two branches almost never touch the same file. The shared surfaces are the contract docs (`docs/api-contract.md`, `docs/backend-api.md`) and `ml/requirements.txt`. Contracts change only through a docs-only PR to `main` that both owners approve. Full workflow: `docs/GIT_WORKFLOW.md`.
 
 ## 9. Team & Work Division
 
 | Person | Focus | Owns (files/folders) | Key deliverables |
 | --- | --- | --- | --- |
-| **Saloni** | AI/ML — modeling & serving | `ml/src/models/*`, `ml/src/api/*`, model\_registry | Trained fertilizer type + quantity model; FastAPI `/predict` endpoint; `docs/api-contract.md` (with Josh) |
-| **Richa** | AI/ML — data & evaluation | `ml/data/*`, `ml/src/data_pipeline/*`, `ml/src/weather/*`, `ml/src/evaluation/*`, notebooks | Cleaned/merged training dataset; weather-feature integration; model evaluation + explainability ("why this recommendation") |
-| **Josh** | Backend — auth, DB, API | `backend/**`, `docker-compose.yml`, `.github/workflows/` | Auth (JWT signup/login), Postgres schema (Prisma), all REST routes, `mlService.js` bridge to the ML API |
-| **Darsh** | Frontend — UI, 3D, animation | `frontend/**` | All pages, forms, Zustand stores, R3F 3D visualizations, GSAP animation, Tailwind theming |
+| **Saloni** | AI/ML: engine, model, serving | `ml/src/engine/*`, `ml/src/models/*`, `ml/src/api/*`, model card | NPK-deficit engine, dated schedule, cost, product model, `/recommend` and `/risk-score`, `docs/api-contract.md` (with Josh) |
+| **Richa** | AI/ML: data, weather, risk, evaluation | `ml/data/*`, `ml/src/data_pipeline/*`, `ml/src/weather/*`, `ml/src/degradation/*`, `ml/src/evaluation/*` | Chosen and validated datasets, sourced reference tables, weather client, risk analyzer, explanations, metrics |
+| **Josh** | Backend: auth, DB, API, infra | `backend/**`, `docker-compose.yml`, `.github/workflows/` | Auth, Prisma schema, REST routes, weather and geocoding, recommendation orchestration, trends, compose and CI |
+| **Darsh** | Frontend: UI, 3D, animation | `frontend/**` | All pages and forms, stores, API layer, schedule and PDF view, 3D visualization, Hindi toggle. Full design freedom within the API and basics |
 
 **Shared/coordination points (don't build in isolation):**
 
-- **Josh ⇄ Saloni** agree on the `/predict` request/response JSON shape before either writes code against it — document it in `docs/api-contract.md` on day 1, then both build in parallel against the contract (Josh mocks the response; Saloni matches the schema when the real model is ready).
-- **Darsh ⇄ Josh** agree on the backend's REST response shape for farms/fields/recommendations the same way.
-- **Saloni ⇄ Richa** split by pipeline stage, not by day: Richa hands off a clean, feature-engineered dataframe; Saloni trains/serves on top of it. A short daily sync avoids duplicate feature-engineering work.
+- **Josh and Saloni** agree on `docs/api-contract.md` on day 1 and build against `docs/contract-fixtures/`.
+- **Darsh and Josh** agree on `docs/backend-api.md` the same way. Darsh works against a mock first.
+- **Saloni and Richa** split by pipeline stage. Richa hands off validated tables, the feature module, the risk analyzer and explanation templates. Saloni's engine consumes them. The rule-trace and explain() interface (C6) is agreed before either merges.
+
+The step-by-step packs, co-requisites and integration gates are in `docs/prompt-packs/`.
 
 ## 10. Success Metrics & Evaluation Criteria
 
-- **Model:** recommendation accuracy against held-out labeled data (fertilizer-type classification accuracy / quantity regression error, e.g. MAE); sanity-checked against ICAR nutrient norms.
+- **Engine:** recommended nutrient totals match the NPK-deficit formula within the tolerance in `agronomy_rules.yaml`, checked by an automated sanity test over every crop and soil combination.
+- **Model:** the product classifier is reported against baselines with confidence intervals on a held-out test split, and its limits are stated honestly (the public datasets are small).
 - **Product:** end-to-end demo runs (signup → soil input → recommendation → schedule) without manual intervention.
 - **Impact framing for judges:** estimated % reduction in fertilizer over-application and estimated cost saving per acre, shown quantitatively on the recommendation screen — this maps directly to the PS's stated goal of reducing input cost, preventing soil degradation, and improving farmer income.
 - **UX:** a non-technical user can go from soil input to an understandable schedule in under 2 minutes.
@@ -287,4 +265,4 @@ git push origin feature/<your-branch>
 - **Model ⇄ backend contract drift:** locked down by writing `docs/api-contract.md` first (see §9).
 - **Time split for the AI/ML pair:** Saloni and Richa's work is sequential (data → model), not parallel by default — start Richa's pipeline work immediately so Saloni isn't blocked.
 - **Open question:** confirm target crops and target region (for soil-norm data) with the team before Richa starts data collection.
-- **Open question:** Postgres vs. MongoDB for the backend — Postgres is recommended above for the relational farm/field/recommendation-history structure, but flag if Josh has stronger Mongo experience already.
+- **Decided:** Postgres for the backend. **Decided:** soil schema is fixed. **Decided:** no cloud deployment. **Decided:** risk analysis sits with Richa.
