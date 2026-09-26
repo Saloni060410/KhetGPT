@@ -1,0 +1,36 @@
+# Rule-layer parameters for the dosage/risk engine (contract C5, Richa + Saloni).
+# R1 delivers structure + one placeholder value per key so Saloni can code against it.
+# Real, sourced values (or explicit "team assumption" values) land in R3.
+
+soil_rating_multipliers:
+  # Multiplier applied to the norm dose based on the field's soil-test rating for that nutrient.
+  # team assumption -- placeholder for R3; not yet validated against ICAR guidance.
+  low: 1.25
+  medium: 1.0
+  high: 0.75
+
+credit_window_days: 60
+  # team assumption -- placeholder. Number of days a previous fertilizer application is
+  # still credited against (subtracted from) the current recommendation's nutrient need.
+
+rain_hold_mm: 20
+  # team assumption -- placeholder. Forecast rainfall (mm) above which nitrogen top-dressing
+  # is held to avoid runoff loss (see PAU POP rice/wheat guidance: "apply split N when water
+  # is not standing in the field" -- PAU POP Kharif 2026 p.9, PAU POP Rabi 2025-26 p.10 --
+  # confirms the practice qualitatively; the mm threshold itself is a team assumption).
+
+rain_hold_days: 2
+  # team assumption -- placeholder. Number of days to delay a scheduled split after a
+  # rain-hold trigger.
+
+over_application_ratio_medium: 1.25
+  # team assumption -- placeholder. Actual-to-norm nutrient ratio above which risk.level
+  # is flagged "medium".
+
+over_application_ratio_high: 1.5
+  # team assumption -- placeholder. Actual-to-norm nutrient ratio above which risk.level
+  # is flagged "high".
+
+norm_tolerance_pct: 10
+  # team assumption -- placeholder. Percent tolerance band around the ICAR/PAU norm used by
+  # evaluation.norm_conformity() to count a recommendation as "within norm".

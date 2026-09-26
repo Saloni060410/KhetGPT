@@ -1,0 +1,2 @@
+product_id,name,n_pct,p2o5_pct,k2o_pct,price_inr_per_kg,price_date,source
+urea,Urea (neem-coated),46,0,0,5.38,TODO(data): exact notification date not confirmed,"Department of Fertilizers, Government of India -- statutory MRP Rs.242 per 45 kg bag (PIB Release ID 2079050, fert.nic.in Urea Pricing Policy Section); 242/45=5.378, rounded to 5.38. DAP, MOP and other products (as referenced in PAU POP fertilizer tables) are placeholders for R3."

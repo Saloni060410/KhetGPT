@@ -1,0 +1,4 @@
+crop_id,stage_id,n_fraction,p_fraction,k_fraction
+wheat,sowing,0,1,1
+wheat,crown_root_initiation,0.5,0,0
+wheat,second_irrigation,0.5,0,0

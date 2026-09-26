@@ -1,0 +1,2 @@
+crop_id,irrigation,n_kg_ha,p2o5_kg_ha,k2o_kg_ha,region,source,notes
+wheat,irrigated,123.6,61.8,0,Punjab,"PAU Package of Practices for Crops of Punjab, Rabi 2025-26, Vol. 42, p.9 (medium fertility soils, no soil test)","Base PAU rate is N=50, P2O5=25, K2O=0 kg/acre; converted to kg/ha at 1 acre = 0.4047 ha (x2.4711). Apply 29.7 kg/ha K2O (20 kg MOP/acre) if soil tests low in potassium, 59.3 kg/ha (40 kg MOP/acre) if very low. Remaining crops (rice, maize, cotton, sugarcane, chickpea) are placeholders for R3 -- do not use this single row as coverage."

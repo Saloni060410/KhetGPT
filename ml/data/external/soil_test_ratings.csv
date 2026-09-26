@@ -1,0 +1,2 @@
+parameter,unit,low_below,high_above,source
+organic_carbon,%,0.5,0.75,"ICAR-IISS Bhopal soil-test interpretation ranges, as used on Soil Health Cards nationally (low <0.5%, medium 0.5-0.75%, high >0.75%). Remaining parameters (N, P, K, pH) are placeholders for R3."
