@@ -37,6 +37,18 @@ README explains *what* each one is and *why* it was chosen.
   `CLASSIFIER_TARGET`). Small (99 rows) and missing pH/organic-carbon/growth-stage features --
   documented as a real limitation, not hidden. Quantity and schedule come from the
   PAU-sourced `reference_doses.csv` / `split_schedule.csv`, not from this dataset.
+- **Cleaning (R4, `src/data_pipeline/clean.py`):** 99 raw rows -> 50 clean rows. 49 rows are
+  dropped because their crop label isn't one of our 6 target crops: `Tobacco` (7), `Barley` (7),
+  `Millets` (11), `Oil seeds` (7), `Ground Nuts` (7), and **`Pulses` (10)**. The `Pulses` drop
+  is the chickpea gap: the dataset's only pulse label is generic (moong/urad/arhar/chickpea all
+  lumped together), not chickpea-specific, so claiming it as a match would be an invented
+  mapping -- `crops.csv`'s `dataset_label` for chickpea stays `TODO(data)` rather than guessing
+  `Pulses`. Chickpea still gets a correct, real recommendation *dose* via `reference_doses.csv`
+  (sourced independently from PAU) -- only the classifier's product-choice training data is
+  affected. Full validation report and class balance: `ml/data/processed/validation_report.json`
+  (gitignored, regenerate with `python -m src.data_pipeline.clean`); a committed
+  `sample_train.csv` (all 50 clean rows, under the 200-row cap) lets Saloni start without
+  downloading the raw file herself.
 
 ### isric_sotwis_igp_soil_profiles (`data/external/isric_sotwis_igp_soil_profiles.csv`, committed)
 

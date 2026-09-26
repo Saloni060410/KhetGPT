@@ -1,0 +1,86 @@
+import pandas as pd
+import pytest
+
+from src.data_pipeline.clean import CleaningError, harmonise, map_labels, run
+
+
+def test_run_produces_a_validation_report_with_expected_shape():
+    report = run()
+    assert report["raw_row_count"] == 99
+    assert report["clean_row_count"] > 0
+    assert report["clean_row_count"] + report["dropped_row_count"] == report["raw_row_count"]
+    assert set(report["class_balance_crop_id"]) <= {
+        "wheat", "rice", "maize", "cotton", "sugarcane", "chickpea",
+    }
+
+
+def test_out_of_vocab_crop_labels_are_dropped_not_kept():
+    report = run()
+    # Pulses is a known gap (generic label, not chickpea-specific) -- must be dropped.
+    assert "Pulses" in report["dropped_crop_labels"]
+    assert "chickpea" not in report["class_balance_crop_id"]
+
+
+def test_no_missing_values_in_the_cleaned_output():
+    report = run()
+    assert all(count == 0 for count in report["missingness_per_column"].values())
+
+
+def test_map_labels_drops_rows_with_unknown_crop_and_keeps_known_ones():
+    df = pd.DataFrame(
+        {
+            "temperature_c": [26, 26],
+            "humidity_pct": [52, 52],
+            "moisture_pct": [38, 38],
+            "soil_type": ["Sandy", "Sandy"],
+            "crop_type_raw": ["Wheat", "Tobacco"],
+            "nitrogen_raw": [37, 37],
+            "potassium_raw": [0, 0],
+            "phosphorous_raw": [0, 0],
+            "fertilizer_name_raw": ["Urea", "Urea"],
+        }
+    )
+    cleaned, dropped = map_labels(df)
+    assert len(cleaned) == 1
+    assert cleaned.iloc[0]["crop_id"] == "wheat"
+    assert len(dropped) == 1
+    assert dropped[0]["crop_type_raw"] == "Tobacco"
+
+
+def test_map_labels_raises_on_unknown_fertilizer_label():
+    df = pd.DataFrame(
+        {
+            "temperature_c": [26],
+            "humidity_pct": [52],
+            "moisture_pct": [38],
+            "soil_type": ["Sandy"],
+            "crop_type_raw": ["Wheat"],
+            "nitrogen_raw": [37],
+            "potassium_raw": [0],
+            "phosphorous_raw": [0],
+            "fertilizer_name_raw": ["NotARealProduct"],
+        }
+    )
+    with pytest.raises(CleaningError, match="not in fertilizer_products.csv"):
+        map_labels(df)
+
+
+def test_harmonise_renames_raw_columns_to_snake_case():
+    raw = pd.DataFrame(
+        {
+            "Temparature": [26],
+            "Humidity": [52],
+            "Moisture": [38],
+            "Soil Type": ["Sandy"],
+            "Crop Type": ["Wheat"],
+            "Nitrogen": [37],
+            "Potassium": [0],
+            "Phosphorous": [0],
+            "Fertilizer Name": ["Urea"],
+        }
+    )
+    out = harmonise(raw)
+    assert set(out.columns) == {
+        "temperature_c", "humidity_pct", "moisture_pct", "soil_type", "crop_type_raw",
+        "nitrogen_raw", "potassium_raw", "phosphorous_raw", "fertilizer_name_raw",
+    }

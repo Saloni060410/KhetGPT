@@ -7,3 +7,5 @@ rice,transplanting,0,1,1
 rice,first_n_split,0.333,0,0
 rice,active_tillering,0.333,0,0
 rice,panicle_initiation,0.334,0,0
+chickpea,sowing,1,1,1
+chickpea,flowering_pod_filling,0,0,0

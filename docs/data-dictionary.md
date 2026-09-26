@@ -47,6 +47,28 @@ PRD draft specified OpenWeatherMap; that was superseded (see commit `9f25bf5`).
 | `cost.*_inr_per_acre` | Plan cost, previous cost, saving | INR per acre |
 | `model_version` | `<model>-<semver>+rules-<hash8>` | string |
 
+## Training dataset unit reconciliation (R4)
+
+The `fertilizer_prediction` training dataset (`ml/data/raw/fertilizer_prediction.csv`, see
+`ml/data/README.md`) does **not** use the same units as the API/soil schema above, and the
+mapping is only partial. Documented honestly rather than assumed:
+
+| Dataset column | Renamed (clean.csv) | API/Soil Health Card equivalent | Mapping |
+|---|---|---|---|
+| `Nitrogen`, `Potassium`, `Phosphorous` | `nitrogen_raw`, `potassium_raw`, `phosphorous_raw` | `n`, `p`, `k` (kg/ha, elemental, Soil Health Card basis) | **No defensible mapping found.** The source doesn't state units, and values (0–42) are far too low to plausibly be kg/ha of available nutrient on any Soil Health Card convention. Left as unmapped, unitless "raw" columns — treated as relative/index values for the classifier only, never conflated with the API's `n`/`p`/`k`. |
+| `Temparature`, `Humidity` | `temperature_c`, `humidity_pct` | `weather.temperature_c`, `weather.humidity_pct` | Plausible direct match (ranges and typical Punjab climate line up), but the source doesn't confirm units either — treated as a reasonable assumption, not a confirmed mapping. |
+| `Moisture` | `moisture_pct` | `soil.moisture` (%) | Same caveat as temperature/humidity — plausible, not confirmed. |
+| `Soil Type` (Sandy/Loamy/Black/Red/Clayey) | `soil_type` | *(none)* | **No equivalent field exists in the fixed soil schema** (`n, p, k, ph, organic_carbon, moisture`). This is a soil *texture* classification, not a chemistry measurement — kept as a classifier-only feature, not merged into any soil field. |
+| *(none)* | *(none)* | `ph`, `organic_carbon` | The training dataset has **no pH or organic carbon column at all**. The classifier is trained without these two fixed-schema fields; whether/how to compensate for this at inference time is a feature-engineering decision for R6, not resolved here. |
+
+**Net effect:** the fertilizer-*type* classifier trains on temperature, humidity, moisture,
+soil type (texture), and unitless N/P/K index values — a real, documented limitation, not
+hidden. It does not and cannot see pH or organic carbon. This is consistent with the R2
+decision log's original framing: the classifier is a secondary product-choice refinement:
+the *quantity* recommendation (which does need real kg/ha figures) comes entirely from
+`reference_doses.csv`/`soil_adjustments.csv`, sourced independently from PAU, not from this
+training dataset.
+
 ## External reference tables (`ml/data/external/`, contract C5)
 
 Crop, region and fertilizer reference data live here, not in application code (NFR5). Richa
