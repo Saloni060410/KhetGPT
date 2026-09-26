@@ -8,9 +8,9 @@ Smart India Hackathon, PSAI01: Sustainable Fertilizer Usage Optimizer. This pack
 
 ## 1. Your role
 
-You turn Richa's reference tables and data into a recommendation: the NPK deficit, the fertilizer products, a dated split schedule, cost and saving. You serve it through a stable /recommend API.
+You turn Richa's reference tables and data into a recommendation: the nutrient dose for the field, the fertilizer products, a dated split schedule, cost and saving. You serve it through a stable /recommend API.
 
-Your core is the transparent deficit formula: fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications. A trained model refines the product choice on top. Everything is versioned, seeded and explainable, and the contract with Josh is the one thing you must never let drift. Risk scoring is Richa's module, which your engine calls.
+Your core is a transparent soil-test-based dose: fertilizer needed = standard dose for the crop + soil-test adjustment - credit from recent applications. The standard dose and the adjustment are published numbers Richa sources, or an STCR equation where one exists. A trained model refines the product choice on top. Everything is versioned, seeded and explainable, and the contract with Josh is the one thing you must never let drift. Risk scoring is Richa's module, which your engine calls.
 
 **You own**
 
@@ -86,10 +86,10 @@ Expected: Run every prompt below from the repo root. Each prompt tells Claude wh
 
 | PRD reference | Feature | Steps |
 |---|---|---|
-| FR7 / Must-have 4, 5 | Fertilizer type and quantity from the NPK-deficit formula, with a dated split schedule | S3, S4, S6 |
+| FR7 / Must-have 4, 5 | Fertilizer type and quantity from the standard dose plus soil-test adjustment, with a dated split schedule | S3, S4, S6 |
 | FR8 / Must-have 6 | Risk warning: your engine calls Richa's risk analyzer and returns it with the plan | S6 |
 | FR10 / Should-have 8 | Estimated cost and saving vs the farmer's logged previous usage | S5, S6 |
-| Should-have 10 / NFR7 | Formula inputs (demand, supply, deficit) and top factors in every response | S4, S6 |
+| Should-have 10 / NFR7 | Dose inputs (standard dose, soil adjustment, credit, method) and top factors in every response | S4, S6 |
 | FR12 / Should-have 12 | POST /risk-score for a farmer's own planned dose | S6 |
 | NFR1 | ML call under 3 s (p95) | S6, S11 |
 | NFR3 | Versioned model and rule tables so results are auditable | S3, S6, S10 |
@@ -105,7 +105,7 @@ Hard need = you cannot finish the step without it. Integrates with = you can sta
 | **S1** Review and lock the ML contract | none | J1 | none | S2, S4 | G0 |
 | **S2** Mock mode and reference endpoints | S1 | none | R1 | J4, J6, D4 | G1 |
 | **S3** Product classifier: training harness, baselines and first model | R4, R6 | none | R5, R9 | S6, R12, R9 | G2 |
-| **S4** NPK deficit calculator | R3, S1 | none | R10 | S5, S6, R8, R10 | G2 |
+| **S4** NPK dose calculator | R3, S1 | none | R6, R10 | S5, S6, R8, R10 | G2 |
 | **S5** Cost and saving estimate | S4, R3 | none | none | S6 | G3 |
 | **S6** Recommendation engine and real API mode | S3, S4, S5, R6, R8, R10 | none | J8, J9 | S7, S8, S9, J8, J9, R8, R11, D7, D8 | G3 |
 | **S7** API hardening and contract tests | S6 | none | J8 | none | G3 |
@@ -160,14 +160,14 @@ One request travels the whole chain with fake numbers: frontend, backend, databa
 
 ### G2 — Data to engine handoff (end of Phase 2)
 
-Richa's tables and feature module feed Saloni's deficit engine and trainer, and the app stores real farm data.
+Richa's tables and feature module feed Saloni's dose engine and trainer, and the app stores real farm data.
 
-**Your steps at this gate:** S3 (Product classifier: training harness, baselines and first model), S4 (NPK deficit calculator)
+**Your steps at this gate:** S3 (Product classifier: training harness, baselines and first model), S4 (NPK dose calculator)
 
 **Who delivers what**
 
 - Richa: feature module, dataset build, frozen test split, weather client and seasonal fallback on main (R6, R7)
-- Saloni: first trained model v0.1.0 (S3) and a passing NPK-deficit calculator on Richa's tables (S4)
+- Saloni: first trained model v0.1.0 (S3) and a passing NPK dose calculator on Richa's tables (S4)
 - Josh: CRUD, reference proxy, weather and geocoding on main (J5, J6, J7)
 - Darsh: farm, field, soil, crop and fertilizer log screens saving real data (D5, D6)
 
@@ -188,7 +188,7 @@ Mock mode is off. A real engine, real weather and real stored data produce the r
 - Josh: full recommendation orchestration and history, risk check and trends (J8, J9)
 - Darsh: full recommendation screen, schedule page, history and trends (D7, D8, D9)
 
-**Acceptance test:** Signup, farm, field, soil test, crop and stage, Get recommendation. The result shows a real model_version, a dated schedule, the risk with its soil and yield impact, cost and the deficit numbers. History and the schedule page show it afterwards.
+**Acceptance test:** Signup, farm, field, soil test, crop and stage, Get recommendation. The result shows a real model_version, a dated schedule, the risk with its soil and yield impact, cost and the dose numbers. History and the schedule page show it afterwards.
 
 **If it slips:** Ship G3 with mock mode and label it in the UI as sample output. Do not hide that it is a mock.
 
@@ -234,7 +234,7 @@ Rehearsed on two machines. Fallbacks work. Model card and evaluation report are 
 | C2 | Reference data API: Crops, varieties, growth stages, soil rating cut-offs, fertilizer products and the seasonal-weather fallback. Richa authors the files, Saloni serves them, Josh proxies them, Darsh reads them. Nothing is hardcoded in the UI or the backend. | `ml/data/external/*, ML /reference/*, backend /api/reference/*` | Richa, Saloni, Josh, Darsh | G0 (shape), G2 (real data) |
 | C3 | Backend REST API: Every endpoint the frontend calls: auth, farms, fields, soil tests, fertilizer logs, weather, geocoding, recommendations, risk check, trends, reference. | `docs/backend-api.md` | Josh, Darsh | G0 |
 | C4 | Feature module and loaders: The single feature code path used by training and serving, and the loader that reads the reference tables once. | `ml/src/data_pipeline/feature_engineering.py, soil_data_loader.py` | Richa, Saloni | G2 |
-| C5 | Reference table schemas: Crop requirements, use efficiencies, split schedules, fertilizer products and prices, soil rating cut-offs, agronomy rules, seasonal weather. Column schemas are agreed in R1, values arrive in R3. | `ml/data/external/` | Richa, Saloni | G0 (schemas), G1 (v0 values) |
+| C5 | Reference table schemas: Reference doses, soil adjustments, optional STCR equations, use efficiencies, split schedules, fertilizer products and prices, soil rating cut-offs, agronomy rules, seasonal weather. Column schemas are agreed in R1, values arrive in R3. A crop is ready only when every required cell for it is filled. The engine returns a clear error for a crop that is not ready, and /reference/crops lists only ready crops. | `ml/data/external/` | Richa, Saloni | G0 (schemas), G1 (v0 values) |
 | C6 | Rule trace, risk and explanations: Saloni's engine emits a nutrient balance and a rule trace. Richa's risk analyzer and explain() turn them into a risk level, soil and yield impact text and reasons. | `ml/src/degradation/risk_analyzer.py, ml/src/evaluation/explainability.py` | Saloni, Richa | G2 |
 | C7 | Evaluation and run records: Richa's metric functions, Saloni's run record format. Both feed the model card. | `ml/src/evaluation/metrics.py, models_artifacts/runs/` | Richa, Saloni | G3 |
 
@@ -243,7 +243,7 @@ Rehearsed on two machines. Fallbacks work. Model card and evaluation report are 
 1. Soil schema is fixed by the problem statement: n, p, k, ph, organic_carbon, moisture. It is not extended.
 2. Request adds optional variety (only if Richa's data has varieties) and optional sowing_date. The backend stores them as Field.cropVariety and Field.sowingDate. They are already in the Prisma schema.
 3. Endpoints: POST /recommend, POST /risk-score (score a planned dose), GET /health, GET /reference/*.
-4. Core method: fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications. The response returns these inputs per nutrient in explanation.nutrient_balance.
+4. Core method: fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications. The standard dose is the published dose for the crop, the adjustment comes from published soil-test rules or an STCR equation (a x target yield - b x soil test) where one exists. The response returns the inputs per nutrient in explanation.nutrient_balance, with the method used.
 5. Each schedule[] item carries fertilizer_type. Top-level fertilizer_type is the primary product and its quantity_kg_per_acre is that product's total across the schedule.
 6. risk has level, reason, soil_health_impact and yield_impact. The impact texts state the consequence in plain language, as the problem statement asks.
 7. weather.source is live, cached or seasonal_average. The backend sends it, the ML service echoes what it used.
@@ -261,7 +261,7 @@ Recommendation {
   schedule: [{ stage, fertilizerType, quantityKgPerAcre, applyBy }],
   risk: { level: "low" | "medium" | "high", reason, soilHealthImpact, yieldImpact, overApplicationPct | null },
   topFactors: [string],
-  nutrientBalance: { n|p|k: { cropDemandKgHa, soilSupplyKgHa, deficitKgHa, useEfficiency, priorCreditKgHa, fertilizerNeededKgHa } },
+  nutrientBalance: { n|p|k: { method: "reference_dose" | "stcr", soilRating, standardDoseKgHa, soilAdjustmentKgHa, priorCreditKgHa, fertilizerNeededKgHa } },
   formula: string,
   cost: { estimatedCostPerAcre, previousCostPerAcre | null, savingPerAcre | null, savingTotal | null },
   impact: { overApplicationReductionPct | null },
@@ -290,11 +290,13 @@ soil_data_loader.validate_soil(soil: dict) -> dict   # bounds check on the fixed
 crops.csv                 crop_id,name_en,name_hi,dataset_label,season,source
 crop_varieties.csv        crop_id,variety_id,name_en,name_hi,source   (header only if the data has no varieties)
 growth_stages.csv         crop_id,stage_id,name_en,name_hi,order,das_start,das_end,source
-crop_requirements.csv     crop_id,variety_id,irrigation,n_kg_ha,p2o5_kg_ha,k2o_kg_ha,source,notes   (seasonal crop demand)
-nutrient_efficiency.csv   nutrient,soil_supply_factor,fertilizer_use_efficiency,source,notes
+reference_doses.csv        crop_id,variety_id,irrigation,region,n_kg_ha,p2o5_kg_ha,k2o_kg_ha,source,notes   (published standard dose; variety_id generic = fallback)
+soil_adjustments.csv      crop_id,nutrient,soil_rating,adjustment_kg_ha,source,notes   (signed, from published soil-test rules)
+stcr_equations.csv        crop_id,variety_id,region,applies_to,nutrient,a,b,target_yield_default_q_ha,source,notes   (optional: needed = a x target yield - b x soil test)
+nutrient_efficiency.csv   crop_id,nutrient,fertilizer_use_efficiency,source,notes   (crop_id default = fallback; used only to credit recent applications)
 split_schedule.csv        crop_id,stage_id,n_fraction,p_fraction,k_fraction   (fractions sum to 1 per crop)
-fertilizer_products.csv   product_id,name,n_pct,p2o5_pct,k2o_pct,price_inr_per_kg,price_date,source
-soil_test_ratings.csv     parameter,unit,low_below,high_above,source
+fertilizer_products.csv   product_id,name,dataset_label,n_pct,p2o5_pct,k2o_pct,price_inr_per_kg,price_date,source   (the engine only selects priced products)
+soil_test_ratings.csv     parameter,unit,very_low_below,low_below,high_above,source   (very_low_below optional)
 seasonal_weather.csv      region_key,month,temperature_c,humidity_pct,rainfall_mm_5day,source
 agronomy_rules.yaml       credit window days, rain_hold_mm / rain_hold_days, over_application_ratio_medium / _high,
                           under_application_ratio, formula tolerance. Every key has a source comment.
@@ -305,7 +307,7 @@ explanation_templates.yaml  template id -> en and hi sentence (rule sentences, r
 
 ```text
 # Saloni's engine returns:
-nutrient_balance: { n|p|k: { crop_demand_kg_ha, soil_supply_kg_ha, deficit_kg_ha, use_efficiency, prior_credit_kg_ha, fertilizer_needed_kg_ha } }
+nutrient_balance: { n|p|k: { method, soil_rating, standard_dose_kg_ha, soil_adjustment_kg_ha, prior_credit_kg_ha, fertilizer_needed_kg_ha } }   # P as P2O5, K as K2O
 rule_trace item: { rule_id, nutrient: "n"|"p"|"k"|null, value, threshold, effect, params: {} }
 
 # Richa's modules:
@@ -322,7 +324,7 @@ render_template(template_id: str, **params) -> str      # explanation_templates.
 evaluate_classifier(y_true, y_pred, y_proba=None, classes=None, groups=None, n_boot=1000, seed=42) -> dict
 cv_summary(fold_scores: list[dict]) -> dict              # mean and std per metric
 baseline_report(y_train, y_test) -> dict
-formula_conformity(recs, tables, tol) -> dict            # share whose fertilizer_needed matches an independent recomputation of the deficit formula, plus violators
+formula_conformity(recs, tables, tol) -> dict            # share whose fertilizer_needed matches an independent recomputation of the dose formula, plus violators
 per_slice(y_true, y_pred, slice_col) -> dict
 run record (Saloni): { run_id, name, tags, git_sha, config_hash, dataset_hash, env, params, metrics, wall_clock_s }
 ```
@@ -367,8 +369,8 @@ Show me the outputs.
 Read docs/api-contract.md, docs/contract-fixtures/*.json, ml/src/api/schemas.py, docs/PRD.md sections 4 and 9, and ml/AGENTS.md. Josh (backend) and I must lock the backend-to-ML contract before either of us writes more code. A v1.0 draft is already in the repo. Review it as if you were going to build the engine against it.
 
 Check and report:
-1. Does every field in the fixtures map to a value the engine can really produce (nutrient_balance per nutrient, schedule items with fertilizer_type, cost with nulls when there is no history, risk with soil_health_impact and yield_impact)?
-2. Is the deficit formula in docs/api-contract.md implementable with the reference tables Richa will deliver (crop_requirements, nutrient_efficiency, split_schedule, fertilizer_products)? Which inputs are missing?
+1. Does every field in the fixtures map to a value the engine can really produce (nutrient_balance per nutrient with method, standard dose, soil adjustment, credit and fertilizer needed; schedule items with fertilizer_type; cost with nulls when there is no history; risk with soil_health_impact and yield_impact)?
+2. Is the dose formula in docs/api-contract.md implementable with the tables Richa delivers (reference_doses, soil_adjustments, optional stcr_equations, nutrient_efficiency, split_schedule, fertilizer_products)? Which inputs are missing, and what should the engine do for a crop that is not fully sourced?
 3. Are units unambiguous (kg/ha for soil, kg/acre for products, P as P2O5, K as K2O in nutrient_balance)?
 4. The soil schema (n, p, k, ph, organic_carbon, moisture) must stay exactly as it is. Confirm nothing in the draft changes it.
 5. Anything Darsh would need on screen that the response does not carry?
@@ -406,7 +408,7 @@ Run pytest and ruff, start uvicorn on 8001, and show me curl output for /health,
 
 **Done when:** python -m src.models.train prints a fold-by-fold comparison table with mean and std, and registry.json has model v0.1.0 with the dataset hash.
 
-> The classifier only refines which product is chosen. Quantity comes from the deficit formula (S4). The public fertilizer datasets are small, so expect noisy scores and report them with the spread. If the model does not beat the baseline by more than the fold noise, say so plainly.
+> The classifier only refines which product is chosen. Quantity comes from the dose calculator (S4). The public fertilizer datasets are small, so expect noisy scores and report them with the spread. If the model does not beat the baseline by more than the fold noise, say so plainly.
 
 ````text
 Read ml/AGENTS.md, docs/data-dictionary.md and ml/data/EDA_FINDINGS.md. If you have them, load the skills model-experiment-tracker, hyperparameter-search-designer and model-evaluation-suite. Richa's modules are the inputs: src/data_pipeline/feature_engineering.py (contract C4: FEATURE_COLUMNS, CLASSIFIER_TARGET, load_training_frame) and src/evaluation/metrics.py (C7). If they are not merged yet, use ml/data/processed/sample_train.csv and write your trainer against the C4 signatures. Never write into Richa's folders.
@@ -425,31 +427,33 @@ Implement in ml/src/models/ (the module that wraps the trained classifier is fer
 Run it on the current data. Show me the comparison table and the registry entry, and tell me whether the model beats the baseline by more than the fold noise.
 ````
 
-#### S4. NPK deficit calculator
+#### S4. NPK dose calculator
 
-**Integration gate G2** · Needs R3, S1 · Integrates with R10 · Unblocks S5, S6, R8, R10
+**Integration gate G2** · Needs R3, S1 · Integrates with R6, R10 · Unblocks S5, S6, R8, R10
 
 **Done when:** tests/test_npk_calculator.py golden tests pass and one full wheat plan prints as JSON with nutrient_balance and rule_trace.
 
-> This is the explainable heart of the product and the formula the success metric checks. No agronomy number may appear in the code. If a number is missing from a table, ask Richa to add it (R3).
+> This is the explainable heart of the product. The method is fixed by what Richa can source: a published standard dose plus a published soil-test adjustment, or an STCR equation where one exists. No agronomy number may appear in the code. A missing value makes the crop not ready and the engine raises a clear error. It never substitutes 0 or a guess.
 
 ````text
-Read the C5 reference tables in ml/data/external/ (crop_requirements.csv, nutrient_efficiency.csv, split_schedule.csv, fertilizer_products.csv, growth_stages.csv, soil_test_ratings.csv, agronomy_rules.yaml), Richa's ml/src/data_pipeline/soil_data_loader.py (load_reference_tables, validate_soil) and ml/AGENTS.md. Implement ml/src/engine/npk_calculator.py as pure functions. The formula, per nutrient (N, P2O5, K2O):
+Read the C5 reference tables in ml/data/external/ (reference_doses.csv, soil_adjustments.csv, stcr_equations.csv if present, nutrient_efficiency.csv, split_schedule.csv, fertilizer_products.csv, growth_stages.csv, soil_test_ratings.csv, agronomy_rules.yaml), Richa's ml/src/data_pipeline/soil_data_loader.py (load_reference_tables, validate_soil, ready_crops) and ml/AGENTS.md. Implement ml/src/engine/npk_calculator.py as pure functions. Per nutrient (N, P2O5, K2O):
 
-  crop demand       = seasonal demand from crop_requirements.csv (crop, variety if given, irrigation) for the stages still ahead, using split_schedule.csv fractions
-  soil supply       = soil test value (kg/ha) x soil_supply_factor from nutrient_efficiency.csv
-  deficit           = max(0, crop demand - soil supply)
-  fertilizer needed = deficit / fertilizer_use_efficiency - prior credit
-  prior credit      = nutrient in previous_fertilizer_usage inside the credit window in agronomy_rules.yaml (convert product kg/acre to nutrient kg/ha with fertilizer_products.csv and 1 ha = 2.4711 acre)
+  fertilizer needed = max(0, standard dose + soil adjustment - prior credit)
+
+Method per nutrient, tried in this order:
+1. stcr: if stcr_equations.csv has a row for the crop (variety first, then generic) and target_yield_default_q_ha is filled, then standard dose = a x target yield and soil adjustment = -b x the soil test value (kg/ha, the same test method Soil Health Cards use).
+2. reference_dose: standard dose from reference_doses.csv for the crop, irrigation type and variety (exact variety first, then variety_id = generic). Soil adjustment from soil_adjustments.csv for that nutrient's soil rating (very_low, low, medium or high from soil_test_ratings.csv). A missing adjustment row means 0, because the source publishes no adjustment.
+3. Otherwise raise ReferenceDataIncomplete(crop, nutrient, missing_cells). The API turns it into a 503. A TODO(data) cell counts as missing. Never substitute 0, a default or a guess.
+Prior credit: the nutrient in previous_fertilizer_usage inside credit_window_days (agronomy_rules.yaml), converted with fertilizer_products.csv and 1 ha = 2.4711 acre, times fertilizer_use_efficiency from nutrient_efficiency.csv (the crop's row, else the default row). If neither row exists, skip the credit and add a rule_trace entry credit_skipped_no_efficiency.
 
 Functions:
-- compute_balance(crop_id, variety, growth_stage, soil, prior_usage, tables, today) -> (nutrient_balance, rule_trace). nutrient_balance has, per nutrient, crop_demand_kg_ha, soil_supply_kg_ha, deficit_kg_ha, use_efficiency, prior_credit_kg_ha, fertilizer_needed_kg_ha exactly as in contract C1 and C6.
-- to_products(nutrient_balance, growth_stage, sowing_date, weather, tables, today) -> list of { stage, fertilizer_type, quantity_kg_per_acre, apply_by }: split by split_schedule.csv for stages not yet passed, date each stage from growth_stages.csv das_start counted from sowing_date (if missing, assume today is the midpoint of the current stage), map nutrients to products (P from DAP first and credit its N, K from MOP, remaining N from urea; ids only from fertilizer_products.csv), and if rainfall_mm_forecast is at or above rain_hold_mm delay top-dress applications by rain_hold_days with a rule_trace entry.
+- compute_balance(crop_id, variety, irrigation, growth_stage, soil, prior_usage, tables, today) -> (nutrient_balance, rule_trace). nutrient_balance has, per nutrient, method, soil_rating, standard_dose_kg_ha, soil_adjustment_kg_ha, prior_credit_kg_ha and fertilizer_needed_kg_ha exactly as in contract C1 and C6.
+- to_products(nutrient_balance, growth_stage, sowing_date, weather, tables, today) -> list of { stage, fertilizer_type, quantity_kg_per_acre, apply_by }: split by split_schedule.csv for stages not yet passed, date each stage from growth_stages.csv das_start counted from sowing_date (if missing, assume today is the midpoint of the current stage), map nutrients to products (P from DAP first and credit its N, K from MOP, remaining N from urea). Only products that have a price in fertilizer_products.csv are selectable, so cost is never computed with a missing price. If rainfall_mm_forecast is at or above rain_hold_mm, delay top-dress applications by rain_hold_days with a rule_trace entry.
 Every decision appends a rule_trace item { rule_id, nutrient, value, threshold, effect, params } exactly as in contract C6 so Richa's explain() can turn it into sentences.
 
-Write golden tests in tests/test_npk_calculator.py with small hand-computed cases: demand 120, supply 55, efficiency 0.5 gives fertilizer needed 130; supply above demand gives 0, never negative; a recent urea application reduces N by its credit; an old one outside the window does not; a rain forecast above the threshold delays the top-dress date; kg/acre conversion is right to 3 decimals; a wheat plan at sowing has basal DAP and MOP and split urea.
+Write golden tests in tests/test_npk_calculator.py with small hand-computed cases: a reference dose of 123.6, 61.8 and 0 with a low-K soil adjustment of +29.7 gives 123.6, 61.8 and 29.7; an STCR case with a=5, b=1, target 40 and soil test 100 gives 100; a negative total clamps to 0; a recent urea application credits N and an old one outside the window does not; a missing efficiency skips the credit with a trace entry; a crop with a TODO in a required cell raises ReferenceDataIncomplete; an unpriced product is never selected; a rain forecast above the threshold delays the top-dress date; kg/acre conversion is right to 3 decimals.
 
-Show me the golden test output and one full plan for the fixture in docs/contract-fixtures/recommend_request.json as JSON.
+Show me the golden test output and one full plan for the fixture in docs/contract-fixtures/recommend_request.json as JSON, which should be close to docs/contract-fixtures/recommend_response.json.
 ````
 
 ### Phase 3: Real recommendation
@@ -488,7 +492,7 @@ Implement ml/src/engine/recommendation_engine.py and switch the API to real mode
 1. Load once at startup (FastAPI lifespan): the active classifier named in model_registry/registry.json, the reference tables (via Richa's soil_data_loader) and the rules. Compute rules_hash8 from the table files. MODEL_VERSION = f"{model_name}-{semver}+rules-{hash8}".
 2. recommend(request: RecommendRequest) -> RecommendResponse:
    a. validate_soil, request_to_record and build_features from Richa's C4 module (the same function used in training),
-   b. npk_calculator.compute_balance gives the deficit inputs and rule trace; to_products dates the schedule and picks products,
+   b. npk_calculator.compute_balance gives the dose inputs and rule trace, and raises ReferenceDataIncomplete for a crop that is not ready (return 503); to_products dates the schedule and picks products,
    c. the classifier predicts the primary fertilizer product (top 1, keep the top 3 probabilities for explain()). If its choice is inconsistent with the nutrient balance, the balance wins and the disagreement goes into the rule trace,
    d. cost.estimate_cost and compare_to_history,
    e. Richa's risk_analyzer.assess_recommendation (C6) returns level, reason, soil_health_impact and yield_impact,
@@ -525,7 +529,7 @@ Tell Josh which fields changed, if any, so his mlService.js tests are updated th
 **Done when:** tests/test_formula_sanity.py passes for every crop and soil combination, and the registry entry holds test-split metrics with confidence intervals.
 
 ````text
-Using Richa's metrics.formula_conformity (C7) and her demo scenarios in docs/demo-scenarios.md, write tests/test_formula_sanity.py. For every crop and variety in crops.csv and for low, medium and high soil combinations, an independent recomputation of the deficit formula (written from the tables, not by calling npk_calculator) must match the engine's fertilizer_needed_kg_ha within the tolerance in agronomy_rules.yaml. Assert no negative quantities, that stage quantities sum to the top-level total for the primary product, and that a supply above demand gives zero.
+Using Richa's metrics.formula_conformity (C7) and her demo scenarios in docs/demo-scenarios.md, write tests/test_formula_sanity.py. For every crop and variety in crops.csv and for low, medium and high soil combinations, an independent recomputation of the dose formula (written from the tables, not by calling npk_calculator) must match the engine's fertilizer_needed_kg_ha within the tolerance in agronomy_rules.yaml. Only crops that ready_crops() reports are tested, and the test lists any crop that is not ready. Assert no negative quantities, that stage quantities sum to the top-level total for the primary product, and that an adjustment that would push the total below zero gives zero.
 
 Then run python -m src.models.train --final-test once for the frozen version and paste the test-split metrics with confidence intervals (Richa's evaluate_classifier) into the registry entry. Do not run the test split again after this.
 ````
@@ -551,10 +555,10 @@ Tell Josh the exact mount path and healthcheck so his compose file matches.
 
 Needs S8
 
-**Done when:** A logged run compares MAE of the learned quantity model against the deficit formula on the same crop, with intervals.
+**Done when:** A logged run compares MAE of the learned quantity model against the dose formula on the same crop, with intervals.
 
 ````text
-Only if Richa has found a dataset with real applied-quantity labels for at least one crop. Train an XGBoost regressor for nutrient quantity on that data using the same harness as S3, and compare its MAE to the deficit formula on the same held-out rows (paired comparison across folds). Keep the deficit formula as the default. Only switch the default if the learned model wins by more than the noise. Log the runs and add a short paragraph to the model card.
+Only if Richa has found a dataset with real applied-quantity labels for at least one crop. Train an XGBoost regressor for nutrient quantity on that data using the same harness as S3, and compare its MAE to the dose formula on the same held-out rows (paired comparison across folds). Keep the dose formula as the default. Only switch the default if the learned model wins by more than the noise. Log the runs and add a short paragraph to the model card.
 ````
 
 ### Phase 5: Demo hardening
@@ -566,7 +570,7 @@ Only if Richa has found a dataset with real applied-quantity labels for at least
 **Done when:** ml/MODEL_CARD.md exists with every section filled, and every number traces to registry.json or Richa's report.
 
 ````text
-Write ml/MODEL_CARD.md following the model-card requirements in the ML standards (section 5): intended use and out-of-scope uses; training data (source, versions and hash, dates, size, known biases, and say plainly that the classification data is small and may be synthetic); evaluation protocol; metrics with confidence intervals next to the baselines, overall and per crop; the decision policy (the deficit formula sets quantity and timing, the classifier refines the product); how risk (Richa's analyzer) and cost are computed; limitations and failure modes from Richa's docs/evaluation-report.md; fairness and regional caveats; a reproducibility block (commit sha, config hash, dataset hash, python and library versions, train command, compute time); ownership and retraining plan. Pull every number from registry.json and Richa's reports. Write TODO(metric) instead of guessing.
+Write ml/MODEL_CARD.md following the model-card requirements in the ML standards (section 5): intended use and out-of-scope uses; training data (source, versions and hash, dates, size, known biases, and say plainly that the classification data is small and may be synthetic); evaluation protocol; metrics with confidence intervals next to the baselines, overall and per crop; the decision policy (the dose formula sets quantity and timing, the classifier refines the product); how risk (Richa's analyzer) and cost are computed; limitations and failure modes from Richa's docs/evaluation-report.md; fairness and regional caveats; a reproducibility block (commit sha, config hash, dataset hash, python and library versions, train command, compute time); ownership and retraining plan. Pull every number from registry.json and Richa's reports. Write TODO(metric) instead of guessing.
 ````
 
 #### S11. Demo readiness for the ML service
@@ -579,7 +583,7 @@ Write ml/MODEL_CARD.md following the model-card requirements in the ML standards
 Prepare the ML service for the demo.
 1. Run docker compose up --build from the repo root (Josh's compose) and time a cold start.
 2. Send the three scenarios from docs/demo-scenarios.md to /recommend and check /risk-score with an over-application dose for scenario 1 and check the outputs read sensibly to an agronomist (Richa reviews).
-3. Write ml/DEMO_NOTES.md: the model_version being demoed, the three scenario outputs, what to say when a judge asks whether this is just a tabular model (the deficit formula on ICAR-based tables for quantity and timing, a classifier for the product, explanations from the rule trace), and the known limitations.
+3. Write ml/DEMO_NOTES.md: the model_version being demoed, the three scenario outputs, what to say when a judge asks whether this is just a tabular model (the standard dose plus soil-test adjustment on ICAR and PAU-based tables for quantity and timing, a classifier for the product, explanations from the rule trace), and the known limitations.
 4. Keep PREDICT_MODE=mock working as the offline fallback.
 5. Mark the demo model version in registry.json.
 ````
@@ -587,7 +591,7 @@ Prepare the ML service for the demo.
 ## 8. Definition of done
 
 - [ ] Same input always produces the same output. Seeds are set and recorded.
-- [ ] Every recommendation returns its formula inputs: demand, supply, deficit, efficiency, credit and fertilizer needed.
+- [ ] Every recommendation returns its dose inputs per nutrient: method, standard dose, soil adjustment, credit and fertilizer needed.
 - [ ] Every reported number sits next to a baseline and a spread. The test split was used once.
 - [ ] docs/api-contract.md, schemas.py and the fixtures agree, and contract tests pass. The soil schema is untouched.
 - [ ] p95 latency of /recommend is under 3 s.
@@ -606,10 +610,10 @@ Prepare the ML service for the demo.
 - The soil schema is fixed by the problem statement: n, p, k, ph, organic_carbon, moisture. Never add, remove or rename soil fields.
 - Work on your own branch. Never commit to main directly, except docs-only contract PRs that both owners have approved.
 - Stay inside your folders (root AGENTS.md). If you need a change in someone else's folder, ask them or record it in the contract doc.
-- Commit messages use the form <area>: <what changed>, for example ml: add NPK deficit calculator. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
+- Commit messages use the form <area>: <what changed>, for example ml: add NPK dose calculator. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
 - Never commit .env, raw datasets, models_artifacts/, node_modules or .venv. Add new variables to that service's .env.example.
 - Before a PR: git pull origin main --rebase, lint and tests pass, and the PR description states the change, the reason and how to test it. UI PRs include screenshots. One teammate reviews before merge.
 - Open a PR only when a feature works end to end. Small, focused commits, one logical change each.
 - Run every prompt in Claude Code from the repo root on your own branch. Each prompt begins by reading the project context files.
-- Reference numbers (crop demand, efficiencies, prices, thresholds) live in data or config files, never in application code, and every value has a source.
+- Reference numbers (reference doses, adjustments, efficiencies, prices, thresholds) live in data or config files, never in application code, and every value has a source.
 - No cloud deployment is in scope. The demo runs locally with docker-compose.

@@ -10,7 +10,7 @@ Smart India Hackathon, PSAI01: Sustainable Fertilizer Usage Optimizer. This pack
 
 You own the truth the engine stands on: which data we use, the sourced ICAR-based reference tables, the feature and loader code, weather, the risk analyzer, and the evidence that the results are trustworthy.
 
-Saloni's deficit engine is only as good as the tables you hand her. Three things everyone waits on: the vocabulary and table schemas in the first phase, the reference tables in the second, and the feature module and risk analyzer in the third. Which datasets we use is your decision. The risk analyzer, which warns about over- and under-application and its impact on soil health and yield, is yours.
+Saloni's dose engine is only as good as the tables you hand her. Three things everyone waits on: the vocabulary and table schemas in the first phase, the reference tables in the second, and the feature module and risk analyzer in the third. Which datasets we use is your decision. The risk analyzer, which warns about over- and under-application and its impact on soil health and yield, is yours.
 
 **You own**
 
@@ -143,10 +143,10 @@ Hard need = you cannot finish the step without it. Integrates with = you can sta
 | **R0** Verify your ML environment | none | none | none | none |  |
 | **R1** Decide crops and region, publish vocabularies and table schemas | none | none | none | R2, R3, R4, S2, J6, D6, D12 | G0 |
 | **R2** Find, judge and choose your datasets | R1 | none | none | R4 | G1 |
-| **R3** Sourced reference tables for the deficit formula | R1 | none | none | S4, S5, R6, R8, R10, R11 | G1 |
+| **R3** Sourced reference tables for the dose formula | R1 | none | none | S4, S5, R6, R8, R10, R11 | G1 |
 | **R4** Cleaning pipeline with validation gates | R2, R1 | none | none | S3, R5, R6 | G1 |
 | **R5** EDA and leakage review | R4 | none | none | S3 |  |
-| **R6** Shared feature module, loaders and dataset build | R4, R3 | none | none | S3, S6, R7, R8, R9, R13, R14 | G2 |
+| **R6** Shared feature module, loaders and dataset build | R4, R3 | none | none | S3, S6, R7, R8, R9, R13, R14, S4 | G2 |
 | **R7** Open-Meteo client, weather features and seasonal fallback | R6 | none | J7 | J7 | G2 |
 | **R8** Risk analyzer: over- and under-application with soil and yield impact | R3, R6 | none | S4, S6 | S6, J9, D10 | G3 |
 | **R9** Evaluation metrics module | R6 | none | S3 | S8, R12, S3 | G3 |
@@ -186,7 +186,7 @@ C1 (ML API), C3 (backend REST API), the fixtures and the crop vocabulary are mer
 
 One request travels the whole chain with fake numbers: frontend, backend, database and the ML service in mock mode.
 
-**Your steps at this gate:** R2 (Find, judge and choose your datasets), R3 (Sourced reference tables for the deficit formula), R4 (Cleaning pipeline with validation gates)
+**Your steps at this gate:** R2 (Find, judge and choose your datasets), R3 (Sourced reference tables for the dose formula), R4 (Cleaning pipeline with validation gates)
 
 **Who delivers what**
 
@@ -201,14 +201,14 @@ One request travels the whole chain with fake numbers: frontend, backend, databa
 
 ### G2 — Data to engine handoff (end of Phase 2)
 
-Richa's tables and feature module feed Saloni's deficit engine and trainer, and the app stores real farm data.
+Richa's tables and feature module feed Saloni's dose engine and trainer, and the app stores real farm data.
 
 **Your steps at this gate:** R6 (Shared feature module, loaders and dataset build), R7 (Open-Meteo client, weather features and seasonal fallback)
 
 **Who delivers what**
 
 - Richa: feature module, dataset build, frozen test split, weather client and seasonal fallback on main (R6, R7)
-- Saloni: first trained model v0.1.0 (S3) and a passing NPK-deficit calculator on Richa's tables (S4)
+- Saloni: first trained model v0.1.0 (S3) and a passing NPK dose calculator on Richa's tables (S4)
 - Josh: CRUD, reference proxy, weather and geocoding on main (J5, J6, J7)
 - Darsh: farm, field, soil, crop and fertilizer log screens saving real data (D5, D6)
 
@@ -229,7 +229,7 @@ Mock mode is off. A real engine, real weather and real stored data produce the r
 - Josh: full recommendation orchestration and history, risk check and trends (J8, J9)
 - Darsh: full recommendation screen, schedule page, history and trends (D7, D8, D9)
 
-**Acceptance test:** Signup, farm, field, soil test, crop and stage, Get recommendation. The result shows a real model_version, a dated schedule, the risk with its soil and yield impact, cost and the deficit numbers. History and the schedule page show it afterwards.
+**Acceptance test:** Signup, farm, field, soil test, crop and stage, Get recommendation. The result shows a real model_version, a dated schedule, the risk with its soil and yield impact, cost and the dose numbers. History and the schedule page show it afterwards.
 
 **If it slips:** Ship G3 with mock mode and label it in the UI as sample output. Do not hide that it is a mock.
 
@@ -275,7 +275,7 @@ Rehearsed on two machines. Fallbacks work. Model card and evaluation report are 
 | C2 | Reference data API: Crops, varieties, growth stages, soil rating cut-offs, fertilizer products and the seasonal-weather fallback. Richa authors the files, Saloni serves them, Josh proxies them, Darsh reads them. Nothing is hardcoded in the UI or the backend. | `ml/data/external/*, ML /reference/*, backend /api/reference/*` | Richa, Saloni, Josh, Darsh | G0 (shape), G2 (real data) |
 | C3 | Backend REST API: Every endpoint the frontend calls: auth, farms, fields, soil tests, fertilizer logs, weather, geocoding, recommendations, risk check, trends, reference. | `docs/backend-api.md` | Josh, Darsh | G0 |
 | C4 | Feature module and loaders: The single feature code path used by training and serving, and the loader that reads the reference tables once. | `ml/src/data_pipeline/feature_engineering.py, soil_data_loader.py` | Richa, Saloni | G2 |
-| C5 | Reference table schemas: Crop requirements, use efficiencies, split schedules, fertilizer products and prices, soil rating cut-offs, agronomy rules, seasonal weather. Column schemas are agreed in R1, values arrive in R3. | `ml/data/external/` | Richa, Saloni | G0 (schemas), G1 (v0 values) |
+| C5 | Reference table schemas: Reference doses, soil adjustments, optional STCR equations, use efficiencies, split schedules, fertilizer products and prices, soil rating cut-offs, agronomy rules, seasonal weather. Column schemas are agreed in R1, values arrive in R3. A crop is ready only when every required cell for it is filled. The engine returns a clear error for a crop that is not ready, and /reference/crops lists only ready crops. | `ml/data/external/` | Richa, Saloni | G0 (schemas), G1 (v0 values) |
 | C6 | Rule trace, risk and explanations: Saloni's engine emits a nutrient balance and a rule trace. Richa's risk analyzer and explain() turn them into a risk level, soil and yield impact text and reasons. | `ml/src/degradation/risk_analyzer.py, ml/src/evaluation/explainability.py` | Saloni, Richa | G2 |
 | C7 | Evaluation and run records: Richa's metric functions, Saloni's run record format. Both feed the model card. | `ml/src/evaluation/metrics.py, models_artifacts/runs/` | Richa, Saloni | G3 |
 
@@ -284,7 +284,7 @@ Rehearsed on two machines. Fallbacks work. Model card and evaluation report are 
 1. Soil schema is fixed by the problem statement: n, p, k, ph, organic_carbon, moisture. It is not extended.
 2. Request adds optional variety (only if Richa's data has varieties) and optional sowing_date. The backend stores them as Field.cropVariety and Field.sowingDate. They are already in the Prisma schema.
 3. Endpoints: POST /recommend, POST /risk-score (score a planned dose), GET /health, GET /reference/*.
-4. Core method: fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications. The response returns these inputs per nutrient in explanation.nutrient_balance.
+4. Core method: fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications. The standard dose is the published dose for the crop, the adjustment comes from published soil-test rules or an STCR equation (a x target yield - b x soil test) where one exists. The response returns the inputs per nutrient in explanation.nutrient_balance, with the method used.
 5. Each schedule[] item carries fertilizer_type. Top-level fertilizer_type is the primary product and its quantity_kg_per_acre is that product's total across the schedule.
 6. risk has level, reason, soil_health_impact and yield_impact. The impact texts state the consequence in plain language, as the problem statement asks.
 7. weather.source is live, cached or seasonal_average. The backend sends it, the ML service echoes what it used.
@@ -302,7 +302,7 @@ Recommendation {
   schedule: [{ stage, fertilizerType, quantityKgPerAcre, applyBy }],
   risk: { level: "low" | "medium" | "high", reason, soilHealthImpact, yieldImpact, overApplicationPct | null },
   topFactors: [string],
-  nutrientBalance: { n|p|k: { cropDemandKgHa, soilSupplyKgHa, deficitKgHa, useEfficiency, priorCreditKgHa, fertilizerNeededKgHa } },
+  nutrientBalance: { n|p|k: { method: "reference_dose" | "stcr", soilRating, standardDoseKgHa, soilAdjustmentKgHa, priorCreditKgHa, fertilizerNeededKgHa } },
   formula: string,
   cost: { estimatedCostPerAcre, previousCostPerAcre | null, savingPerAcre | null, savingTotal | null },
   impact: { overApplicationReductionPct | null },
@@ -331,11 +331,13 @@ soil_data_loader.validate_soil(soil: dict) -> dict   # bounds check on the fixed
 crops.csv                 crop_id,name_en,name_hi,dataset_label,season,source
 crop_varieties.csv        crop_id,variety_id,name_en,name_hi,source   (header only if the data has no varieties)
 growth_stages.csv         crop_id,stage_id,name_en,name_hi,order,das_start,das_end,source
-crop_requirements.csv     crop_id,variety_id,irrigation,n_kg_ha,p2o5_kg_ha,k2o_kg_ha,source,notes   (seasonal crop demand)
-nutrient_efficiency.csv   nutrient,soil_supply_factor,fertilizer_use_efficiency,source,notes
+reference_doses.csv        crop_id,variety_id,irrigation,region,n_kg_ha,p2o5_kg_ha,k2o_kg_ha,source,notes   (published standard dose; variety_id generic = fallback)
+soil_adjustments.csv      crop_id,nutrient,soil_rating,adjustment_kg_ha,source,notes   (signed, from published soil-test rules)
+stcr_equations.csv        crop_id,variety_id,region,applies_to,nutrient,a,b,target_yield_default_q_ha,source,notes   (optional: needed = a x target yield - b x soil test)
+nutrient_efficiency.csv   crop_id,nutrient,fertilizer_use_efficiency,source,notes   (crop_id default = fallback; used only to credit recent applications)
 split_schedule.csv        crop_id,stage_id,n_fraction,p_fraction,k_fraction   (fractions sum to 1 per crop)
-fertilizer_products.csv   product_id,name,n_pct,p2o5_pct,k2o_pct,price_inr_per_kg,price_date,source
-soil_test_ratings.csv     parameter,unit,low_below,high_above,source
+fertilizer_products.csv   product_id,name,dataset_label,n_pct,p2o5_pct,k2o_pct,price_inr_per_kg,price_date,source   (the engine only selects priced products)
+soil_test_ratings.csv     parameter,unit,very_low_below,low_below,high_above,source   (very_low_below optional)
 seasonal_weather.csv      region_key,month,temperature_c,humidity_pct,rainfall_mm_5day,source
 agronomy_rules.yaml       credit window days, rain_hold_mm / rain_hold_days, over_application_ratio_medium / _high,
                           under_application_ratio, formula tolerance. Every key has a source comment.
@@ -346,7 +348,7 @@ explanation_templates.yaml  template id -> en and hi sentence (rule sentences, r
 
 ```text
 # Saloni's engine returns:
-nutrient_balance: { n|p|k: { crop_demand_kg_ha, soil_supply_kg_ha, deficit_kg_ha, use_efficiency, prior_credit_kg_ha, fertilizer_needed_kg_ha } }
+nutrient_balance: { n|p|k: { method, soil_rating, standard_dose_kg_ha, soil_adjustment_kg_ha, prior_credit_kg_ha, fertilizer_needed_kg_ha } }   # P as P2O5, K as K2O
 rule_trace item: { rule_id, nutrient: "n"|"p"|"k"|null, value, threshold, effect, params: {} }
 
 # Richa's modules:
@@ -363,7 +365,7 @@ render_template(template_id: str, **params) -> str      # explanation_templates.
 evaluate_classifier(y_true, y_pred, y_proba=None, classes=None, groups=None, n_boot=1000, seed=42) -> dict
 cv_summary(fold_scores: list[dict]) -> dict              # mean and std per metric
 baseline_report(y_train, y_test) -> dict
-formula_conformity(recs, tables, tol) -> dict            # share whose fertilizer_needed matches an independent recomputation of the deficit formula, plus violators
+formula_conformity(recs, tables, tol) -> dict            # share whose fertilizer_needed matches an independent recomputation of the dose formula, plus violators
 per_slice(y_true, y_pred, slice_col) -> dict
 run record (Saloni): { run_id, name, tags, git_sha, config_hash, dataset_hash, env, params, metrics, wall_clock_s }
 ```
@@ -409,7 +411,7 @@ Read docs/PRD.md sections 1, 5, 6 and 11, docs/ARCHITECTURE.md (decisions log), 
 1. Ask me the two open questions first if I have not answered them: which 4 to 6 crops (a sensible starting proposal is wheat, rice, maize, cotton, sugarcane and one pulse) and which demo region (state and district).
 2. Create ml/data/external/crops.csv (crop_id, name_en, name_hi, dataset_label, season, source) and growth_stages.csv (crop_id, stage_id, name_en, name_hi, order, das_start, das_end, source). Use snake_case ids. das_start and das_end are days after sowing. Fill values only from ICAR or state agriculture university material and cite it in source. Where you cannot find a value write TODO(data) in the cell instead of inventing it. Leave dataset_label empty until datasets are chosen in R2.
 3. Create crop_varieties.csv (crop_id, variety_id, name_en, name_hi, source). Varieties come from the datasets you choose in R2. If they have none, keep the file header-only: the UI then hides the variety field.
-4. In the same PR add header-only versions, plus one example row each, of the other C5 tables: crop_requirements.csv, nutrient_efficiency.csv, split_schedule.csv, fertilizer_products.csv, soil_test_ratings.csv, seasonal_weather.csv, agronomy_rules.yaml and explanation_templates.yaml. Saloni codes against these headers, so they must match the C5 schema in the pack exactly.
+4. In the same PR add header-only versions, plus one example row each, of the other C5 tables: reference_doses.csv, soil_adjustments.csv, stcr_equations.csv (optional), nutrient_efficiency.csv, split_schedule.csv, fertilizer_products.csv, soil_test_ratings.csv, seasonal_weather.csv, agronomy_rules.yaml and explanation_templates.yaml. Use the exact headers in the C5 schema of this pack. Variety ids use snake_case, and generic is the reserved fallback id that is never listed to users. Saloni codes against these headers, so they must match the C5 schema in the pack exactly.
 5. Update docs/data-dictionary.md with the columns, units and allowed values of every file. The soil schema (n, p, k, ph, organic_carbon, moisture) is fixed by the problem statement and is not yours to change.
 Open the PR against main (docs and data files only, no code).
 ````
@@ -437,26 +439,28 @@ What the product needs: soil N, P, K, pH, organic carbon, moisture, crop, growth
 Show me the shortlist first, then the manifest and the ingest output.
 ````
 
-#### R3. Sourced reference tables for the deficit formula
+#### R3. Sourced reference tables for the dose formula
 
 **Integration gate G1** · Needs R1 · Unblocks S4, S5, R6, R8, R10, R11
 
 **Done when:** tests/test_reference_tables.py passes, wheat and rice v0 is merged to main, and the values with their sources are reviewed by a teammate.
 
-> Saloni's NPK calculator (S4) and your own risk analyzer (R8) are blocked on this. Push a v0 for two crops the same day, then complete the rest.
+> Saloni's NPK dose calculator (S4) and your own risk analyzer (R8) are blocked on this. Push a v0 for two crops the same day, then complete the rest. Values you cannot source stay TODO(data), and a crop with a TODO in a required cell is simply not ready.
 
 ````text
-Fill the C5 tables with sourced values. Priority: deliver a v0 for two crops first and push it to main the same day, because Saloni's NPK calculator (S4) is blocked on it. Then complete the remaining crops.
+Fill the C5 tables with sourced values. Priority: deliver a v0 for two crops first and push it to main the same day, because Saloni's NPK dose calculator (S4) is blocked on it. Then complete the remaining crops.
 
-The engine computes, per nutrient: fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications. So the tables must provide:
-- crop_requirements.csv: seasonal crop demand in kg/ha of N, P2O5 and K2O per crop, per variety when your data has varieties, and per irrigation type. Find authoritative sources yourself (ICAR crop production guides and institute bulletins, state agriculture university packages of practices). Cite the exact document in the source column. Treat a number from a blog or a summary as unverified until you find the primary document.
-- nutrient_efficiency.csv: per nutrient, the soil_supply_factor (how much of the soil test value in kg/ha is available to the crop, including any elemental-to-oxide conversion for P and K) and the fertilizer_use_efficiency (share of applied nutrient the crop recovers). Find the source in soil test crop response (STCR) literature. If no defensible number exists, write TODO(data) and tell the team.
-- split_schedule.csv: fractions per stage that sum to 1 per nutrient per crop (for example how much N goes basal and how much at each top-dress; P and K are usually basal).
-- fertilizer_products.csv: urea, DAP, MOP, SSP and every complex grade in your chosen datasets, with N, P2O5 and K2O percentages and a current retail price in INR/kg with price_date and source (Department of Fertilizers or state maximum retail price). Never guess a price. Leave TODO(data).
-- soil_test_ratings.csv: the low and high cut-offs Soil Health Cards use for available N, P and K (kg/ha), organic carbon (percent) and pH bands. Find the official guideline and cite it.
-- agronomy_rules.yaml: credit window days for previous applications, rain_hold_mm and rain_hold_days, over_application_ratio_medium and _high, under_application_ratio, and the formula tolerance for the sanity test. Every key gets a comment with its source or the words "team assumption".
+The engine computes, per nutrient: fertilizer needed = standard dose + soil-test adjustment - credit from recent applications. That is the shape published sources actually support (a recommended dose, and rules or STCR equations that adjust it for soil test values). So the tables must provide:
+- reference_doses.csv: the published standard dose in kg/ha of N, P2O5 and K2O per crop, irrigation type and region. variety_id is generic for the fallback and a real id (for example pr_132) only where the source gives a different dose for that variety. Put soil conditions such as "medium fertility" in notes, never in the variety cell. Sources: ICAR crop production guides and institute bulletins, state agriculture university packages of practices (for example the PAU Package of Practices). Cite the exact document and page. Treat a number from a blog or a summary as unverified until you find the primary document.
+- soil_adjustments.csv: signed adjustments to the dose by soil rating (very_low, low, medium, high), per crop and nutrient, in P2O5 or K2O terms, taken from the same package of practices (for example extra potash when soil K is low). If a source publishes no adjustment for a nutrient, add no row. Do not invent one.
+- stcr_equations.csv (optional): STCR targeted-yield equations FN = a x T - b x SN per crop, nutrient and zone. Fill region (where the equation was developed), applies_to (where we use it, marked as a proxy if it differs) and target_yield_default_q_ha, which needs its own source (for example a regional average or PAU target yield). Leave the target TODO(data) until you find one. The engine only uses a row when the target is filled. Check that the soil test method matches the Soil Health Card units.
+- nutrient_efficiency.csv: crop_id (default is the fallback row), nutrient, fertilizer_use_efficiency. It is only used to credit recent applications. Tag each figure with the crop it belongs to. Do not reuse a rice figure for wheat.
+- split_schedule.csv: fractions per stage that sum to 1 per nutrient per crop (P and K are usually basal).
+- fertilizer_products.csv: urea, DAP, MOP, SSP and every complex grade in your chosen datasets, with dataset_label (the exact label used in the dataset), N, P2O5 and K2O percentages and a current retail price in INR/kg with price_date and source. Never guess a price. Leave TODO(data). The engine only selects priced products, so get MOP first: rice needs it. A price that is old must say so in price_date.
+- soil_test_ratings.csv: the low and high cut-offs Soil Health Cards use for available N, P and K (kg/ha), organic carbon (percent) and pH bands, plus very_low_below where a source uses that band.
+- agronomy_rules.yaml: credit window days, rain_hold_mm and rain_hold_days, over_application_ratio_medium and _high, under_application_ratio, and the formula tolerance for the sanity test. Every key gets a comment with its source or the words "team assumption".
 
-Add tests/test_reference_tables.py checking: every crop in crops.csv has requirements and split rows, split fractions sum to 1, no negative numbers, product percentages are at most 100, efficiencies are between 0 and 1, and every source cell is non-empty. Show me the test output and a table of the values with their sources so a teammate can review them.
+Add tests/test_reference_tables.py checking: every crop in crops.csv has a generic reference dose row, split fractions sum to 1, no negative doses, product percentages are at most 100, efficiencies are between 0 and 1, every source cell is non-empty, and headers match the C5 schema. Also print which crops are ready (every required cell filled) and which are not, and why. Show me the test output and a table of the values with their sources so a teammate can review them.
 ````
 
 #### R4. Cleaning pipeline with validation gates
@@ -489,7 +493,7 @@ Load the eda-autoprofiler skill if you have it. Create notebooks/EDA.ipynb on cl
 
 #### R6. Shared feature module, loaders and dataset build
 
-**Integration gate G2** · Needs R4, R3 · Unblocks S3, S6, R7, R8, R9, R13, R14
+**Integration gate G2** · Needs R4, R3 · Unblocks S3, S6, R7, R8, R9, R13, R14, S4
 
 **Done when:** tests/test_feature_engineering.py parity test passes, train.csv has train, val and test splits, soil_data_loader loads every table, and dataset_manifest.json has the dataset version. PR is merged to main.
 
@@ -498,7 +502,7 @@ Load the eda-autoprofiler skill if you have it. Create notebooks/EDA.ipynb on cl
 ````text
 Implement the shared feature module and loaders, contract C4, in src/data_pipeline/feature_engineering.py, soil_data_loader.py and build_dataset.py.
 
-- soil_data_loader.py: load_reference_tables() reads every C5 table in ml/data/external/ once and returns a typed object with clear errors for a missing file or column. validate_soil(soil: dict) checks the fixed six soil fields (n, p, k, ph, organic_carbon, moisture): presence, type and sane bounds. Never add other soil fields.
+- soil_data_loader.py: load_reference_tables() reads every C5 table in ml/data/external/ once and returns a typed object with clear errors for a missing file or column. validate_soil(soil: dict) checks the fixed six soil fields (n, p, k, ph, organic_carbon, moisture): presence, type and sane bounds. Never add other soil fields. ready_crops(tables) returns the crops whose required cells are all filled (a generic reference dose for each nutrient, and split rows), with the reason for every crop that is not ready. Saloni's /reference/crops lists only ready crops.
 - feature_engineering.py: FEATURE_COLUMNS in a fixed order and CLASSIFIER_TARGET = "fertilizer_product_id". request_to_record(req) flattens a /recommend request (contract C1) into one record: soil values, weather, crop_id, variety_id, stage ordinal from growth_stages.csv and soil ratings via soil_test_ratings.csv. build_features(records) is pure and deterministic and uses fixed vocabularies from crops.csv so serving can never produce different columns than training. rule_inputs(req) returns soil ratings, prior-usage credit inputs and weather flags for the engine and the risk analyzer. Prior-usage features are not classifier inputs unless our chosen datasets contain them. load_training_frame(split) reads ml/data/processed/train.csv, which has a split column.
 - build_dataset.py creates train.csv with seed 42: a stratified split by fertilizer label into train, val and test (70, 15, 15), group-aware if a group exists, de-duplicated across splits. The test row ids are frozen in ml/data/external/test_ids.json and never regenerated silently.
 - Record the dataset version in ml/data/external/dataset_manifest.json: row counts per split, content hash and feature schema hash.
@@ -562,7 +566,7 @@ Load the model-evaluation-suite skill if you have it. Implement src/evaluation/m
 - evaluate_classifier(y_true, y_pred, y_proba=None, classes=None, groups=None, n_boot=1000, seed=42) -> dict with accuracy, balanced accuracy, macro-F1, MCC, per-class precision, recall and F1, the confusion matrix, bootstrap 95 percent intervals, and calibration (Brier score, ECE) when probabilities are given. JSON-serialisable.
 - cv_summary(fold_scores) -> mean and std per metric.
 - baseline_report(y_train, y_test) -> majority-class and stratified-random scores on the same split.
-- formula_conformity(recs, tables, tol) -> share of recommendations whose fertilizer_needed_kg_ha matches an independent recomputation of the deficit formula from the tables within tol, and the list of violators.
+- formula_conformity(recs, tables, tol) -> share of recommendations whose fertilizer_needed_kg_ha matches an independent recomputation of the dose formula from the tables within tol, and the list of violators.
 - per_slice(y_true, y_pred, slice_col) -> metrics by crop or soil rating.
 Tests on tiny synthetic arrays with known answers. Document the function signatures at the top of the module because Saloni's trainer and formula sanity gate call them. Show me one evaluate_classifier output on a toy example.
 ````
@@ -577,7 +581,7 @@ Tests on tiny synthetic arrays with known answers. Document the function signatu
 
 ````text
 Implement src/evaluation/explainability.py and complete ml/data/external/explanation_templates.yaml (contract C6; R8 already adds the risk.* keys).
-- Templates: template id to English sentence with {placeholders}, for example "Soil nitrogen is low ({value} kg/ha), so {needed} kg/ha of nitrogen fertilizer is needed after counting what the soil supplies." Add an hi: key for each so Darsh's Hindi toggle can use them later. Cover every rule_id Saloni's NPK calculator emits (agree the list with her; start from crop_demand, soil_supply, use_efficiency, prior_credit, rain_hold, split_stage) and the product choice.
+- Templates: template id to English sentence with {placeholders}, for example "The standard dose for irrigated wheat is {dose} kg/ha of nitrogen. Your soil potassium is low ({value} kg/ha), so {adjustment} kg/ha of potash is added." Add an hi: key for each so Darsh's Hindi toggle can use them later. Cover every rule_id Saloni's NPK calculator emits (agree the list with her; start from standard_dose, soil_adjustment, stcr_equation, prior_credit, rain_hold, split_stage) and the product choice.
 - render_template(template_id, **params) -> str; a missing id or param raises a clear error.
 - explain(features, prediction, rule_trace, top_k=3) -> list[str]: rank rule_trace items by absolute effect on the fertilizer needed (largest first), turn the top_k into sentences with the templates, and add one sentence for the product choice using XGBoost's native pred_contribs (booster.predict(dmatrix, pred_contribs=True)) for the top feature. No SHAP dependency. Sentences are plain language a farmer can read, with units, and never blame the farmer.
 Tests: given a hand-written rule_trace, explain() returns exactly top_k readable sentences, and every template renders with sample params.
@@ -665,10 +669,10 @@ Make the data side reproducible from a clean checkout.
 - The soil schema is fixed by the problem statement: n, p, k, ph, organic_carbon, moisture. Never add, remove or rename soil fields.
 - Work on your own branch. Never commit to main directly, except docs-only contract PRs that both owners have approved.
 - Stay inside your folders (root AGENTS.md). If you need a change in someone else's folder, ask them or record it in the contract doc.
-- Commit messages use the form <area>: <what changed>, for example ml: add NPK deficit calculator. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
+- Commit messages use the form <area>: <what changed>, for example ml: add NPK dose calculator. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
 - Never commit .env, raw datasets, models_artifacts/, node_modules or .venv. Add new variables to that service's .env.example.
 - Before a PR: git pull origin main --rebase, lint and tests pass, and the PR description states the change, the reason and how to test it. UI PRs include screenshots. One teammate reviews before merge.
 - Open a PR only when a feature works end to end. Small, focused commits, one logical change each.
 - Run every prompt in Claude Code from the repo root on your own branch. Each prompt begins by reading the project context files.
-- Reference numbers (crop demand, efficiencies, prices, thresholds) live in data or config files, never in application code, and every value has a source.
+- Reference numbers (reference doses, adjustments, efficiencies, prices, thresholds) live in data or config files, never in application code, and every value has a source.
 - No cloud deployment is in scope. The demo runs locally with docker-compose.
