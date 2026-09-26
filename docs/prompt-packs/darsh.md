@@ -115,16 +115,18 @@ Expected: Run every prompt below from the repo root.
 | PRD reference | Feature | Steps |
 |---|---|---|
 | FR1 | Register, log in, log out, role choice | D2, D3 |
-| FR2 | Create and manage farms and fields | D5 |
-| FR3, FR4, FR5 | Soil input, crop and stage selection, previous fertilizer log | D6 |
-| FR6 | Show current and forecast weather for the field | D7 |
-| FR7, FR8, FR10 | Show product, quantity, dated schedule, risk indicator, cost and saving | D4, D7 |
-| FR9 / Should-have 9 | Recommendation history with a trend view | D8 |
-| Should-have 10 | Show the plain-language reasons | D7 |
-| Should-have 11 | Hindi and English toggle | D10 |
-| Could-have 12 | The standout 3D and animated visualization | D9 |
-| Could-have 13 | Offline-friendly last recommendation | D12 |
-| NFR2 | Lightweight, low-end Android friendly | D1, D9, D12 |
+| FR2, FR13 | Create and manage farms and fields, set location three ways | D5 |
+| FR3, FR4, FR5 | Soil input (fixed six fields), crop, optional variety, sowing date and stage, previous fertilizer log | D6 |
+| FR6 | Show current and forecast weather with its source | D7 |
+| FR7, FR8, FR10 | Show product, quantity, dated schedule, risk with impact, cost and saving, formula inputs | D4, D7 |
+| FR11 / Should-have 11 | Printable schedule and PDF | D8 |
+| FR9 / Should-have 9 | Field profile, history and nutrient trends | D9 |
+| FR12 / Should-have 12 | Check my own dose | D10 |
+| Should-have 10 | Show the reasons and the deficit numbers | D7 |
+| Should-have 13 | Hindi and English toggle | D12 |
+| Could-have 14 | The standout 3D and animated visualization | D11 |
+| Could-have 15 | Offline-friendly last recommendation | D14 |
+| NFR2 | Lightweight, low-end Android friendly | D1, D11, D14 |
 
 ## 4. API calls you can use (contract C3)
 
@@ -144,29 +146,34 @@ Base URL `/api` (`VITE_API_BASE_URL`), JSON in camelCase, bearer access token. T
 | GET | `/farms/:farmId/fields` | ?page&limit | 200 paginated fields |
 | POST | `/farms/:farmId/fields` | { name, areaAcres?, latitude?, longitude?, pincode? } | 201 field |
 | GET | `/fields/:id` | none | 200 field with latest soil test and latest recommendation |
-| PATCH | `/fields/:id` | { cropType?, growthStage?, sowingDate?, latitude?, longitude?, areaAcres? } | 200 field |
+| PATCH | `/fields/:id` | { cropType?, cropVariety?, growthStage?, sowingDate?, latitude?, longitude?, areaAcres? } | 200 field |
+| GET | `/geocode` | ?q=place name | 200 [{ name, admin, latitude, longitude }] (Open-Meteo geocoding) |
 | POST | `/fields/:id/soil-tests` | { n, p, k, ph, organicCarbon, moisture, testedOn? } | 201 soil test |
 | GET | `/fields/:id/soil-tests` | ?page&limit | 200 newest first |
 | POST | `/fields/:id/fertilizer-logs` | { type, quantityKgPerAcre, appliedOn } | 201 log |
 | GET | `/fields/:id/fertilizer-logs` | ?page&limit | 200 newest first |
-| GET | `/fields/:id/weather` | none | 200 { temperatureC, humidityPct, rainfallMmForecast, fetchedAt, stale } |
-| POST | `/fields/:id/recommendations` | { soilTestId?, cropType?, growthStage? } | 201 Recommendation |
+| GET | `/fields/:id/weather` | none | 200 { temperatureC, humidityPct, rainfallMmForecast, source, fetchedAt, stale } |
+| POST | `/fields/:id/recommendations` | { soilTestId?, cropType?, cropVariety?, growthStage? } | 201 Recommendation |
 | GET | `/fields/:id/recommendations` | ?page&limit | 200 history, newest first |
 | GET | `/recommendations/:id` | none | 200 Recommendation |
-| GET | `/reference/crops` | none | 200 [{ id, nameEn, nameHi, stages: [{ id, nameEn, nameHi, order }] }] |
+| POST | `/fields/:id/risk-check` | { plannedApplication: [{ fertilizerType, quantityKgPerAcre }] } | 200 { risk, nutrientBalance } |
+| GET | `/fields/:id/trends` | none | 200 { soilTests: [...], applied: [...], recommendations: [...] } time series for charts |
+| GET | `/reference/crops` | none | 200 [{ id, nameEn, nameHi, varieties: [{ id, nameEn, nameHi }], stages: [{ id, nameEn, nameHi, order }] }] |
 | GET | `/reference/soil-ratings` | none | 200 cut-offs for n, p, k, organicCarbon, ph |
 | GET | `/reference/fertilizers` | none | 200 [{ id, name, nPct, p2o5Pct, k2oPct, priceInrPerKg, priceDate }] |
 
 ```text
 Recommendation {
-  id, fieldId, soilTestId, cropType, growthStage,
+  id, fieldId, soilTestId, cropType, cropVariety | null, growthStage,
   fertilizerType, quantityKgPerAcre,
   schedule: [{ stage, fertilizerType, quantityKgPerAcre, applyBy }],
-  risk: { level: "low" | "medium" | "high", reason },
+  risk: { level: "low" | "medium" | "high", reason, soilHealthImpact, yieldImpact, overApplicationPct | null },
   topFactors: [string],
+  nutrientBalance: { n|p|k: { cropDemandKgHa, soilSupplyKgHa, deficitKgHa, useEfficiency, priorCreditKgHa, fertilizerNeededKgHa } },
+  formula: string,
   cost: { estimatedCostPerAcre, previousCostPerAcre | null, savingPerAcre | null, savingTotal | null },
   impact: { overApplicationReductionPct | null },
-  weatherStale: boolean,
+  weatherSource: "live" | "cached" | "seasonal_average", weatherStale: boolean,
   modelVersion, createdAt
 }
 Errors: { error: string, details?: [] }. Codes: 400 validation, 401, 403, 404 (also for other users' resources), 409 missing prerequisite, 502 ML unavailable, 503 weather unavailable.
@@ -179,18 +186,20 @@ Hard need = you cannot finish the step without it. Integrates with = you can sta
 | Step | Blocked by (hard) | Pairs with | Integrates with | Unblocks | Gate |
 |---|---|---|---|---|---|
 | **D0** Verify your frontend environment | none | none | none | none |  |
-| **D1** Choose your direction and build your foundation | none | none | none | D2, D11 |  |
+| **D1** Choose your direction and build your foundation | none | none | none | D2, D13 |  |
 | **D2** API layer, mock mode, shell and routing | D1, J1 | none | none | D3, D4, D5 |  |
 | **D3** Sign up, log in, log out | D2 | none | J3 | none | G1 |
 | **D4** First recommendation screen | D2 | none | J4, S2 | D7, J4 | G1 |
-| **D5** Farms and fields | D2 | none | J5 | D6, J5 | G2 |
-| **D6** Soil input, crop selection and fertilizer log | D5 | none | J5, J6, R1 | D10, J5 | G2 |
-| **D7** The full recommendation screen | D4 | none | J8, S7, R12 | D8, D9, J8 | G3 |
-| **D8** History and trend | D7 | none | J8 | J8 | G3 |
-| **D9** The standout visualization | D7 | none | J6 | D12 | G4 |
-| **D10** English and Hindi toggle | D6 | none | R1 | D12 | G4 |
-| **D11** Landing page and brand finish | D1 | none | none | D12 | G4 |
-| **D12** Launch checks, offline fallback and demo path | D9, D10, D11 | none | R12 | none | G5 |
+| **D5** Farms and fields, and setting a location | D2 | none | J5, J7 | D6, J5 | G2 |
+| **D6** Soil input, crop and variety selection, fertilizer log | D5 | none | J5, J6, R1 | D12, J5 | G2 |
+| **D7** The full recommendation screen | D4 | none | J8, S6, R11 | D8, D9, D10, D11, J8 | G3 |
+| **D8** Schedule page with print and PDF export | D7 | none | J8, S6 | D14 | G3 |
+| **D9** Field profile, history and nutrient trends | D7 | none | J8, J9 | J8, J9 | G3 |
+| **D10** Check my own dose | D7 | none | J9, R8 | J9 | G4 |
+| **D11** The standout visualization | D7 | none | J6 | D14 | G4 |
+| **D12** English and Hindi toggle | D6 | none | R1 | D14 | G4 |
+| **D13** Landing page and brand finish | D1 | none | none | D14 | G4 |
+| **D14** Launch checks, offline fallback and demo path | D8, D11, D12, D13 | none | R11 | none | G5 |
 
 ## 6. Team timeline and integration gates
 
@@ -203,16 +212,16 @@ Hard need = you cannot finish the step without it. Integrates with = you can sta
 
 ### G0 — Contracts locked (end of Phase 0)
 
-C1 (ML predict API), C3 (backend REST API), fixtures and the vocabulary files are merged to main. Nobody changes them without the change protocol.
+C1 (ML API), C3 (backend REST API), the fixtures and the crop vocabulary are merged to main. Nobody changes them without the change process.
 
 **Who delivers what**
 
-- Saloni + Josh: docs/api-contract.md v1.0 and docs/contract-fixtures/ merged (S1, J1)
+- Saloni + Josh: review and lock docs/api-contract.md and docs/contract-fixtures/ (S1, J1)
 - Josh + Darsh: docs/backend-api.md merged (J1)
-- Richa: crops.csv, growth_stages.csv and header-only C5 tables merged (R1)
+- Richa: crops, varieties, stages and header-only reference tables merged (R1)
 - Everyone: dev environment running on their own branch (S0, R0, J0, D0)
 
-**Acceptance test:** Every teammate can read the fixtures and say what each endpoint returns. Josh, Saloni and Darsh have all approved the contract PRs.
+**Acceptance test:** Every teammate can read the fixtures and say what each endpoint returns. Josh, Saloni and Darsh have approved the contract PRs.
 
 **If it slips:** Do not start Phase 1 code that depends on an unmerged contract. Build only environment and non-contract work until it merges.
 
@@ -224,61 +233,61 @@ One request travels the whole chain with fake numbers: frontend, backend, databa
 
 **Who delivers what**
 
-- Saloni: ML service mock mode plus reference endpoints on main (S2)
+- Saloni: ML mock mode plus reference endpoints on main (S2)
 - Josh: seeded database, real auth and the thin recommendation route (J2, J3, J4)
 - Darsh: shell, auth pages and a first recommendation screen (D2, D3, D4)
-- Richa: raw data acquired, norms and rules v0 for two crops, cleaning pipeline (R2, R3, R4)
+- Richa: datasets chosen, reference tables v0, cleaning pipeline (R2, R3, R4)
 
 **Acceptance test:** Log in as the seeded farmer, open the seeded field, press Get recommendation, see a mocked plan on screen, and find the stored row in Postgres.
 
 **If it slips:** Darsh runs with VITE_USE_MOCK=true. Josh stubs the ML call with the fixture. Neither blocks on the other.
 
-### G2 — Data to model handoff (end of Phase 2)
+### G2 — Data to engine handoff (end of Phase 2)
 
-Richa's dataset and feature module are consumed by Saloni's trainer, the dosage engine runs on Richa's tables, and the app stores real farm data.
+Richa's tables and feature module feed Saloni's deficit engine and trainer, and the app stores real farm data.
 
-**Your steps at this gate:** D5 (Farms and fields), D6 (Soil input, crop selection and fertilizer log)
+**Your steps at this gate:** D5 (Farms and fields, and setting a location), D6 (Soil input, crop and variety selection, fertilizer log)
 
 **Who delivers what**
 
-- Richa: feature module, dataset build and frozen test split on main (R6)
-- Saloni: first trained model v0.1.0 in the registry (S3) and a passing dosage engine (S4)
-- Josh: CRUD, reference proxy and weather route on main (J5, J6, J7)
+- Richa: feature module, dataset build, frozen test split, weather client and seasonal fallback on main (R6, R7)
+- Saloni: first trained model v0.1.0 (S3) and a passing NPK-deficit calculator on Richa's tables (S4)
+- Josh: CRUD, reference proxy, weather and geocoding on main (J5, J6, J7)
 - Darsh: farm, field, soil, crop and fertilizer log screens saving real data (D5, D6)
 
-**Acceptance test:** python -m src.models.train runs from a clean checkout on Richa's dataset and prints a comparison table. Darsh creates a farm, field and soil test in the UI and Josh's database holds them.
+**Acceptance test:** python -m src.models.train runs from a clean checkout and prints a comparison table. The engine's golden tests pass on the reference tables. Darsh creates a farm, field and soil test in the UI and Josh's database holds them.
 
-**If it slips:** Saloni trains on sample_train.csv. Dosage tests use the v0 tables. The UI keeps using the mock for anything unmerged.
+**If it slips:** Saloni trains on sample_train.csv. Engine tests use the v0 tables. The UI keeps using the mock for anything unmerged.
 
 ### G3 — Real end to end (end of Phase 3)
 
-Mock mode is off. A real model, real weather and real stored data produce the recommendation the user sees.
+Mock mode is off. A real engine, real weather and real stored data produce the recommendation the user sees, with the risk warning and the formula inputs.
 
-**Your steps at this gate:** D7 (The full recommendation screen), D8 (History and trend)
+**Your steps at this gate:** D7 (The full recommendation screen), D8 (Schedule page with print and PDF export), D9 (Field profile, history and nutrient trends)
 
 **Who delivers what**
 
-- Saloni: predict pipeline in real mode with risk and cost (S5, S6, S7, S8)
-- Richa: metrics, explanation templates, demo scenarios (R8, R9, R12)
-- Josh: full recommendation orchestration and history (J8)
-- Darsh: full recommendation screen and history (D7, D8)
+- Saloni: cost, recommendation engine in real mode, contract tests (S5, S6, S7)
+- Richa: risk analyzer, metrics, explanations, demo scenarios (R8, R9, R10, R11)
+- Josh: full recommendation orchestration and history, risk check and trends (J8, J9)
+- Darsh: full recommendation screen, schedule page, history and trends (D7, D8, D9)
 
-**Acceptance test:** Signup, farm, field, soil test, crop and stage, Get recommendation. The result shows a real model_version, schedule with dates, risk, cost, factors. History shows it afterwards.
+**Acceptance test:** Signup, farm, field, soil test, crop and stage, Get recommendation. The result shows a real model_version, a dated schedule, the risk with its soil and yield impact, cost and the deficit numbers. History and the schedule page show it afterwards.
 
-**If it slips:** Ship G3 with PREDICT_MODE=mock and label it in the UI as sample output. Do not hide that it is a mock.
+**If it slips:** Ship G3 with mock mode and label it in the UI as sample output. Do not hide that it is a mock.
 
 ### G4 — One-command stack (end of Phase 4)
 
 docker compose up brings up Postgres, ML and backend healthy from a clean clone. CI is green. The standout UI features work on the real stack.
 
-**Your steps at this gate:** D9 (The standout visualization), D10 (English and Hindi toggle), D11 (Landing page and brand finish)
+**Your steps at this gate:** D10 (Check my own dose), D11 (The standout visualization), D12 (English and Hindi toggle), D13 (Landing page and brand finish)
 
 **Who delivers what**
 
-- Josh: compose and CI (J9), hardening (J10)
-- Saloni: ML image, artifact strategy, sanity gate, final test evaluation (S9, S10)
-- Richa: evaluation report with impact estimate (R10)
-- Darsh: 3D visualization, language toggle, landing (D9, D10, D11)
+- Josh: compose and CI (J10), hardening (J11)
+- Saloni: ML image, artifact strategy, formula sanity gate, final test evaluation (S8, S9)
+- Richa: evaluation report with impact estimate (R12)
+- Darsh: what-if dose check, 3D visualization, language toggle, landing (D10, D11, D12, D13)
 
 **Acceptance test:** A teammate who has never run the project clones it, follows the README and reaches a working recommendation in under 15 minutes.
 
@@ -288,14 +297,14 @@ docker compose up brings up Postgres, ML and backend healthy from a clean clone.
 
 Rehearsed on two machines. Fallbacks work. Model card and evaluation report are written. main is tagged.
 
-**Your steps at this gate:** D12 (Launch checks, offline fallback and demo path)
+**Your steps at this gate:** D14 (Launch checks, offline fallback and demo path)
 
 **Who delivers what**
 
-- Saloni: model card and demo readiness (S11, S12)
-- Josh: demo seed and reset (J11)
-- Darsh: launch pass and offline fallback build (D12)
-- Richa: reproducible data commands and docs (R11)
+- Saloni: model card and demo readiness (S10, S11)
+- Josh: demo seed and reset (J12)
+- Darsh: launch pass and offline fallback build (D14)
+- Richa: reproducible data commands and docs (R13)
 
 **Acceptance test:** Full demo run on two laptops, once with internet and once with mock fallbacks. The three demo scenarios behave as documented in docs/demo-scenarios.md.
 
@@ -305,69 +314,88 @@ Rehearsed on two machines. Fallbacks work. Model card and evaluation report are 
 
 | # | Contract | Where | Owners | Locks at |
 |---|---|---|---|---|
-| C1 | ML predict API: POST /predict and GET /health between the backend and the ML service. Code sides: ml/src/api/schemas.py and backend/src/services/mlService.js. | `docs/api-contract.md, docs/contract-fixtures/` | Saloni, Josh | G0 |
-| C2 | Reference data API: Crops, growth stages, soil rating cut-offs and fertilizer products. Richa authors the files, Saloni serves them, Josh proxies them, Darsh reads them. Nothing is hardcoded in the UI or the backend. | `ml/data/external/*.csv, ML /reference/*, backend /api/reference/*` | Richa, Saloni, Josh, Darsh | G0 (shape), G2 (real data) |
-| C3 | Backend REST API: Every endpoint the frontend calls: auth, farms, fields, soil tests, fertilizer logs, weather, recommendations, reference. | `docs/backend-api.md` | Josh, Darsh | G0 |
-| C4 | Feature module: The single feature code path used by training and by serving, so the two can never drift. | `ml/src/data_pipeline/feature_engineering.py` | Richa, Saloni | G2 |
-| C5 | External reference tables: Crop nutrient norms, split schedules, fertilizer products and prices, soil rating cut-offs, agronomy rules. Column schemas are agreed in R1, values arrive in R3. | `ml/data/external/` | Richa, Saloni | G0 (schemas), G1 (v0 values) |
-| C6 | Rule trace and explanations: Saloni's engines emit a rule_trace. Richa's explain() turns it into plain sentences. | `ml/src/evaluation/explainability.py, ml/data/external/explanation_templates.yaml` | Saloni, Richa | G2 |
+| C1 | ML API: POST /recommend, POST /risk-score and GET /health between the backend and the ML service. Code sides: ml/src/api/schemas.py and backend/src/services/mlService.js. A pre-filled v1.0 draft is already in the repo. S1 and J1 review and lock it. | `docs/api-contract.md, docs/contract-fixtures/` | Saloni, Josh | G0 |
+| C2 | Reference data API: Crops, varieties, growth stages, soil rating cut-offs, fertilizer products and the seasonal-weather fallback. Richa authors the files, Saloni serves them, Josh proxies them, Darsh reads them. Nothing is hardcoded in the UI or the backend. | `ml/data/external/*, ML /reference/*, backend /api/reference/*` | Richa, Saloni, Josh, Darsh | G0 (shape), G2 (real data) |
+| C3 | Backend REST API: Every endpoint the frontend calls: auth, farms, fields, soil tests, fertilizer logs, weather, geocoding, recommendations, risk check, trends, reference. | `docs/backend-api.md` | Josh, Darsh | G0 |
+| C4 | Feature module and loaders: The single feature code path used by training and serving, and the loader that reads the reference tables once. | `ml/src/data_pipeline/feature_engineering.py, soil_data_loader.py` | Richa, Saloni | G2 |
+| C5 | Reference table schemas: Crop requirements, use efficiencies, split schedules, fertilizer products and prices, soil rating cut-offs, agronomy rules, seasonal weather. Column schemas are agreed in R1, values arrive in R3. | `ml/data/external/` | Richa, Saloni | G0 (schemas), G1 (v0 values) |
+| C6 | Rule trace, risk and explanations: Saloni's engine emits a nutrient balance and a rule trace. Richa's risk analyzer and explain() turn them into a risk level, soil and yield impact text and reasons. | `ml/src/degradation/risk_analyzer.py, ml/src/evaluation/explainability.py` | Saloni, Richa | G2 |
 | C7 | Evaluation and run records: Richa's metric functions, Saloni's run record format. Both feed the model card. | `ml/src/evaluation/metrics.py, models_artifacts/runs/` | Richa, Saloni | G3 |
 
-**C1 decisions to lock in G0**
+**C1 decisions (pre-filled in docs/api-contract.md)**
 
-1. Request gains an optional sowing_date (YYYY-MM-DD). Backend adds Field.sowingDate. Frontend collects it.
-2. Each schedule[] item gains fertilizer_type. Top-level recommendation.fertilizer_type is the primary product, and its quantity_kg_per_acre is that product's total across the schedule.
-3. Response gains cost { estimated_cost_inr_per_acre, previous_cost_inr_per_acre (nullable), saving_inr_per_acre (nullable) } and impact { over_application_reduction_pct (nullable) }. Nulls mean no history was logged, never a made-up baseline.
-4. Units: kg/acre in the API. Soil N, P, K in kg/ha. Organic carbon and moisture in percent. The ML service converts internally (1 ha = 2.4711 acre).
-5. crop_type and growth_stage are ids from GET /reference/crops, for example wheat and tillering.
-6. Errors: 422 { detail: [...] } for invalid input. 503 { detail } when the model or reference data is unavailable. The backend maps these to 400 and 502 for the client.
-7. model_version format: <model>-<semver>+rules-<hash8>, so a result can be traced to both the model and the rule tables.
+1. Soil schema is fixed by the problem statement: n, p, k, ph, organic_carbon, moisture. It is not extended.
+2. Request adds optional variety (only if Richa's data has varieties) and optional sowing_date. The backend stores them as Field.cropVariety and Field.sowingDate. They are already in the Prisma schema.
+3. Endpoints: POST /recommend, POST /risk-score (score a planned dose), GET /health, GET /reference/*.
+4. Core method: fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications. The response returns these inputs per nutrient in explanation.nutrient_balance.
+5. Each schedule[] item carries fertilizer_type. Top-level fertilizer_type is the primary product and its quantity_kg_per_acre is that product's total across the schedule.
+6. risk has level, reason, soil_health_impact and yield_impact. The impact texts state the consequence in plain language, as the problem statement asks.
+7. weather.source is live, cached or seasonal_average. The backend sends it, the ML service echoes what it used.
+8. cost and impact fields are null when the farmer logged no previous usage. Never invent a baseline.
+9. Units: kg/acre in the API, soil N, P, K in kg/ha, organic_carbon and moisture in percent. Internal conversion 1 ha = 2.4711 acre.
+10. Errors: 422 { detail: [...] } for invalid input, 503 { detail } when the model or reference data is unavailable.
+11. model_version format: <model>-<semver>+rules-<hash8>.
 
 **C3 Recommendation object and errors**
 
 ```text
 Recommendation {
-  id, fieldId, soilTestId, cropType, growthStage,
+  id, fieldId, soilTestId, cropType, cropVariety | null, growthStage,
   fertilizerType, quantityKgPerAcre,
   schedule: [{ stage, fertilizerType, quantityKgPerAcre, applyBy }],
-  risk: { level: "low" | "medium" | "high", reason },
+  risk: { level: "low" | "medium" | "high", reason, soilHealthImpact, yieldImpact, overApplicationPct | null },
   topFactors: [string],
+  nutrientBalance: { n|p|k: { cropDemandKgHa, soilSupplyKgHa, deficitKgHa, useEfficiency, priorCreditKgHa, fertilizerNeededKgHa } },
+  formula: string,
   cost: { estimatedCostPerAcre, previousCostPerAcre | null, savingPerAcre | null, savingTotal | null },
   impact: { overApplicationReductionPct | null },
-  weatherStale: boolean,
+  weatherSource: "live" | "cached" | "seasonal_average", weatherStale: boolean,
   modelVersion, createdAt
 }
 Errors: { error: string, details?: [] }. Codes: 400 validation, 401, 403, 404 (also for other users' resources), 409 missing prerequisite, 502 ML unavailable, 503 weather unavailable.
 ```
 
-**C4 Feature module interface**
+**C4 Feature module and loaders**
 
 ```text
 FEATURE_COLUMNS: list[str]            # classifier inputs, fixed order
 CLASSIFIER_TARGET = "fertilizer_product_id"
-request_to_record(req: dict) -> dict            # /predict request -> one flat record
+request_to_record(req: dict) -> dict            # /recommend request -> one flat record
 build_features(records) -> pd.DataFrame          # same code for training and serving
-rule_inputs(req: dict) -> dict                    # soil ratings, prior-usage nutrient credit, rain flags
+rule_inputs(req: dict) -> dict                    # soil ratings, prior-usage credit inputs, rain flags
 load_training_frame(split: "train"|"val"|"test") -> pd.DataFrame
+soil_data_loader.load_reference_tables() -> Tables   # reads ml/data/external once
+soil_data_loader.validate_soil(soil: dict) -> dict   # bounds check on the fixed six soil fields
 ```
 
-**C5 External table schemas**
+**C5 Reference table schemas**
 
 ```text
 crops.csv                 crop_id,name_en,name_hi,dataset_label,season,source
+crop_varieties.csv        crop_id,variety_id,name_en,name_hi,source   (header only if the data has no varieties)
 growth_stages.csv         crop_id,stage_id,name_en,name_hi,order,das_start,das_end,source
-crop_nutrient_norms.csv   crop_id,irrigation,n_kg_ha,p2o5_kg_ha,k2o_kg_ha,region,source,notes
-split_schedule.csv        crop_id,stage_id,n_fraction,p_fraction,k_fraction        (fractions sum to 1 per crop)
+crop_requirements.csv     crop_id,variety_id,irrigation,n_kg_ha,p2o5_kg_ha,k2o_kg_ha,source,notes   (seasonal crop demand)
+nutrient_efficiency.csv   nutrient,soil_supply_factor,fertilizer_use_efficiency,source,notes
+split_schedule.csv        crop_id,stage_id,n_fraction,p_fraction,k_fraction   (fractions sum to 1 per crop)
 fertilizer_products.csv   product_id,name,n_pct,p2o5_pct,k2o_pct,price_inr_per_kg,price_date,source
 soil_test_ratings.csv     parameter,unit,low_below,high_above,source
-agronomy_rules.yaml       soil-rating multipliers, credit window days, rain_hold_mm / rain_hold_days,
-                          over_application_ratio_medium / _high, norm tolerance. Every key has a source comment.
+seasonal_weather.csv      region_key,month,temperature_c,humidity_pct,rainfall_mm_5day,source
+agronomy_rules.yaml       credit window days, rain_hold_mm / rain_hold_days, over_application_ratio_medium / _high,
+                          under_application_ratio, formula tolerance. Every key has a source comment.
+explanation_templates.yaml  template id -> en and hi sentence (rule sentences, risk reasons, soil and yield impacts)
 ```
 
-**C6 Rule trace and explain()**
+**C6 Engine output, risk analyzer and explain()**
 
 ```text
+# Saloni's engine returns:
+nutrient_balance: { n|p|k: { crop_demand_kg_ha, soil_supply_kg_ha, deficit_kg_ha, use_efficiency, prior_credit_kg_ha, fertilizer_needed_kg_ha } }
 rule_trace item: { rule_id, nutrient: "n"|"p"|"k"|null, value, threshold, effect, params: {} }
+
+# Richa's modules:
+risk_analyzer.assess_recommendation(nutrient_balance, schedule, soil, weather, prior_usage, rules) -> Risk
+risk_analyzer.score_planned(planned_application, nutrient_balance, soil, weather, prior_usage, rules) -> { risk, nutrient_balance }
+   Risk = { level: "low"|"medium"|"high", reason, soil_health_impact, yield_impact, over_application_pct | None }
 explain(features: dict, prediction: dict, rule_trace: list[dict], top_k: int = 3) -> list[str]
 render_template(template_id: str, **params) -> str      # explanation_templates.yaml, en + hi
 ```
@@ -378,7 +406,7 @@ render_template(template_id: str, **params) -> str      # explanation_templates.
 evaluate_classifier(y_true, y_pred, y_proba=None, classes=None, groups=None, n_boot=1000, seed=42) -> dict
 cv_summary(fold_scores: list[dict]) -> dict              # mean and std per metric
 baseline_report(y_train, y_test) -> dict
-norm_conformity(recs, norms, tol) -> dict                # share within tolerance + violators
+formula_conformity(recs, tables, tol) -> dict            # share whose fertilizer_needed matches an independent recomputation of the deficit formula, plus violators
 per_slice(y_true, y_pred, slice_col) -> dict
 run record (Saloni): { run_id, name, tags, git_sha, config_hash, dataset_hash, env, params, metrics, wall_clock_s }
 ```
@@ -412,7 +440,7 @@ Report any error. Fix only environment problems.
 
 #### D1. Choose your direction and build your foundation
 
-Unblocks D2, D11
+Unblocks D2, D13
 
 **Done when:** frontend/DESIGN.md explains your direction in a few lines, the tokens exist, and a temporary /kit route shows your components at 390 px and 1280 px.
 
@@ -426,7 +454,7 @@ Once I have chosen:
 2. Produce the token set first: src/styles/tokens.css with --color-*, --font-*, --space-*, --radius-*, --shadow-*, --ease-* and --dur-*, mapped into tailwind.config.js. Components use tokens only.
 3. Fonts: self-host woff2 (Fontsource), subset, font-display: swap, and make sure the family (or a paired fallback) has Devanagari glyphs, because the Hindi toggle comes later.
 4. Build the components I will need in src/components/ui/: Button, Input, Select, Textarea, FormField (label, hint, error), Card, Badge, a risk badge for low, medium and high (colour, icon and text together), Skeleton, Toast, Modal, EmptyState. Every interactive component has hover, active, focus-visible, disabled and loading states, and touch targets of at least 44 px.
-5. Add a temporary /kit route that shows all components; I remove it in D12.
+5. Add a temporary /kit route that shows all components; I remove it in D14.
 Show me screenshots of /kit at 390 px and 1280 px.
 ````
 
@@ -486,37 +514,40 @@ For Gate G1 a temporary way to trigger it for the seeded field is fine. Show me 
 
 ### Phase 2: Real data and real CRUD
 
-#### D5. Farms and fields
+#### D5. Farms and fields, and setting a location
 
-**Integration gate G2** · Needs D2 · Integrates with J5 · Unblocks D6, J5
+**Integration gate G2** · Needs D2 · Integrates with J5, J7 · Unblocks D6, J5
 
-**Done when:** You can create, list and open farms and fields against the real backend, with optimistic updates that roll back on failure.
+**Done when:** You can create, list and open farms and fields against the real backend, set a field's location three ways, with optimistic updates that roll back on failure.
 
 ````text
 Build farm and field management. Design is mine. The calls:
 GET /farms (paginated), POST /farms { name }, GET /farms/:id, DELETE /farms/:id
 GET /farms/:farmId/fields, POST /farms/:farmId/fields { name, areaAcres?, latitude?, longitude?, pincode? }
 GET /fields/:id (includes latest soil test and latest recommendation), PATCH /fields/:id
-Must have: a place to see farms with their fields; create farm; create field with a way to set coordinates (typing them, and a "use my location" button that handles a denied permission gracefully); a field view that shows the crop, stage, sowing date, latest soil test and latest recommendation with links onward. Optimistic UI for create and delete with a rollback and message on failure. Skeletons for lists and an empty state that shows the next action. Build against the mock, then Josh's J5.
+GET /geocode?q=place name -> [{ name, admin, latitude, longitude }] (empty list when nothing matches)
+Must have: a place to see farms with their fields; create farm; create field; a way to see a field's crop, stage, sowing date, latest soil test and latest recommendation with links onward.
+Location: coordinates are what the weather needs, so a field must end up with latitude and longitude. Offer all three ways: "use my current location" (handle a denied permission gracefully), search by place name through GET /geocode with the results as a pick list, and typing latitude and longitude. The pincode is an optional label only, and is never turned into coordinates. Show the chosen place and coordinates back to the user before saving, so a farmer can catch a wrong village.
+Optimistic UI for create and delete with a rollback and message on failure. Skeletons for lists and an empty state that shows the next action. A map picker is a stretch, do not add a map library now. Build against the mock, then Josh's J5 and J7.
 ````
 
-#### D6. Soil input, crop selection and fertilizer log
+#### D6. Soil input, crop and variety selection, fertilizer log
 
-**Integration gate G2** · Needs D5 · Integrates with J5, J6, R1 · Unblocks D10, J5
+**Integration gate G2** · Needs D5 · Integrates with J5, J6, R1 · Unblocks D12, J5
 
-**Done when:** A user can save a soil test, choose crop, stage and sowing date, log past fertilizer, and reach Get recommendation. No crop, stage or fertilizer list lives in the frontend code.
+**Done when:** A user can save a soil test, choose crop, variety (when the crop has any), stage and sowing date, log past fertilizer, and reach Get recommendation. No crop, variety, stage or fertilizer list lives in the frontend code.
 
-> Check the units and labels against Richa's docs/data-dictionary.md. Crop and stage ids come from the reference API.
+> The soil form has exactly six fields and that is fixed by the problem statement. Check units and labels against Richa's docs/data-dictionary.md. Crop, variety and stage ids come from the reference API.
 
 ````text
 Build the data entry flow (PRD FR3 to FR5). Design is mine. The calls:
-POST /fields/:id/soil-tests { n, p, k, ph, organicCarbon, moisture, testedOn? } (n, p, k in kg/ha, organicCarbon and moisture in percent)
-PATCH /fields/:id { cropType, growthStage, sowingDate }
+POST /fields/:id/soil-tests { n, p, k, ph, organicCarbon, moisture, testedOn? } (n, p, k in kg/ha, organicCarbon and moisture in percent). These six fields are fixed by the problem statement. Do not add or rename any.
+PATCH /fields/:id { cropType, cropVariety?, growthStage, sowingDate }
 POST and GET /fields/:id/fertilizer-logs { type, quantityKgPerAcre, appliedOn }
-GET /reference/crops gives [{ id, nameEn, nameHi, stages: [{ id, nameEn, nameHi, order }] }]
+GET /reference/crops gives [{ id, nameEn, nameHi, varieties: [{ id, nameEn, nameHi }], stages: [{ id, nameEn, nameHi, order }] }]
 GET /reference/soil-ratings gives low and high cut-offs per parameter
 GET /reference/fertilizers gives products with names and ids
-Must have: soil fields with plain-language help, units and valid ranges, plus a rating (low, medium, high) computed from /reference/soil-ratings, never from numbers in the UI; a crop and stage chooser filled from /reference/crops; a sowing date; a fertilizer log with product from /reference/fertilizers, quantity in kg/acre and a date that cannot be in the future, plus the list of past applications; a clear path to "Get recommendation". Until Richa's tables are merged the mock serves the reference lists, so leave no crop list in the code.
+Must have: the six soil fields with plain-language help, units and valid ranges, plus a rating (low, medium, high) computed from /reference/soil-ratings, never from numbers in the UI; a crop and stage chooser filled from /reference/crops; a variety chooser that appears only when the selected crop has varieties (hide it otherwise, and allow leaving it empty); a sowing date; a fertilizer log with product from /reference/fertilizers, quantity in kg/acre and a date that cannot be in the future, plus the list of past applications; a clear path to "Get recommendation". Until Richa's tables are merged the mock serves the reference lists, so leave no crop list in the code.
 Must handle: inline validation, no double submit, input preserved on error. Test against the mock, then Josh's J5 and J6.
 ````
 
@@ -524,49 +555,80 @@ Must handle: inline validation, no double submit, input preserved on error. Test
 
 #### D7. The full recommendation screen
 
-**Integration gate G3** · Needs D4 · Integrates with J8, S7, R12 · Unblocks D8, D9, J8
+**Integration gate G3** · Needs D4 · Integrates with J8, S6, R11 · Unblocks D8, D9, D10, D11, J8
 
 **Done when:** The three demo scenarios each render correctly against the real chain, with every case and state handled.
 
 > This is the frontend half of Gate G3. The screen every judge will look at.
 
 ````text
-Upgrade the recommendation screen for the real model. How it is laid out and presented is my decision. What it must communicate to a non-technical farmer, using the same Recommendation object as D4:
+Upgrade the recommendation screen for the real engine. How it is laid out and presented is my decision. What it must communicate to a non-technical farmer, using the Recommendation object from D4 (now including risk.soilHealthImpact, risk.yieldImpact, nutrientBalance, formula, weatherSource):
 - what to apply, how much and when, with split doses visible, and any rain delay mentioned by the reasons,
-- the risk level and what to do about it, understandable without colour,
+- the risk level, its reason, and the two impact sentences (what it does to soil health and to yield), understandable without colour,
+- the working: for each of nitrogen, phosphorus and potassium, the crop demand, what the soil supplies, the deficit and the fertilizer needed (nutrientBalance and formula), so the number is never a black box,
 - cost per acre, the previous cost, the saving per acre and the field total when area exists. When saving is null show a prompt to log previous fertilizer use instead of a number. When saving is negative explain that this plan costs more than recent use and why, using the top factors,
 - the 2 to 3 reasons (topFactors) as readable sentences,
-- the weather that was used, from GET /fields/:id/weather { temperatureC, humidityPct, rainfallMmForecast, fetchedAt, stale }, flagged when stale,
+- the weather that was used, from GET /fields/:id/weather { temperatureC, humidityPct, rainfallMmForecast, source, fetchedAt, stale }, with a clear note when the source is cached or a seasonal average,
 - the over-application reduction only when impact returns it,
-- a way to keep or share the plan (for example a copy-text of the schedule or a printable view).
-Handle every error and empty case. Run against the real chain (Saloni S7 and Josh J8) and show me the screen for the three scenarios in docs/demo-scenarios.md.
+- a link to the schedule page (D8).
+Handle every error and empty case. Run against the real chain (Saloni S6 and Josh J8) and show me the screen for the three scenarios in docs/demo-scenarios.md.
 ````
 
-#### D8. History and trend
+#### D8. Schedule page with print and PDF export
 
-**Integration gate G3** · Needs D7 · Integrates with J8 · Unblocks J8
+**Integration gate G3** · Needs D7 · Integrates with J8, S6 · Unblocks D14
 
-**Done when:** History pages through many rows, opens a past recommendation, and shows a trend with a text alternative.
+**Done when:** A recommendation opens as a schedule that reads in under 30 seconds, prints cleanly on A4 and on a phone, and saves as PDF from the browser's print dialog.
+
+> PRD FR11. No PDF library is needed. A print stylesheet and the browser's Save as PDF are enough and keep the bundle small.
 
 ````text
-Build recommendation history and a trend view. Design is mine. The calls: GET /fields/:id/recommendations?page&limit gives { items, page, limit, total } newest first, and GET /recommendations/:id gives one Recommendation.
-Must have: a list showing when, crop and stage, product, quantity, risk and saving; opening a past item; pagination; a trend of quantity and cost over time. NFR2 says lightweight, so avoid a heavy chart library: a hand-written SVG is fine. Whatever the chart looks like it needs labelled axes, an emphasised latest point and an accessible table alternative. Skeleton, empty and error states. Test with many rows from the mock.
+Build the schedule page (route /fields/:fieldId/schedule). Design is mine. It shows one recommendation's schedule (schedule: [{ stage, fertilizerType, quantityKgPerAcre, applyBy }]) from GET /recommendations/:id or the latest for the field. A smallholder farmer must be able to read what to apply, how much and when in under 30 seconds, and hand the page to an input dealer.
+Must have: dates in a calendar or timeline form, quantities in kg/acre and as bags where it helps, the field and crop in a header, a short risk note, and a Print / Save as PDF button that calls the browser's print. Add a print stylesheet: no navigation, no animations, high contrast, page breaks that never split a stage, black and white friendly (never colour alone), one page for a typical plan. It must look right at 390 px and on A4. Fallback for offline: render from the last cached recommendation.
+Show me the screen at 390 px and 1280 px, and the print preview as PDF.
+````
+
+#### D9. Field profile, history and nutrient trends
+
+**Integration gate G3** · Needs D7 · Integrates with J8, J9 · Unblocks J8, J9
+
+**Done when:** The field profile pages through history, opens a past recommendation, and draws the trend series with a text alternative.
+
+````text
+Build the field profile (route /fields/:fieldId) and history (route /fields/:fieldId/history). Design is mine. The calls:
+GET /fields/:id/recommendations?page&limit gives { items, page, limit, total } newest first; GET /recommendations/:id gives one Recommendation.
+GET /fields/:id/trends gives { soilTests: [{ testedOn, n, p, k, ph, organicCarbon, moisture }], applied: [{ month, nitrogenKgAcre, p2o5KgAcre, k2oKgAcre, costInr }], recommendations: [{ createdAt, fertilizerType, quantityKgPerAcre, estimatedCost, riskLevel, fertilizerNeededN, fertilizerNeededP, fertilizerNeededK }] }.
+Must have: the field's crop, stage, location and latest soil rating; the history list (when, crop and stage, product, quantity, risk, saving) with pagination and opening a past item; charts for nutrient levels over time, fertilizer applied per month against what was recommended, and cost. NFR2 says lightweight, so the chart approach is my call (a hand-written SVG or a chart library, lazy-loaded so it stays out of the initial bundle). Whatever the charts look like they need labelled axes, an emphasised latest point and an accessible table alternative. Skeleton, empty and error states, and a friendly empty state for a field with no history yet. Test with many rows from the mock.
 ````
 
 ### Phase 4: Packaging and standout
 
-#### D9. The standout visualization
+#### D10. Check my own dose
 
-**Integration gate G4** · Needs D7 · Integrates with J6 · Unblocks D12
+**Integration gate G4** · Needs D7 · Integrates with J9, R8 · Unblocks J9
+
+**Done when:** Entering 2x the recommended urea shows a high risk with both impact sentences before anything is saved.
+
+> This delivers the problem statement's warning about the impact of excessive fertilizer use, at the moment the farmer is deciding.
+
+````text
+Build a "check my own plan" interaction (PRD FR12), wherever it fits best in my design. The call:
+POST /fields/:id/risk-check { plannedApplication: [{ fertilizerType, quantityKgPerAcre }] } gives { risk: { level, reason, soilHealthImpact, yieldImpact, overApplicationPct }, nutrientBalance: { n|p|k: { appliedKgHa, recommendedKgHa, ratio } } }.
+Must have: a way to enter one or more products (from GET /reference/fertilizers) and quantities in kg/acre; the result showing the risk level, the reason and the two impact sentences; applied versus recommended per nutrient so the farmer sees which nutrient is too high or too low; a route from the result back to the recommended plan. Do not save anything. Debounce if the check runs as the user types. Handle the 409 case (no soil test or crop yet) with a link to fix it. Risk is never shown by colour alone.
+````
+
+#### D11. The standout visualization
+
+**Integration gate G4** · Needs D7 · Integrates with J6 · Unblocks D14
 
 **Done when:** The scene runs smoothly on a throttled CPU, degrades to a text and CSS version, and the initial bundle did not grow.
 
-> PRD feature 12 asks for an explorable 3D or animated view of nutrient balance using React Three Fiber and GSAP. The concept is yours.
+> PRD feature 14 asks for an explorable 3D or animated view of nutrient balance using React Three Fiber and GSAP. The concept is yours.
 
 ````text
 Load the threejs-r3f-mastery skill if you have it. Before writing code, propose two or three concepts for an explorable visualization of a field's nutrient balance and let me choose. The concept, look and interaction are mine.
 
-Data you have: the soil test values (n, p, k in kg/ha, ph, organicCarbon and moisture in percent), the low and high cut-offs from GET /reference/soil-ratings, and the recommendation (product, quantities, risk). It should animate when the soil test or recommendation changes (GSAP with useGSAP so timelines are cleaned up by the hook).
+Data you have: the soil test values (n, p, k in kg/ha, ph, organicCarbon and moisture in percent), the low and high cut-offs from GET /reference/soil-ratings, and from the recommendation the working per nutrient: nutrientBalance { n|p|k: { cropDemandKgHa, soilSupplyKgHa, deficitKgHa, useEfficiency, priorCreditKgHa, fertilizerNeededKgHa } } plus the risk. Demand versus supply versus deficit is the story the scene can tell. It should animate when the soil test or recommendation changes (GSAP with useGSAP so timelines are cleaned up by the hook).
 
 Fixed by the project:
 - Lazy-load the scene (React.lazy with Suspense and a real skeleton). The initial JS bundle must not grow.
@@ -576,19 +638,19 @@ Fixed by the project:
 Show me the bundle report before and after and a performance profile on a throttled CPU.
 ````
 
-#### D10. English and Hindi toggle
+#### D12. English and Hindi toggle
 
-**Integration gate G4** · Needs D6 · Integrates with R1 · Unblocks D12
+**Integration gate G4** · Needs D6 · Integrates with R1 · Unblocks D14
 
 **Done when:** Every screen works in both languages with no clipped text at 320 px, and the choice is remembered.
 
 ````text
-Add the English and Hindi toggle (PRD feature 11) without a heavy library: src/i18n/en.js and hi.js, a useT() hook backed by a Zustand language store persisted in localStorage (in try and catch), the lang attribute on <html> kept in sync, and the Devanagari font loaded only when Hindi is selected. Translate all UI text: labels, errors, empty states, risk labels. Crop, stage and fertilizer names come from the reference API (nameHi from Richa's tables). The explanation sentences returned by the ML service stay English in v1: show a small note when Hindi is on and leave a TODO(i18n) for a later template-id based approach. Check the layout with long Hindi strings at 320 px and check that numbers and dates format correctly.
+Add the English and Hindi toggle (PRD feature 11) without a heavy library: src/i18n/en.js and hi.js, a useT() hook backed by a Zustand language store persisted in localStorage (in try and catch), the lang attribute on <html> kept in sync, and the Devanagari font loaded only when Hindi is selected. Translate all UI text: labels, errors, empty states, risk labels. Crop, variety, stage and fertilizer names come from the reference API (nameHi from Richa's tables). The explanation sentences returned by the ML service stay English in v1: show a small note when Hindi is on and leave a TODO(i18n) for a later template-id based approach. Check the layout with long Hindi strings at 320 px and check that numbers and dates format correctly.
 ````
 
-#### D11. Landing page and brand finish
+#### D13. Landing page and brand finish
 
-**Integration gate G4** · Needs D1 · Unblocks D12
+**Integration gate G4** · Needs D1 · Unblocks D14
 
 **Done when:** The landing page, favicon set, share tags and error pages exist and match your direction.
 
@@ -598,30 +660,33 @@ Build the landing page and the finishing pieces. The message, structure, tone, i
 
 ### Phase 5: Demo hardening
 
-#### D12. Launch checks, offline fallback and demo path
+#### D14. Launch checks, offline fallback and demo path
 
-**Integration gate G5** · Needs D9, D10, D11 · Integrates with R12
+**Integration gate G5** · Needs D8, D11, D12, D13 · Integrates with R11
 
 **Done when:** Every check passes, a mock build runs with no backend, and frontend/DEMO.md describes the demo path with screenshots.
 
 ````text
 Load the launch-readiness-polisher skill if you have it. Pre-launch pass. Run and fix:
 - zero horizontal scroll at 320, 360, 390, 768, 1024, 1280 and 1440 px (document.documentElement.scrollWidth === clientWidth); content still reflows at 200 percent zoom,
-- touch targets of at least 44 px and a keyboard-only run through signup to recommendation,
+- touch targets of at least 44 px and a keyboard-only run through signup to recommendation, schedule and the dose check,
+- the schedule page prints on A4 and saves as PDF correctly,
 - Lighthouse on a throttled mobile profile (targets: Performance 90 or more, Accessibility 95 or more, Best Practices 100, SEO 100),
-- report the initial JS size (gzip) and confirm the 3D chunk is lazy,
+- report the initial JS size (gzip) and confirm the 3D and chart chunks are lazy,
 - clean console, remove the /kit route, console.log calls and commented-out code.
-Offline-friendly mode (PRD feature 13): cache the last recommendation and the reference lists (localStorage or IndexedDB, in try and catch) and show them with an offline notice.
+Offline-friendly mode (PRD feature 15): cache the last recommendation, its schedule and the reference lists (localStorage or IndexedDB, in try and catch) and show them with an offline notice.
 Fallback build: VITE_USE_MOCK=true npm run build must produce a bundle that runs with no backend, using the fixtures, so the demo survives a network failure.
 Write frontend/DEMO.md with the 2 minute demo path and a screenshot of each screen.
 ````
 
 ## 9. Definition of done
 
-- [ ] All backend calls go through src/services/. No crop, stage, fertilizer or rating list in the code.
+- [ ] All backend calls go through src/services/. No crop, variety, stage, fertilizer or rating list in the code.
+- [ ] The soil form has exactly the six fixed fields.
 - [ ] Every screen has loading, empty, error and success states.
+- [ ] The schedule prints and saves as PDF. The dose check warns before anything is saved.
 - [ ] No horizontal scroll from 320 px. Keyboard-only run works. Reduced motion respected.
-- [ ] Initial bundle stays small and the 3D chunk is lazy.
+- [ ] Initial bundle stays small and the 3D and chart chunks are lazy.
 - [ ] Risk is readable without colour. Hindi fits without clipping.
 - [ ] The mock build runs with no backend.
 - [ ] Lint and build pass in CI. No console.log or commented-out code committed.
@@ -634,11 +699,13 @@ Write frontend/DEMO.md with the 2 minute demo path and a screenshot of each scre
 
 ## 11. Ground rules for everyone
 
+- The soil schema is fixed by the problem statement: n, p, k, ph, organic_carbon, moisture. Never add, remove or rename soil fields.
 - Work on your own branch. Never commit to main directly, except docs-only contract PRs that both owners have approved.
 - Stay inside your folders (root AGENTS.md). If you need a change in someone else's folder, ask them or record it in the contract doc.
-- Commit messages use the form <area>: <what changed>, for example ml: add dosage engine. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
+- Commit messages use the form <area>: <what changed>, for example ml: add NPK deficit calculator. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
 - Never commit .env, raw datasets, models_artifacts/, node_modules or .venv. Add new variables to that service's .env.example.
 - Before a PR: git pull origin main --rebase, lint and tests pass, and the PR description states the change, the reason and how to test it. UI PRs include screenshots. One teammate reviews before merge.
 - Open a PR only when a feature works end to end. Small, focused commits, one logical change each.
 - Run every prompt in Claude Code from the repo root on your own branch. Each prompt begins by reading the project context files.
-- Reference numbers (crop norms, prices, thresholds) live in data or config files, never in application code.
+- Reference numbers (crop demand, efficiencies, prices, thresholds) live in data or config files, never in application code, and every value has a source.
+- No cloud deployment is in scope. The demo runs locally with docker-compose.
