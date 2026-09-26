@@ -1,0 +1,564 @@
+# Josh — KhetGPT Prompt Pack
+
+**Role:** Backend: auth, database, REST API, infra  
+**Branch:** `feature/josh-backend`  
+**Repo:** https://github.com/Saloni060410/KhetGPT.git
+
+Smart India Hackathon, PSAI01: Sustainable Fertilizer Usage Optimizer. This pack is generated from one shared plan, so the four packs always agree on steps, contracts and integration points.
+
+## 1. Your role
+
+You are the spine between the app and the model: accounts, farms, fields, stored soil and usage data, the call to the ML service, the weather call, and the compose stack and CI that hold it together.
+
+Two contracts define your job: C1 with Saloni (what you send to and get from the ML service) and C3 with Darsh (what the frontend can call). Get both written and merged first, then build against fixtures. Weather is already switched to Open-Meteo in weatherService.js.
+
+**You own**
+
+- `backend/**` (Express, Prisma, auth, routes, services)
+- `docker-compose.yml`
+- `.github/workflows/`
+- `docs/backend-api.md` (with Darsh)
+- `backend/DEMO.md`
+
+**Hands off (owned by someone else)**
+
+- `ml/**` (Saloni and Richa)
+- `frontend/**` (Darsh)
+
+## 2. Initialize your system
+
+**1. Check your machine**
+
+```bash
+node -v            # 22 or newer (CI uses 22)
+npm -v
+docker --version
+git --version
+```
+
+Expected: Node 22+, Docker Desktop running.
+
+**2. Clone and switch to your branch**
+
+```bash
+git clone https://github.com/Saloni060410/KhetGPT.git
+cd KhetGPT
+git checkout feature/josh-backend
+git pull origin main --rebase
+```
+
+Expected: Branch feature/josh-backend, rebased on the latest main (which includes the Open-Meteo weather switch once it is pushed).
+
+**3. Configure the backend**
+
+```bash
+cd backend
+cp .env.example .env
+# generate two secrets and paste them into .env:
+openssl rand -hex 32   # JWT_ACCESS_SECRET
+openssl rand -hex 32   # JWT_REFRESH_SECRET
+```
+
+Expected: .env has DATABASE_URL, both JWT secrets, ML_SERVICE_URL=http://localhost:8001. No weather key is needed.
+
+**4. Start Postgres and install**
+
+```bash
+cd ..                       # repo root
+docker compose up -d postgres
+cd backend
+npm install
+npx prisma generate
+```
+
+Expected: Postgres healthy on 5432. npm install works because package.json allows the install scripts of prisma and bcrypt (allowScripts).
+
+**5. Run and verify**
+
+```bash
+npm run lint
+npm run dev
+# second terminal:
+curl localhost:4000/api/health
+```
+
+Expected: {"status":"ok"}. Other routes answer 501 until you implement them.
+
+**6. Open Claude Code**
+
+```bash
+cd ..            # repo root
+claude
+```
+
+Expected: Run every prompt below from the repo root.
+
+## 3. Features you implement
+
+| PRD reference | Feature | Steps |
+|---|---|---|
+| FR1 / NFR4 | Register, login, refresh, logout with hashed passwords and expiring tokens | J3 |
+| FR2 | Farms and fields | J5 |
+| FR3, FR4, FR5 | Soil tests, crop and stage on the field, previous fertilizer log | J5 |
+| FR6 / Must-have 3 | Weather by field location (Open-Meteo), cached | J7 |
+| FR7, FR8, FR10 | Assemble the ML payload, store the recommendation, expose risk and cost | J4, J8 |
+| FR9 / Should-have 9 | Recommendation history per field | J8 |
+| NFR3, NFR5, NFR6 | Reproducible results, reference data proxied not hardcoded, clean service split | J6, J8, J9 |
+| Infra | docker-compose for backend, ML and Postgres, CI on pull requests | J9 |
+| Could-have 17 | Agronomist regional summary (anonymised) | J12 |
+
+## 4. Who you depend on, and who depends on you
+
+Hard need = you cannot finish the step without it. Integrates with = you can start on a mock or fixture, but the step is only complete once the other person's work is merged and you have tested against it. Pairs with = you finish it together.
+
+| Step | Blocked by (hard) | Pairs with | Integrates with | Unblocks | Gate |
+|---|---|---|---|---|---|
+| **J0** Verify your backend environment | none | none | none | none |  |
+| **J1** Review the ML contract and write the backend API contract | none | S1 | none | J2, D2 | G0 |
+| **J2** First migration and demo seed | J1 | none | none | J3 | G1 |
+| **J3** Authentication with token rotation | J2 | none | none | J4, J5, D3 | G1 |
+| **J4** Thin recommendation slice against the ML mock | J3, S2 | none | D4 | D4 | G1 |
+| **J5** Farms, fields, soil tests and fertilizer logs | J3 | none | D5, D6 | J6, J7, J8, J12, D5, D6 | G2 |
+| **J6** Reference data proxy | J5, S2 | none | R1 | J8, D6, D9 | G2 |
+| **J7** Weather route with cache and stale fallback | J5 | none | R7 | J8, R7 | G2 |
+| **J8** Full recommendation orchestration and history | J5, J6, J7, S7 | none | D7, D8 | J9, J10, J11, S7, S8, D7, D8 | G3 |
+| **J9** Compose stack and CI | J8, S10 | S10 | none | S12 | G4 |
+| **J10** Security and reliability pass | J8 | none | none | none | G4 |
+| **J11** Demo seed and reset | J8, R12 | none | none | none | G5 |
+| **J12** Stretch: agronomist regional summary | J5 | none | none | none |  |
+
+## 5. Team timeline and integration gates
+
+- **Phase 0: Kickoff and contracts.** Everyone sets up, and the shared contracts are agreed and merged before anyone builds against them.
+- **Phase 1: Foundations in parallel.** Each person builds their base layer against contracts and fixtures. Nobody waits for anybody.
+- **Phase 2: Real data and real CRUD.** Real datasets and tables land, the model trains, the API stores real farm data, forms save it.
+- **Phase 3: Real recommendation.** Mock mode is switched off. Data, model, backend and UI produce one real recommendation.
+- **Phase 4: Packaging and standout.** One-command stack, CI green, the 3D feature, Hindi toggle, evaluation evidence.
+- **Phase 5: Demo hardening.** Rehearse, freeze, write the model card, prepare fallbacks.
+
+### G0 — Contracts locked (end of Phase 0)
+
+C1 (ML predict API), C3 (backend REST API), fixtures and the vocabulary files are merged to main. Nobody changes them without the change protocol.
+
+**Your steps at this gate:** J1 (Review the ML contract and write the backend API contract)
+
+**Who delivers what**
+
+- Saloni + Josh: docs/api-contract.md v1.0 and docs/contract-fixtures/ merged (S1, J1)
+- Josh + Darsh: docs/backend-api.md merged (J1)
+- Richa: crops.csv, growth_stages.csv and header-only C5 tables merged (R1)
+- Everyone: dev environment running on their own branch (S0, R0, J0, D0)
+
+**Acceptance test:** Every teammate can read the fixtures and say what each endpoint returns. Josh, Saloni and Darsh have all approved the contract PRs.
+
+**If it slips:** Do not start Phase 1 code that depends on an unmerged contract. Build only environment and non-contract work until it merges.
+
+### G1 — Mock vertical slice (end of Phase 1)
+
+One request travels the whole chain with fake numbers: frontend, backend, database and the ML service in mock mode.
+
+**Your steps at this gate:** J2 (First migration and demo seed), J3 (Authentication with token rotation), J4 (Thin recommendation slice against the ML mock)
+
+**Who delivers what**
+
+- Saloni: ML service mock mode plus reference endpoints on main (S2)
+- Josh: seeded database, real auth and the thin recommendation route (J2, J3, J4)
+- Darsh: shell, auth pages and a first recommendation screen (D2, D3, D4)
+- Richa: raw data acquired, norms and rules v0 for two crops, cleaning pipeline (R2, R3, R4)
+
+**Acceptance test:** Log in as the seeded farmer, open the seeded field, press Get recommendation, see a mocked plan on screen, and find the stored row in Postgres.
+
+**If it slips:** Darsh runs with VITE_USE_MOCK=true. Josh stubs the ML call with the fixture. Neither blocks on the other.
+
+### G2 — Data to model handoff (end of Phase 2)
+
+Richa's dataset and feature module are consumed by Saloni's trainer, the dosage engine runs on Richa's tables, and the app stores real farm data.
+
+**Your steps at this gate:** J5 (Farms, fields, soil tests and fertilizer logs), J6 (Reference data proxy), J7 (Weather route with cache and stale fallback)
+
+**Who delivers what**
+
+- Richa: feature module, dataset build and frozen test split on main (R6)
+- Saloni: first trained model v0.1.0 in the registry (S3) and a passing dosage engine (S4)
+- Josh: CRUD, reference proxy and weather route on main (J5, J6, J7)
+- Darsh: farm, field, soil, crop and fertilizer log screens saving real data (D5, D6)
+
+**Acceptance test:** python -m src.models.train runs from a clean checkout on Richa's dataset and prints a comparison table. Darsh creates a farm, field and soil test in the UI and Josh's database holds them.
+
+**If it slips:** Saloni trains on sample_train.csv. Dosage tests use the v0 tables. The UI keeps using the mock for anything unmerged.
+
+### G3 — Real end to end (end of Phase 3)
+
+Mock mode is off. A real model, real weather and real stored data produce the recommendation the user sees.
+
+**Your steps at this gate:** J8 (Full recommendation orchestration and history)
+
+**Who delivers what**
+
+- Saloni: predict pipeline in real mode with risk and cost (S5, S6, S7, S8)
+- Richa: metrics, explanation templates, demo scenarios (R8, R9, R12)
+- Josh: full recommendation orchestration and history (J8)
+- Darsh: full recommendation screen and history (D7, D8)
+
+**Acceptance test:** Signup, farm, field, soil test, crop and stage, Get recommendation. The result shows a real model_version, schedule with dates, risk, cost, factors. History shows it afterwards.
+
+**If it slips:** Ship G3 with PREDICT_MODE=mock and label it in the UI as sample output. Do not hide that it is a mock.
+
+### G4 — One-command stack (end of Phase 4)
+
+docker compose up brings up Postgres, ML and backend healthy from a clean clone. CI is green. The standout UI features work on the real stack.
+
+**Your steps at this gate:** J9 (Compose stack and CI), J10 (Security and reliability pass)
+
+**Who delivers what**
+
+- Josh: compose and CI (J9), hardening (J10)
+- Saloni: ML image, artifact strategy, sanity gate, final test evaluation (S9, S10)
+- Richa: evaluation report with impact estimate (R10)
+- Darsh: 3D visualization, language toggle, landing (D9, D10, D11)
+
+**Acceptance test:** A teammate who has never run the project clones it, follows the README and reaches a working recommendation in under 15 minutes.
+
+**If it slips:** Frontend runs from npm run dev against the compose stack. Ship the standout feature only if it meets the performance contract.
+
+### G5 — Demo freeze (end of Phase 5)
+
+Rehearsed on two machines. Fallbacks work. Model card and evaluation report are written. main is tagged.
+
+**Your steps at this gate:** J11 (Demo seed and reset)
+
+**Who delivers what**
+
+- Saloni: model card and demo readiness (S11, S12)
+- Josh: demo seed and reset (J11)
+- Darsh: launch pass and offline fallback build (D12)
+- Richa: reproducible data commands and docs (R11)
+
+**Acceptance test:** Full demo run on two laptops, once with internet and once with mock fallbacks. The three demo scenarios behave as documented in docs/demo-scenarios.md.
+
+**If it slips:** Cut features, never the rehearsal. Anything unfinished is removed from the demo path, not left half-working.
+
+## 6. Contracts you share with the team
+
+| # | Contract | Where | Owners | Locks at |
+|---|---|---|---|---|
+| C1 | ML predict API: POST /predict and GET /health between the backend and the ML service. Code sides: ml/src/api/schemas.py and backend/src/services/mlService.js. | `docs/api-contract.md, docs/contract-fixtures/` | Saloni, Josh | G0 |
+| C2 | Reference data API: Crops, growth stages, soil rating cut-offs and fertilizer products. Richa authors the files, Saloni serves them, Josh proxies them, Darsh reads them. Nothing is hardcoded in the UI or the backend. | `ml/data/external/*.csv, ML /reference/*, backend /api/reference/*` | Richa, Saloni, Josh, Darsh | G0 (shape), G2 (real data) |
+| C3 | Backend REST API: Every endpoint the frontend calls: auth, farms, fields, soil tests, fertilizer logs, weather, recommendations, reference. | `docs/backend-api.md` | Josh, Darsh | G0 |
+| C4 | Feature module: The single feature code path used by training and by serving, so the two can never drift. | `ml/src/data_pipeline/feature_engineering.py` | Richa, Saloni | G2 |
+| C5 | External reference tables: Crop nutrient norms, split schedules, fertilizer products and prices, soil rating cut-offs, agronomy rules. Column schemas are agreed in R1, values arrive in R3. | `ml/data/external/` | Richa, Saloni | G0 (schemas), G1 (v0 values) |
+| C6 | Rule trace and explanations: Saloni's engines emit a rule_trace. Richa's explain() turns it into plain sentences. | `ml/src/evaluation/explainability.py, ml/data/external/explanation_templates.yaml` | Saloni, Richa | G2 |
+| C7 | Evaluation and run records: Richa's metric functions, Saloni's run record format. Both feed the model card. | `ml/src/evaluation/metrics.py, models_artifacts/runs/` | Richa, Saloni | G3 |
+
+**C1 decisions to lock in G0**
+
+1. Request gains an optional sowing_date (YYYY-MM-DD). Backend adds Field.sowingDate. Frontend collects it.
+2. Each schedule[] item gains fertilizer_type. Top-level recommendation.fertilizer_type is the primary product, and its quantity_kg_per_acre is that product's total across the schedule.
+3. Response gains cost { estimated_cost_inr_per_acre, previous_cost_inr_per_acre (nullable), saving_inr_per_acre (nullable) } and impact { over_application_reduction_pct (nullable) }. Nulls mean no history was logged, never a made-up baseline.
+4. Units: kg/acre in the API. Soil N, P, K in kg/ha. Organic carbon and moisture in percent. The ML service converts internally (1 ha = 2.4711 acre).
+5. crop_type and growth_stage are ids from GET /reference/crops, for example wheat and tillering.
+6. Errors: 422 { detail: [...] } for invalid input. 503 { detail } when the model or reference data is unavailable. The backend maps these to 400 and 502 for the client.
+7. model_version format: <model>-<semver>+rules-<hash8>, so a result can be traced to both the model and the rule tables.
+
+**C3 Recommendation object and errors**
+
+```text
+Recommendation {
+  id, fieldId, soilTestId, cropType, growthStage,
+  fertilizerType, quantityKgPerAcre,
+  schedule: [{ stage, fertilizerType, quantityKgPerAcre, applyBy }],
+  risk: { level: "low" | "medium" | "high", reason },
+  topFactors: [string],
+  cost: { estimatedCostPerAcre, previousCostPerAcre | null, savingPerAcre | null, savingTotal | null },
+  impact: { overApplicationReductionPct | null },
+  weatherStale: boolean,
+  modelVersion, createdAt
+}
+Errors: { error: string, details?: [] }. Codes: 400 validation, 401, 403, 404 (also for other users' resources), 409 missing prerequisite, 502 ML unavailable, 503 weather unavailable.
+```
+
+**C4 Feature module interface**
+
+```text
+FEATURE_COLUMNS: list[str]            # classifier inputs, fixed order
+CLASSIFIER_TARGET = "fertilizer_product_id"
+request_to_record(req: dict) -> dict            # /predict request -> one flat record
+build_features(records) -> pd.DataFrame          # same code for training and serving
+rule_inputs(req: dict) -> dict                    # soil ratings, prior-usage nutrient credit, rain flags
+load_training_frame(split: "train"|"val"|"test") -> pd.DataFrame
+```
+
+**C5 External table schemas**
+
+```text
+crops.csv                 crop_id,name_en,name_hi,dataset_label,season,source
+growth_stages.csv         crop_id,stage_id,name_en,name_hi,order,das_start,das_end,source
+crop_nutrient_norms.csv   crop_id,irrigation,n_kg_ha,p2o5_kg_ha,k2o_kg_ha,region,source,notes
+split_schedule.csv        crop_id,stage_id,n_fraction,p_fraction,k_fraction        (fractions sum to 1 per crop)
+fertilizer_products.csv   product_id,name,n_pct,p2o5_pct,k2o_pct,price_inr_per_kg,price_date,source
+soil_test_ratings.csv     parameter,unit,low_below,high_above,source
+agronomy_rules.yaml       soil-rating multipliers, credit window days, rain_hold_mm / rain_hold_days,
+                          over_application_ratio_medium / _high, norm tolerance. Every key has a source comment.
+```
+
+**C6 Rule trace and explain()**
+
+```text
+rule_trace item: { rule_id, nutrient: "n"|"p"|"k"|null, value, threshold, effect, params: {} }
+explain(features: dict, prediction: dict, rule_trace: list[dict], top_k: int = 3) -> list[str]
+render_template(template_id: str, **params) -> str      # explanation_templates.yaml, en + hi
+```
+
+**C7 Evaluation functions and run record**
+
+```text
+evaluate_classifier(y_true, y_pred, y_proba=None, classes=None, groups=None, n_boot=1000, seed=42) -> dict
+cv_summary(fold_scores: list[dict]) -> dict              # mean and std per metric
+baseline_report(y_train, y_test) -> dict
+norm_conformity(recs, norms, tol) -> dict                # share within tolerance + violators
+per_slice(y_true, y_pred, slice_col) -> dict
+run record (Saloni): { run_id, name, tags, git_sha, config_hash, dataset_hash, env, params, metrics, wall_clock_s }
+```
+
+**How to change a contract**
+
+1. Propose the change in a docs-only PR to main titled docs: <contract> <change>.
+2. Both owners of the contract approve it in the PR.
+3. Merge to main, then both owners run git pull origin main --rebase on their branches the same day.
+4. Update code, schemas and fixtures immediately. The contract tests fail if code and docs drift.
+
+## 7. Step-by-step prompts
+
+Run each prompt in Claude Code from the repo root, on your own branch, in order. Check the Done when line before you move on.
+
+### Phase 0: Kickoff and contracts
+
+#### J0. Verify your backend environment
+
+**Done when:** npm run lint is clean, /api/health returns ok and Postgres is healthy.
+
+````text
+Read AGENTS.md (root) and backend/AGENTS.md. I am Josh, owner of backend/**, docker-compose.yml and .github/workflows on branch feature/josh-backend. Work only inside those.
+
+1. Confirm the branch and that it is rebased on origin/main.
+2. Copy backend/.env.example to backend/.env and generate two 32-byte hex secrets for JWT_ACCESS_SECRET and JWT_REFRESH_SECRET (openssl rand -hex 32).
+3. docker compose up -d postgres, then in backend/: npm install, npx prisma generate, npm run lint, npm run dev, and curl http://localhost:4000/api/health.
+4. If bcrypt or the Prisma engines fail to install, check the allowScripts block in backend/package.json (npm blocks install scripts unless allowed).
+Report the outputs. Fix only environment problems.
+````
+
+#### J1. Review the ML contract and write the backend API contract
+
+**Integration gate G0** · Pairs with S1 · Unblocks J2, D2
+
+**Done when:** docs/backend-api.md is merged, Saloni's contract PR is approved by you, and Darsh has approved backend-api.md.
+
+> Darsh cannot build his API layer or his mock without this (D2). Do it first.
+
+````text
+Read docs/api-contract.md, docs/PRD.md sections 4, 8 and 9, backend/AGENTS.md and frontend/AGENTS.md. Saloni is proposing the ML contract v1.0 (docs-only PR from branch docs/contract-v1). Review it against backend/prisma/schema.prisma and tell me what maps where: cost to Recommendation.estimatedCost and estimatedSaving, risk.level to the RiskLevel enum, schedule to the Json column, and the new optional sowing_date to a new Field.sowingDate column.
+
+Then write docs/backend-api.md (contract C3, shared with Darsh) on a docs-only branch docs/backend-api-v1 off main. Base URL /api, JSON in camelCase, error shape { error, details? }, bearer access token, pagination ?page&limit returning { items, page, limit, total }. Document every endpoint with request and response examples:
+ POST /auth/register, /auth/login, /auth/refresh, /auth/logout; GET /auth/me
+ GET and POST /farms; GET and DELETE /farms/:id
+ GET and POST /farms/:farmId/fields; GET and PATCH /fields/:id (cropType, growthStage, sowingDate, latitude, longitude, areaAcres)
+ POST and GET /fields/:id/soil-tests
+ POST and GET /fields/:id/fertilizer-logs
+ GET /fields/:id/weather -> { temperatureC, humidityPct, rainfallMmForecast, fetchedAt, stale }
+ POST /fields/:id/recommendations -> 201 Recommendation; GET /fields/:id/recommendations (paginated history); GET /recommendations/:id
+ GET /reference/crops, /reference/soil-ratings, /reference/fertilizers (proxied from the ML service)
+Recommendation object: { id, fieldId, soilTestId, cropType, growthStage, fertilizerType, quantityKgPerAcre, schedule: [{ stage, fertilizerType, quantityKgPerAcre, applyBy }], risk: { level, reason }, topFactors: [], cost: { estimatedCostPerAcre, previousCostPerAcre or null, savingPerAcre or null, savingTotal or null }, impact: { overApplicationReductionPct or null }, weatherStale, modelVersion, createdAt }.
+Document status codes (400 validation, 401, 403, 404 also for other users' resources, 409 missing prerequisite, 502 ML unavailable, 503 weather unavailable) and the role rules (FARMER and AGRONOMIST).
+Link both contract docs from the docs bullet in the root AGENTS.md. Open the PR to main and ask Darsh and Saloni to approve. Do not edit frontend/ or ml/.
+````
+
+### Phase 1: Foundations in parallel
+
+#### J2. First migration and demo seed
+
+**Integration gate G1** · Needs J1 · Unblocks J3
+
+**Done when:** The migration is committed and npm run db:seed prints the seeded users, farm, field, soil test and logs.
+
+````text
+Read backend/prisma/schema.prisma and backend/AGENTS.md.
+1. Add sowingDate DateTime? to Field (decision from contract v1.0) and any @@index the query patterns need.
+2. Run npx prisma migrate dev --name init and commit prisma/migrations/ (the repo has none yet).
+3. Write prisma/seed.js (wired through package.json "prisma": { "seed": "node prisma/seed.js" }) that upserts a farmer user (password hashed with bcrypt), an agronomist user, one farm, one field with coordinates, sowingDate, cropType and growthStage, one soil test and two fertilizer logs. Use createMany or one transaction for batches, never an await inside a per-row loop. Take the values from docs/contract-fixtures/predict_request.json so the seeded field can produce a recommendation.
+4. Add npm scripts db:seed and db:reset (migrate reset --force then seed).
+Show me a query printing the seeded rows.
+````
+
+#### J3. Authentication with token rotation
+
+**Integration gate G1** · Needs J2 · Unblocks J4, J5, D3
+
+**Done when:** npm test passes the auth tests and you have curl transcripts for register, login, me and refresh.
+
+> Darsh's real login (D3) needs this. Tell him the moment it is on main.
+
+````text
+Implement auth per docs/backend-api.md (contract C3):
+- controllers/auth.controller.js, routes/auth.routes.js, services/tokenService.js.
+- register: zod body (email, password of at least 10 characters, name, role FARMER or AGRONOMIST), bcrypt cost 12, 409 on duplicate email, returns the user (no hash) plus accessToken and refreshToken.
+- login: constant-time compare and a generic 401 message ("Invalid email or password").
+- access token: JWT, 15 minutes, with sub and role. Refresh token: 48 random bytes stored only as a sha256 in RefreshToken with an expiry. /refresh rotates (deletes the old row, issues a new pair). Reuse of a rotated token deletes all of that user's refresh tokens. /logout deletes the token. GET /auth/me.
+- Stricter rate limit on /auth/* (for example 10 per 15 minutes per IP), validate.middleware on every body, auth.middleware requireAuth and requireRole.
+- middleware/ownership.js: assertFarmOwner and assertFieldOwner(userId, id) return 404 for other users' resources so existence is not leaked.
+- tests/auth.test.js with node:test against a separate database (.env.test with khetgpt_test): register, login, me, refresh rotation, reuse detection, logout, wrong password and duplicate email.
+Run npm test and lint. Show me curl transcripts for register, login, me and refresh.
+````
+
+#### J4. Thin recommendation slice against the ML mock
+
+**Integration gate G1** · Needs J3, S2 · Integrates with D4 · Unblocks D4
+
+**Done when:** A real curl from login to POST recommendation for the seeded field returns a plan and the row is in Postgres.
+
+> This is the backend half of Gate G1. Announce to Darsh (D4) when it works.
+
+````text
+Implement the thin vertical slice for Gate G1. The ML service runs in PREDICT_MODE=mock (Saloni's S2).
+1. services/mlService.js: build the request per contract C1 from a plain object, validate the response with zod (the schema mirrors docs/contract-fixtures/predict_response.json), 5 second timeout, one retry on network errors and 5xx, typed errors (MlUnavailableError and MlInvalidResponseError, both mapped to 502).
+2. POST /api/fields/:id/recommendations (auth and ownership): load the field, its latest SoilTest, FertilizerLogs of the last 12 months, weather via services/weatherService.getWeather (Open-Meteo, no key), assemble the C1 payload in snake_case, call ML, persist a Recommendation row (schedule as Json, risk level mapped to the enum, cost into estimatedCost and estimatedSaving, modelVersion, topFactors) and return the C3 Recommendation object in camelCase.
+3. If the field has no soil test or no crop, return 409 saying which one is missing.
+4. Tests: mlService against the fixtures with a mocked HTTP layer, and a route test with the ML call stubbed.
+Run the ML mock locally (uvicorn on 8001 with PREDICT_MODE=mock). Show a real curl transcript from login to POST recommendation for the seeded field, and the row in Postgres.
+````
+
+### Phase 2: Real data and real CRUD
+
+#### J5. Farms, fields, soil tests and fertilizer logs
+
+**Integration gate G2** · Needs J3 · Integrates with D5, D6 · Unblocks J6, J7, J8, J12, D5, D6
+
+**Done when:** The passing test list shows owner CRUD works and other users get 404 on every resource.
+
+> Tell Darsh (D5, D6) when merged.
+
+````text
+Implement farms, fields, soil tests and fertilizer logs per docs/backend-api.md. For every route: requireAuth, an ownership check through middleware/ownership.js (owner only in v1), zod validation with bounds from one config file (src/config/validation.js: pH 0 to 14, moisture and organicCarbon 0 to 100, N, P and K at least 0. These are sanity limits, agronomy numbers stay in the ML data), pagination on every list (page, limit up to 50, total), and Prisma select or include so there are no N+1 queries.
+- PATCH /fields/:id updates cropType, growthStage, sowingDate, coordinates and areaAcres. cropType and growthStage must exist in the reference lists when the ML service is reachable (skip the check, do not fail, when it is not).
+- Soil tests: POST creates, GET returns newest first.
+- Fertilizer logs: POST and GET; appliedOn cannot be in the future.
+Tests: owner CRUD works, another user gets 404 on each resource, invalid bodies get 400 with details. Show me the passing test list.
+````
+
+#### J6. Reference data proxy
+
+**Integration gate G2** · Needs J5, S2 · Integrates with R1 · Unblocks J8, D6, D9
+
+**Done when:** GET /api/reference/crops, /soil-ratings and /fertilizers return the ML service's data, cached, with stale fallback.
+
+````text
+Implement GET /api/reference/crops, /soil-ratings and /fertilizers (contract C2). Call the ML service's GET /reference/*, cache each response in memory for 1 hour, return the stale copy for up to 24 hours if ML is down, and return 503 { error } when there is no copy at all. No crop or rating numbers live in this repo's code. Add a dev-only fallback file backend/config/reference.dev.json that is served only when ML_MODE=offline is set (document it in .env.example) so Darsh can work without the ML container. Tests with mocked ML responses. Tell Darsh and Saloni when merged. Saloni's S2 serves a mock list until Richa's tables (R1) are in.
+````
+
+#### J7. Weather route with cache and stale fallback
+
+**Integration gate G2** · Needs J5 · Integrates with R7 · Unblocks J8, R7
+
+**Done when:** A test asserts the returned keys map one to one to the C1 weather block, and one live call is shown.
+
+````text
+Read backend/src/services/weatherService.js (Open-Meteo, already switched). Add GET /api/fields/:id/weather (auth and ownership). It uses the field's latitude and longitude (400 with a clear message if missing), caches per field for 20 minutes in memory, and returns { temperatureC, humidityPct, rainfallMmForecast, fetchedAt, stale }. If Open-Meteo fails, serve the cached value up to 6 hours old with stale: true, otherwise 503. Extract weather assembly into one function that the recommendation route reuses. Add a unit test asserting the returned keys map one to one to the C1 weather block (temperature_c, humidity_pct, rainfall_mm_forecast). Richa's R7 client must produce the same keys, so compare with her. Mock the HTTP layer in tests and show one live call.
+````
+
+### Phase 3: Real recommendation
+
+#### J8. Full recommendation orchestration and history
+
+**Integration gate G3** · Needs J5, J6, J7, S7 · Integrates with D7, D8 · Unblocks J9, J10, J11, S7, S8, D7, D8
+
+**Done when:** A real transcript shows a real model_version, history ordering and ML failure mapping all working.
+
+> This is the backend half of Gate G3. Tell Darsh (D7) when it merges.
+
+````text
+Complete the recommendation feature for Gate G3, replacing the thin slice from J4:
+- The body is optional: { soilTestId?, cropType?, growthStage? }. Default to the latest soil test and the field's crop and stage.
+- The payload includes sowing_date and previous usage per contract v1.0. Weather comes from the cached weather function. If weather is stale, still call ML but return weatherStale: true.
+- Persist what is needed to reproduce the result: the request payload snapshot (add a Json column inputSnapshot in a migration), modelVersion and the timestamp.
+- Cost mapping: estimatedCost and estimatedSaving (nullable). savingTotal = savingPerAcre times field.areaAcres when both exist.
+- History: GET /fields/:id/recommendations paginated newest first; GET /recommendations/:id with an ownership check.
+- Double submit guard: return the previous recommendation with 200 if an identical inputSnapshot was stored in the last 30 seconds.
+- Error mapping: ML 503 or timeouts give 502 { error: "Recommendation service is unavailable, try again" }; ML 422 gives 400 with the ML detail.
+- Point the ML service at PREDICT_MODE=real (Saloni S7) and run the seeded scenario end to end.
+Tests for history ordering, ownership, stale weather, ML failure mapping and the idempotency window. Show me a real transcript with a real model_version.
+````
+
+### Phase 4: Packaging and standout
+
+#### J9. Compose stack and CI
+
+**Integration gate G4** · Needs J8, S10 · Pairs with S10 · Unblocks S12
+
+**Done when:** docker compose ps shows every service healthy from a clean clone, and the CI run is green.
+
+````text
+Own docker-compose.yml and .github/workflows/ci.yml.
+1. Compose: postgres (the healthcheck exists), ml (build ./ml, healthcheck on /health, bind mount ./ml/models_artifacts:/app/models_artifacts:ro to match Saloni's S10, PREDICT_MODE=real), backend (depends_on postgres healthy and ml healthy; runs prisma migrate deploy then node; env DATABASE_URL, ML_SERVICE_URL=http://ml:8001, secrets from backend/.env, CORS_ORIGIN), and an optional frontend service (nginx serving the built app) behind profiles: ["web"]. No secrets in the file.
+2. docker compose up --build from a clean clone (no node_modules, .env copied from .env.example) must reach all healthy. Document the sequence in the Commands list of AGENTS.md and in .env.example comments.
+3. CI: add a backend test job (postgres service, prisma migrate deploy, npm test), make the ml job also run the contract tests, and add a docker build job for backend and ml. Keep the workflow under about 10 minutes and cache npm and pip.
+4. Verify with act or by pushing a draft PR and reading the result.
+Show me docker compose ps output and the green CI run.
+````
+
+#### J10. Security and reliability pass
+
+**Integration gate G4** · Needs J8
+
+**Done when:** An automated ownership matrix test passes, every finding is listed and fixed, and docs/backend-api.md has real transcripts.
+
+````text
+Security and reliability pass on backend/**. Checklist: every route is behind requireAuth except /auth/register, /login, /refresh and /health; an automated ownership matrix test (user B against user A's farm, field, soil test, log, recommendation and weather) expects 404 everywhere; secrets only through env (grep for hard-coded ones); helmet defaults, a CORS allowlist from env, a body size limit, a request id and structured logs without tokens or passwords; error middleware maps zod to 400, Prisma P2002 to 409, P2025 to 404 and anything else to a generic 500; graceful shutdown (SIGTERM closes the server and Prisma); npm audit --omit=dev reviewed; .env.example complete; docs/backend-api.md re-synced with real curl transcripts for every endpoint. Report every finding and fix.
+````
+
+#### J12. Stretch: agronomist regional summary (stretch)
+
+Needs J5
+
+**Done when:** Role gate and k-anonymity tests pass.
+
+````text
+Stretch (PRD feature 17): GET /api/admin/regional-summary, AGRONOMIST role only. Return anonymised aggregates per crop and per pincode prefix: number of fields, median recommended versus previous nutrient totals, share at high risk and average estimated saving. Enforce k-anonymity (do not return groups with fewer than 5 fields) and never return user ids or coordinates. Tests for the role gate and the k-anonymity rule. Coordinate with Darsh for the view.
+````
+
+### Phase 5: Demo hardening
+
+#### J11. Demo seed and reset
+
+**Integration gate G5** · Needs J8, R12
+
+**Done when:** npm run db:seed:demo and npm run demo:reset work repeatedly, and backend/DEMO.md lists the exact command sequence.
+
+````text
+Read docs/demo-scenarios.md and docs/contract-fixtures/demo_scenarios.json (Richa's R12). Extend prisma/seed.js with npm run db:seed:demo: it idempotently recreates the demo farmer, the three scenario fields with soil tests and fertilizer logs, and optionally pre-generates one recommendation for each through the running ML service so History is not empty. Add npm run demo:reset, which resets only the demo user's data. Write backend/DEMO.md: the exact command sequence to bring the stack up with demo data, where the demo credentials come from (.env, never committed), and what to do if the ML service or Open-Meteo is down (ML_MODE fallback and stale weather).
+````
+
+## 8. Definition of done
+
+- [ ] Every route requires auth except register, login, refresh and health, and another user's resource always returns 404.
+- [ ] The payload to ML and the ML response match docs/api-contract.md, checked by tests on the shared fixtures.
+- [ ] docs/backend-api.md matches real behaviour, with real transcripts.
+- [ ] docker compose up --build reaches all healthy from a clean clone. CI is green.
+- [ ] No secrets in git. .env.example is complete.
+- [ ] Batch writes only: no await inside per-row loops. Every list is paginated.
+- [ ] Weather and ML failures degrade with clear messages and never crash the process.
+
+## 9. Daily sync questions
+
+- Saloni: did C1 change? Is real mode ready, or do I stay on the mock?
+- Darsh: which endpoint or field are you waiting on? Did any response shape surprise you?
+- Richa: are the demo scenarios ready for seeding? Do your weather keys match mine?
+
+## 10. Ground rules for everyone
+
+- Work on your own branch. Never commit to main directly, except docs-only contract PRs that both owners have approved.
+- Stay inside your folders (root AGENTS.md). If you need a change in someone else's folder, ask them or record it in the contract doc.
+- Commit messages use the form <area>: <what changed>, for example ml: add dosage engine. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
+- Never commit .env, raw datasets, models_artifacts/, node_modules or .venv. Add new variables to that service's .env.example.
+- Before a PR: git pull origin main --rebase, lint and tests pass, and the PR description states the change, the reason and how to test it. UI PRs include screenshots. One teammate reviews before merge.
+- Open a PR only when a feature works end to end. Small, focused commits, one logical change each.
+- Run every prompt in Claude Code from the repo root on your own branch. Each prompt begins by reading the project context files.
+- Reference numbers (crop norms, prices, thresholds) live in data or config files, never in application code.
