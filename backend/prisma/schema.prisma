@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  FARMER
+  AGRONOMIST
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  role          Role           @default(FARMER)
+  createdAt     DateTime       @default(now())
+  farms         Farm[]
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Farm {
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  fields    Field[]
+  createdAt DateTime @default(now())
+
+  @@index([ownerId])
+}
+
+model Field {
+  id              String           @id @default(uuid())
+  name            String
+  farmId          String
+  farm            Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  areaAcres       Float?
+  latitude        Float?
+  longitude       Float?
+  pincode         String?
+  cropType        String?
+  growthStage     String?
+  soilTests       SoilTest[]
+  recommendations Recommendation[]
+  fertilizerLogs  FertilizerLog[]
+  createdAt       DateTime         @default(now())
+
+  @@index([farmId])
+}
+
+model SoilTest {
+  id              String           @id @default(uuid())
+  fieldId         String
+  field           Field            @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  n               Float
+  p               Float
+  k               Float
+  ph              Float
+  organicCarbon   Float
+  moisture        Float
+  testedOn        DateTime         @default(now())
+  recommendations Recommendation[]
+
+  @@index([fieldId, testedOn])
+}
+
+model FertilizerLog {
+  id                String   @id @default(uuid())
+  fieldId           String
+  field             Field    @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  type              String
+  quantityKgPerAcre Float
+  appliedOn         DateTime
+
+  @@index([fieldId, appliedOn])
+}
+
+model Recommendation {
+  id                String    @id @default(uuid())
+  fieldId           String
+  field             Field     @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  soilTestId        String
+  soilTest          SoilTest  @relation(fields: [soilTestId], references: [id])
+  cropType          String
+  growthStage       String
+  fertilizerType    String
+  quantityKgPerAcre Float
+  schedule          Json
+  riskLevel         RiskLevel
+  riskReason        String
+  topFactors        String[]
+  estimatedCost     Float?
+  estimatedSaving   Float?
+  modelVersion      String
+  createdAt         DateTime  @default(now())
+
+  @@index([fieldId, createdAt])
+}
