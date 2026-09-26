@@ -57,7 +57,7 @@ def _stage_ordinal(tables: ReferenceTables, crop_id: str, stage_id: str | None) 
     return None
 
 
-def _soil_rating(tables: ReferenceTables, parameter: str, value: float) -> str:
+def soil_rating(tables: ReferenceTables, parameter: str, value: float) -> str:
     for row in tables.soil_test_ratings:
         if row["parameter"] != parameter:
             continue
@@ -110,11 +110,11 @@ def request_to_record(req: dict, tables: ReferenceTables | None = None) -> dict:
         "moisture_pct": soil["moisture"],
         "rainfall_mm_forecast": weather["rainfall_mm_forecast"],
         "weather_source": weather.get("source"),
-        "soil_rating_n": _soil_rating(tables, "n", soil["n"]),
-        "soil_rating_p": _soil_rating(tables, "p", soil["p"]),
-        "soil_rating_k": _soil_rating(tables, "k", soil["k"]),
-        "soil_rating_organic_carbon": _soil_rating(tables, "organic_carbon", soil["organic_carbon"]),
-        "soil_rating_ph": _soil_rating(tables, "ph", soil["ph"]),
+        "soil_rating_n": soil_rating(tables, "n", soil["n"]),
+        "soil_rating_p": soil_rating(tables, "p", soil["p"]),
+        "soil_rating_k": soil_rating(tables, "k", soil["k"]),
+        "soil_rating_organic_carbon": soil_rating(tables, "organic_carbon", soil["organic_carbon"]),
+        "soil_rating_ph": soil_rating(tables, "ph", soil["ph"]),
         "previous_fertilizer_usage": req.get("previous_fertilizer_usage") or [],
     }
 
