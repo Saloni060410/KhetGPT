@@ -78,19 +78,19 @@ class Risk(BaseModel):
     over_application_pct: float | None = None
 
 
-class NutrientDeficit(BaseModel):
-    crop_demand_kg_ha: float
-    soil_supply_kg_ha: float
-    deficit_kg_ha: float
-    use_efficiency: float
+class NutrientPlan(BaseModel):
+    method: Literal["reference_dose", "stcr"]
+    soil_rating: Literal["very_low", "low", "medium", "high"] | None = None
+    standard_dose_kg_ha: float
+    soil_adjustment_kg_ha: float
     prior_credit_kg_ha: float
     fertilizer_needed_kg_ha: float
 
 
 class NutrientBalance(BaseModel):
-    n: NutrientDeficit
-    p: NutrientDeficit
-    k: NutrientDeficit
+    n: NutrientPlan
+    p: NutrientPlan
+    k: NutrientPlan
 
 
 class Explanation(BaseModel):

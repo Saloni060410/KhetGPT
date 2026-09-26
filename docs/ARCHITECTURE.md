@@ -12,13 +12,13 @@ Frontend (React + R3F + GSAP) --HTTPS--> Backend (Express + Prisma + Postgres) -
 
 - The **frontend** never calls the ML service. Everything goes through the backend, so auth, history and caching stay in one place.
 - The **backend** owns all persistence and orchestration. It validates the request, gathers stored soil, crop and usage data, fetches weather, calls the ML service and stores the result.
-- The **ML service** is stateless: pure computation, no database access. It holds the deficit engine, the model, the risk analyzer and the reference tables.
+- The **ML service** is stateless: pure computation, no database access. It holds the dose engine, the model, the risk analyzer and the reference tables.
 
 ## Request flow
 
 1. The farmer enters soil, crop, growth stage, sowing date and previous fertilizer usage in the frontend.
 2. The backend stores them, fetches weather for the field's coordinates and builds the `POST /recommend` payload (`api-contract.md`).
-3. The ML service computes the nutrient deficit, picks products, dates a split schedule, scores risk and cost, and returns everything with the formula inputs and `model_version`.
+3. The ML service computes the nutrient dose from the soil test, picks products, dates a split schedule, scores risk and cost, and returns everything with the formula inputs and `model_version`.
 4. The backend stores the recommendation (with an input snapshot) and returns it. The frontend renders the schedule, risk, cost and the reasons.
 
 ## Tech stack
@@ -71,7 +71,7 @@ KhetGPT/
 | Decision | Choice and reason |
 |---|---|
 | Soil schema | Fixed by the problem statement: N, P, K, pH, organic carbon, moisture. Never add, remove or rename these. |
-| Core method | Transparent deficit formula: fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications. The ML model refines the product choice. Every result shows the formula inputs, which meets the explainability requirement and the "matches the agronomic formula" success metric. |
+| Core method | Transparent soil-test-based dose: fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications. The standard dose is the published dose for the crop (for example the PAU dose for medium-fertility soil). The adjustment comes from published soil-test rules, or an STCR equation `a x target yield - b x soil test` where one exists. The ML model refines the product choice. Every result shows the inputs, which meets the explainability requirement. Chosen because the deficit formula's separate soil-supply and efficiency factors are not published for most crops, while doses and STCR equations are. |
 | ML endpoints | `POST /recommend` and `POST /risk-score`. `/risk-score` scores a farmer's own planned dose, which delivers the problem statement's warning about excessive use. |
 | Risk ownership | Richa owns `degradation/risk_analyzer.py`. Saloni's engine, model and API workload is the larger one. |
 | Crop variety | Optional. It exists only if the datasets Richa chooses have varieties, and then it comes from her `crop_varieties.csv`. |

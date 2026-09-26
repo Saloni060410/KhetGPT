@@ -10,7 +10,7 @@ Fixtures for every request and response live in `docs/contract-fixtures/`. Their
 2. Units: kg/acre in the API. Soil N, P, K in kg/ha. `organic_carbon` and `moisture` in percent. The ML service converts internally (1 ha = 2.4711 acre).
 3. `crop_type`, `variety` and `growth_stage` are ids from `GET /reference/crops`. `variety` is optional and only exists if Richa's chosen data has varieties.
 4. `sowing_date` is optional. It dates the schedule. If missing, the engine assumes today is the middle of the current stage.
-5. The core engine is the transparent deficit formula: `fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications`. The ML model refines the product choice on top of it. Every response shows the formula inputs (`explanation.nutrient_balance`).
+5. The core engine is a transparent soil-test-based dose: `fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications`. The standard dose is the published recommendation for the crop (for example the PAU dose for medium-fertility soil). The soil-test adjustment comes from published soil-test rules, or from an STCR targeted-yield equation where one exists (`a x target yield - b x soil test`). Each nutrient reports which `method` was used. The ML model refines the product choice on top of it. Every response shows the inputs (`explanation.nutrient_balance`).
 6. Weather is fetched by the backend (Open-Meteo) and sent in the request. `weather.source` says whether it was `live`, `cached` or a `seasonal_average` fallback.
 7. Cost is compared with the farmer's logged previous usage. If nothing is logged the comparison fields are `null`. Never invent a baseline.
 8. Errors: `422 { detail: [...] }` for invalid input, `503 { detail }` when the model or reference data is unavailable.
@@ -58,10 +58,10 @@ Fixtures for every request and response live in `docs/contract-fixtures/`. Their
     "top_factors": ["string"],
     "nutrient_balance": {
       "n": {
-        "crop_demand_kg_ha": 0.0,
-        "soil_supply_kg_ha": 0.0,
-        "deficit_kg_ha": 0.0,
-        "use_efficiency": 0.0,
+        "method": "reference_dose | stcr",
+        "soil_rating": "very_low | low | medium | high | null",
+        "standard_dose_kg_ha": 0.0,
+        "soil_adjustment_kg_ha": 0.0,
         "prior_credit_kg_ha": 0.0,
         "fertilizer_needed_kg_ha": 0.0
       },
@@ -82,6 +82,8 @@ Fixtures for every request and response live in `docs/contract-fixtures/`. Their
 
 - `recommendation.fertilizer_type` is the primary product. Its `quantity_kg_per_acre` is that product's total across the schedule. Every application, including other products, is in `schedule`.
 - `risk` covers over- and under-application, soil health (organic carbon, pH) and runoff from forecast rain. `soil_health_impact` and `yield_impact` state the consequence in plain language, as the problem statement asks.
+- `nutrient_balance` is per nutrient on an N, P2O5 and K2O basis. `fertilizer_needed_kg_ha = max(0, standard_dose + soil_adjustment - prior_credit)`. The adjustment is signed. With `method: "stcr"`, `standard_dose = a x target yield` and `soil_adjustment = -b x soil test`.
+- The engine only selects products that have a price in the reference tables. Cost is never computed with a missing price.
 - `saving_inr_per_acre` can be negative. The UI explains it.
 
 ## POST /risk-score

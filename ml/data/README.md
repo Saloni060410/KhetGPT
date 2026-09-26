@@ -36,7 +36,7 @@ README explains *what* each one is and *why* it was chosen.
 - **Used for:** Seed training data for the fertilizer-*type* classifier (contract C4's
   `CLASSIFIER_TARGET`). Small (99 rows) and missing pH/organic-carbon/growth-stage features --
   documented as a real limitation, not hidden. Quantity and schedule come from the
-  PAU-sourced `crop_requirements.csv` / `split_schedule.csv`, not from this dataset.
+  PAU-sourced `reference_doses.csv` / `split_schedule.csv`, not from this dataset.
 
 ### isric_sotwis_igp_soil_profiles (`data/external/isric_sotwis_igp_soil_profiles.csv`, committed)
 
@@ -134,8 +134,10 @@ descriptions -- always confirm an actual downloadable file exists before countin
 | File | Purpose |
 |---|---|
 | `crops.csv`, `crop_varieties.csv`, `growth_stages.csv` | Vocabulary used by every service |
-| `crop_requirements.csv` | Standard fertilizer dose per crop (kg/ha of N, P2O5, K2O) |
-| `soil_test_adjustments.csv` | Soil-test-based adjustment to the standard dose, where PAU/STCR publishes one |
+| `reference_doses.csv` | Published standard dose per crop, irrigation, variety (`generic` fallback), in kg/ha of N, P2O5, K2O |
+| `soil_adjustments.csv` | Signed dose adjustments by soil rating, from published soil-test rules |
+| `stcr_equations.csv` | Optional STCR targeted-yield equations: `a` x target yield - `b` x soil test |
+| `nutrient_efficiency.csv` | Fertilizer use efficiency per crop and nutrient (`default` fallback), used only for credit |
 | `split_schedule.csv` | Share of each nutrient per growth stage |
 | `fertilizer_products.csv` | Nutrient content, price, price date, source |
 | `soil_test_ratings.csv` | Low and high cut-offs per soil parameter |

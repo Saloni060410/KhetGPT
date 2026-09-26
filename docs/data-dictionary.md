@@ -38,18 +38,11 @@ PRD draft specified OpenWeatherMap; that was superseded (see commit `9f25bf5`).
 
 ## Recommendation
 
-**Revised shape** (see the engine-formula note under External reference tables for why): the
-original `nutrient_balance.{crop_demand, soil_supply, deficit, use_efficiency}_kg_ha` shape is
-replaced by `standard_dose, adjustment, credit, total` — the demand/supply/efficiency split
-isn't computable from any source we have; standard-dose-plus-adjustment is.
-
 | Field | Meaning | Unit |
 |---|---|---|
 | `quantity_kg_per_acre` | Fertilizer product quantity | kg/acre |
-| `nutrient_balance.*.standard_dose_kg_ha` | From crop_requirements.csv (P as P2O5, K as K2O) | kg/ha |
-| `nutrient_balance.*.adjustment_kg_ha` | From soil_test_adjustments.csv, by the field's soil-test rating | kg/ha (signed) |
-| `nutrient_balance.*.credit_kg_ha` | Credited from recent applications within agronomy_rules.yaml's credit_window_days | kg/ha |
-| `nutrient_balance.*.fertilizer_needed_kg_ha` | `standard_dose + adjustment - credit` | kg/ha |
+| `nutrient_balance.*.method` | `reference_dose` or `stcr` | |
+| `nutrient_balance.*_kg_ha` | Standard dose, soil adjustment (signed), prior credit, fertilizer needed (P as P2O5, K as K2O) | kg/ha |
 | `risk.level` | Over- and under-application risk | `low`, `medium`, `high` |
 | `cost.*_inr_per_acre` | Plan cost, previous cost, saving | INR per acre |
 | `model_version` | `<model>-<semver>+rules-<hash8>` | string |
@@ -57,32 +50,31 @@ isn't computable from any source we have; standard-dose-plus-adjustment is.
 ## External reference tables (`ml/data/external/`, contract C5)
 
 Crop, region and fertilizer reference data live here, not in application code (NFR5). Richa
-owns these files; Saloni's NPK calculator and Josh's reference proxy read them. Column schemas
-below are locked as of R1/R3; values are filled in incrementally (v0 for wheat/rice landed in
-R3, full coverage after). Cells marked `TODO(data)` mean a value could not be verified against
-an authoritative source and was deliberately left blank rather than invented.
+owns these files; Saloni's NPK calculator and Josh's reference proxy read them.
 
-**Engine formula (revised — see below):** the NPK calculator computes, per nutrient,
-`fertilizer needed = standard dose + soil-test adjustment - credit from recent applications`.
-`standard dose` comes from `crop_requirements.csv`, `soil-test adjustment` from
-`soil_test_adjustments.csv`, `credit` uses `agronomy_rules.yaml`'s `credit_window_days`.
+**Engine formula:** `fertilizer needed = standard dose + soil-test adjustment - credit from
+recent applications`. `standard dose` comes from `reference_doses.csv`, `soil-test adjustment`
+from `soil_adjustments.csv`, `credit` from `agronomy_rules.yaml`'s `credit_window_days` combined
+with `nutrient_efficiency.csv`'s `fertilizer_use_efficiency`. `stcr_equations.csv` is an
+optional, full alternative method for a nutrient (`nutrient_balance.*.method = "stcr"`) when a
+per-field yield target is available and a sourced equation exists — not an addition on top of
+the standard-dose-plus-adjustment path.
 
-**Why this isn't the demand/supply/efficiency formula from R3:** R3 originally specified
-`fertilizer needed = (crop demand - soil supply) / use efficiency - credit`, fed by
-`crop_requirements.csv` (demand) and `nutrient_efficiency.csv` (supply + efficiency). That
-formula assumed `crop_requirements.csv` held the crop's *gross nutrient uptake* — but the only
-sourced numbers available (PAU's flat rates) are already **fertilizer-dose recommendations for
-medium-fertility soil**, not gross uptake ("add the following amounts of *fertilizers* ... on
-*medium fertile soils*" — PAU POP Rabi 2025-26 p.9). Running an already-net dose through
-`(demand - supply) / efficiency` double-counts the soil's contribution and inflates the
-recommendation — the opposite of the product's goal. This is also *why*
-`nutrient_efficiency.csv`'s `soil_supply_factor`/`fertilizer_use_efficiency` pair couldn't be
-sourced: STCR's published coefficients (e.g. wheat `FN = 5.65T - 1.34SN`) are for exactly this
-kind of already-net equation, with soil supply and efficiency pre-combined into single
-regression coefficients — there was never a clean separable pair to find. `nutrient_efficiency.csv`
-is retired; `soil_test_adjustments.csv` replaces it. R1's `crop_nutrient_norms.csv` (renamed to
-`crop_requirements.csv` in R3) and `agronomy_rules.yaml`'s `soil_rating_multipliers` block
-(removed in R3, doesn't fit either formula) stay retired under this design too.
+**Why not demand ÷ supply ÷ efficiency:** an earlier design computed
+`(crop demand - soil supply) / use efficiency - credit`, fed by a `crop_requirements.csv` table
+holding what was assumed to be the crop's gross nutrient uptake. It wasn't — the only sourced
+numbers available (PAU's flat rates) are already **fertilizer-dose recommendations for
+medium-fertility soil** ("add the following amounts of *fertilizers* ... on *medium fertile
+soils*" — PAU POP Rabi 2025-26 p.9). Running an already-net dose through that formula
+double-counted the soil's contribution and inflated the recommendation. This is also why a
+`soil_supply_factor`/`fertilizer_use_efficiency` pair couldn't be sourced in the first place:
+STCR's published coefficients (e.g. wheat `FN = 5.65T - 1.34SN`) pre-combine soil supply and
+efficiency into single regression coefficients — there was never a separable pair to find. The
+old `crop_requirements.csv` (itself a rename of R1's `crop_nutrient_norms.csv`) and its
+`soil_rating_multipliers` block are retired under this design.
+
+Cells marked `TODO(data)` mean a value could not be verified against an authoritative source
+and was deliberately left blank rather than invented.
 
 ### crops.csv
 
@@ -91,9 +83,25 @@ is retired; `soil_test_adjustments.csv` replaces it. R1's `crop_nutrient_norms.c
 | `crop_id` | Stable snake_case identifier, used as `crop_type` across the API/DB/UI | e.g. `wheat`, `rice`, `maize`, `cotton`, `sugarcane`, `chickpea` |
 | `name_en` | English display name | string |
 | `name_hi` | Hindi display name | string (Devanagari) |
-| `dataset_label` | The label this crop maps to in the chosen training dataset(s) | string, filled in R2 once datasets are chosen |
+| `dataset_label` | The label this crop maps to in the chosen training dataset(s) | string |
 | `season` | Cropping season | `rabi` / `kharif` / `annual` |
 | `source` | Citation for this crop's inclusion/season | free text |
+
+### crop_varieties.csv
+
+Header-only unless a crop's chosen dataset actually distinguishes varieties. **Never lists the
+`generic` fallback id** — that's a sentinel used only in `reference_doses.csv`, not a real
+named variety.
+
+| Column | Meaning | Unit |
+|---|---|---|
+| `crop_id` | Foreign key into crops.csv | snake_case id |
+| `variety_id` | Stable snake_case identifier | e.g. `pr_132` |
+| `name_en` / `name_hi` | Display names | string |
+| `source` | Citation | free text |
+
+One row as of this pass (`rice`/`pr_132`) — the only case in hand where PAU publishes a real,
+different fertilizer dose by variety.
 
 ### growth_stages.csv
 
@@ -113,72 +121,74 @@ season and variety. This is flagged in each affected row's `source` cell. Anythi
 these rice stage windows (e.g. `rain_hold` logic, split-schedule timing) must treat them as
 DAT, not DAS, for rice specifically.
 
-### crop_varieties.csv
+### reference_doses.csv
 
-New. Header-only unless a crop's chosen dataset actually distinguishes varieties.
-
-| Column | Meaning | Unit |
-|---|---|---|
-| `crop_id` | Foreign key into crops.csv | snake_case id |
-| `variety_id` | Stable snake_case identifier | e.g. `pr_132` |
-| `name_en` / `name_hi` | Display names | string |
-| `source` | Citation | free text |
-
-**As of R3:** one row (`rice`/`pr_132`) — the only case in hand where PAU publishes a real,
-different fertilizer dose by variety. `crop_requirements.csv` rows for every other crop use
-`variety_id = generic`, a fixed fallback id that is *not* itself listed here (it isn't a real
-named variety — see `test_requirement_varieties_are_generic_or_declared`).
-
-### crop_requirements.csv
-
-(Replaces R1's `crop_nutrient_norms.csv`. Holds the **standard dose** — PAU's flat,
-medium-fertility-soil fertilizer recommendation — not gross crop nutrient demand; see the
-engine-formula note above for why that distinction matters.)
+The **standard dose** — PAU's flat, medium-fertility-soil fertilizer recommendation, not gross
+crop nutrient demand (see the engine-formula note above).
 
 | Column | Meaning | Unit |
 |---|---|---|
 | `crop_id` | Foreign key into crops.csv | snake_case id |
 | `variety_id` | Foreign key into crop_varieties.csv, or the fixed fallback `generic` | snake_case id |
-| `irrigation` | Irrigation condition the requirement applies to | `irrigated` / `rainfed` |
+| `irrigation` | Irrigation condition the dose applies to | `irrigated` / `rainfed` |
+| `region` | State/region the dose applies to | e.g. `Punjab` |
 | `n_kg_ha`, `p2o5_kg_ha`, `k2o_kg_ha` | Standard fertilizer dose | kg/ha (source tables are in kg/acre; converted at 1 acre = 0.4047 ha, i.e. x2.4711) |
 | `source` | Citation, including page number | free text |
 | `notes` | Caveats (soil-test-conditional additions, variety exceptions, alternative STCR equations, etc.) | free text |
 
-Region is not a column — every row here is Punjab-specific by construction (PAU POP is a
-Punjab-only source), so it's stated in `source`/`notes` prose instead of a dedicated field.
 Engine lookup order: exact `(crop_id, variety_id)` match, then `(crop_id, "generic")`.
 
-**v0 as of R3: wheat and rice** (real, PAU-sourced). Remaining crops land in a follow-up pass.
+**v0: wheat and rice** (real, PAU-sourced). Remaining crops land in a follow-up pass.
 
-### soil_test_adjustments.csv
+### soil_adjustments.csv
 
-New — replaces the retired `nutrient_efficiency.csv`. Adjusts the standard dose based on the
-field's own soil-test rating for that nutrient, using PAU's published soil-test-conditional
-rules where they exist.
+Adjusts the standard dose based on the field's own soil-test rating for that nutrient, using
+PAU's published soil-test-conditional rules where they exist. Signed, in P2O5/K2O terms.
 
 | Column | Meaning | Unit |
 |---|---|---|
-| `crop_id`, `variety_id` | Foreign keys into crop_requirements.csv | snake_case id |
+| `crop_id` | Foreign key into reference_doses.csv | snake_case id |
 | `nutrient` | `n` / `p` / `k` | string |
-| `soil_rating` | The soil_test_ratings.csv band this adjustment applies at | `low` / `medium` / `high`, or `TODO(data)` |
+| `soil_rating` | The soil_test_ratings.csv band this adjustment applies at | `very_low` / `low` / `medium` / `high`, or `TODO(data)` |
 | `adjustment_kg_ha` | Amount to add to (positive) or subtract from (negative) the standard dose | kg/ha, or `TODO(data)` |
 | `source` | Citation, or an explicit statement that no PAU adjustment table was found — never left blank | free text |
 | `notes` | Caveats, including STCR alternatives where a full replacement equation exists instead | free text |
 
-**A missing `(crop_id, variety_id, nutrient, soil_rating)` row means no adjustment (0) — this
-is a deliberate, safe default**, unlike the retired `nutrient_efficiency.csv`, where a missing
-`soil_supply_factor` could not safely default to anything (a 0 there would have overstated the
-deficit and recommended *more* fertilizer, the wrong direction) and had to block the
-calculation instead. Adjustments here can be negative by design (e.g. rice: PAU says apply
-P2O5/K2O "only when the soil test shows deficiency" — the standard dose already assumes
-deficiency, so the adjustment for a *sufficient* soil test is `-` the full standard dose,
-skipping it).
+**A missing `(crop_id, nutrient, soil_rating)` row means no adjustment (0) — a deliberate, safe
+default**, unlike the retired demand/supply formula's `soil_supply_factor`, where a missing
+value couldn't safely default to anything (a 0 there would have overstated the deficit and
+recommended *more* fertilizer, the wrong direction). Adjustments can be negative by design (e.g.
+rice: PAU says apply P2O5/K2O "only when the soil test shows deficiency" — the standard dose
+already assumes deficiency, so the adjustment for a *sufficient* soil test is `-` the full
+standard dose, skipping it).
 
-**Known gap, flagged rather than guessed:** wheat and rice N (and wheat P2O5) have no
-published PAU soil-test adjustment table — only `TODO(data)` rows, with the STCR equation
-noted as a full alternative computation path (see `crop_requirements.csv`). Wheat K also has a
-`very_low` tier PAU publishes that `soil_test_ratings.csv`'s low/medium/high scale doesn't
-capture — flagged in that row's notes rather than silently collapsed into `low`.
+**Known gap:** wheat and rice N (and wheat P2O5) have no published PAU soil-test adjustment
+table — only `TODO(data)` rows, with the STCR equation noted as a full alternative computation
+path (see `stcr_equations.csv`).
+
+### stcr_equations.csv
+
+Optional. Soil Test Crop Response targeted-yield equations: `fertilizer needed = a * target
+yield - b * soil test`, a full alternative to standard-dose-plus-adjustment for a given
+crop/variety/nutrient when a yield target is available.
+
+| Column | Meaning | Unit |
+|---|---|---|
+| `crop_id`, `variety_id` | The crop/variety this equation was calibrated for | snake_case id |
+| `region` | Where the equation was calibrated — may differ from the demo region | free text |
+| `applies_to` | Irrigation condition, inferred from the source table's "Situation" field | `irrigated` / `rainfed` |
+| `nutrient` | `n` / `p` / `k` | string |
+| `a`, `b` | Regression coefficients: `needed = a*T - b*ST` | numeric |
+| `target_yield_default_q_ha` | A fallback yield target if the field doesn't supply one | q/ha, or `TODO(data)` |
+| `source` | Citation | free text |
+| `notes` | Caveats (region substitution, coefficient provenance, etc.) | free text |
+
+**v0: wheat cv. WH 542, N and P2O5** (ICAR-IISS, Hisar/Haryana — the national STCR compilation
+has no Punjab centre; Haryana is the nearest applicable substitute, same Trans-Gangetic Plain
+zone, flagged via the `region` column rather than left implicit). `target_yield_default_q_ha`
+is `TODO(data)` — no sourced typical/realistic Punjab wheat yield target found yet.
+`applies_to` is an inference from the source document's "Situation: Irrigated" field, not a
+literal source column — flagged in case a different `applies_to` semantics was intended.
 
 ### split_schedule.csv
 
@@ -187,8 +197,26 @@ capture — flagged in that row's notes rather than silently collapsed into `low
 | `crop_id`, `stage_id` | Foreign keys into crops.csv / growth_stages.csv | snake_case id |
 | `n_fraction`, `p_fraction`, `k_fraction` | Share of that nutrient's total dose applied at this stage | 0–1, each nutrient's fractions sum to 1 across a crop's stages |
 
-**v0 as of R3: wheat and rice.** Note rice's stage timing is in Days After Transplanting
-(DAT), not DAS — see the growth_stages.csv note above.
+**v0: wheat and rice.** Note rice's stage timing is in Days After Transplanting (DAT), not
+DAS — see the growth_stages.csv note above.
+
+### nutrient_efficiency.csv
+
+Used **only** to credit recent applications (`credit_kg_ha = prior_application_kg_ha *
+fertilizer_use_efficiency`) — not for a demand/supply split, which is what caused the retired
+formula's double-counting problem.
+
+| Column | Meaning | Unit |
+|---|---|---|
+| `crop_id` | Crop this efficiency applies to, or the fixed fallback `default` | snake_case id |
+| `nutrient` | `n` / `p` / `k` | string |
+| `fertilizer_use_efficiency` | Share of applied nutrient the crop recovers | 0–1, or `TODO(data)` |
+| `source` | Citation, or an explicit "no defensible source found" statement — never left blank | free text |
+| `notes` | Caveats (national-average vs. region-specific, etc.) | free text |
+
+Engine lookup order: exact `crop_id` match, then `default`. **v0: `default`/N only** (a real
+but *national-average, rice-only* recovery-efficiency figure, 42.6%, used as an interim
+stand-in and flagged as such) — P and K are `TODO(data)`.
 
 ### fertilizer_products.csv
 
@@ -196,17 +224,24 @@ capture — flagged in that row's notes rather than silently collapsed into `low
 |---|---|---|
 | `product_id` | Stable snake_case identifier | e.g. `urea`, `dap`, `npk_10_26_26` |
 | `name` | Display name | string |
+| `dataset_label` | The label this product maps to in the chosen training dataset | string, e.g. `10-26-26` — replaces a separate alias file |
 | `n_pct`, `p2o5_pct`, `k2o_pct` | Nutrient content by weight (guaranteed grade, per FCO 1985 nomenclature) | % (0–100) |
 | `price_inr_per_kg` | Retail price | INR/kg, or `TODO(data)` if no defensible dated price was found |
 | `price_date` | Date the price was current as of | ISO date, or `TODO(data)` if not confirmed |
-| `source` | Citation (IFFCO price list, Department of Fertilizers notification, state MRP, etc.) | free text |
+| `bag_size_kg` | Retail bag size, for `GET /reference/fertilizers` | kg, or `TODO(data)`/null if unknown for that product |
+| `source` | Citation (IFFCO price list, PIB/Department of Fertilizers notification, state MRP, etc.) | free text |
 
-**As of R3:** all 9 grades appearing in the chosen training dataset are populated with real
-N/P2O5/K2O percentages (FCO nomenclature is definitional, not looked up per-product). Prices
-are real and dated for urea, DAP, NP 28-28-0 and NPK 10-26-26 (all from IFFCO's published
-price list); MOP, SSP, and the remaining NPK grades are `price_inr_per_kg: TODO(data)` because
-they aren't under a statutory uniform MRP and no single defensible current figure was found —
-never guessed.
+All 9 grades in the chosen training dataset have real N/P2O5/K2O percentages (FCO nomenclature
+is definitional). Prices, dates and bag sizes are real and confirmed for urea (45kg), DAP,
+NP 28-28-0 and NPK 10-26-26 (all 50kg) — IFFCO's published price list, w.e.f. 1 Jan 2025.
+`bag_size_kg` is left `TODO(data)` rather than assumed for the remaining products even though
+50kg is the common industry-standard bag size for most Indian fertilizer grades — no primary
+citation was found for those specific products. MOP, SSP and the remaining NPK grades are
+`price_inr_per_kg: TODO(data)` — they're under a **decontrolled MRP regime** (confirmed via PIB
+Backgrounder, Release ID 2211384, 5 Jan 2026), so only their government *subsidy* rate is
+publicly fixed, not the consumer price; subsidy figures are noted in each row for context but
+never substituted for a retail price. **The engine must only select priced products** — a
+missing price is never treated as 0.
 
 ### soil_test_ratings.csv
 
@@ -214,22 +249,16 @@ never guessed.
 |---|---|---|
 | `parameter` | Soil parameter name | `organic_carbon`, `n`, `p`, `k`, `ph` |
 | `unit` | Unit that parameter is measured in | e.g. `%`, `kg/ha`, `pH units` |
+| `very_low_below` | Optional cutoff for a 4th "very low" tier | same unit as `unit`, or blank/`TODO(data)` |
 | `low_below` / `high_above` | Cutoffs separating low / medium / high ratings | same unit as `unit` |
 | `source` | Citation | free text |
 
-**Full coverage as of R3** (organic_carbon, n, p, k, ph) — all from ICAR-IISS Bhopal's
-national soil-test interpretation ranges, as used on Soil Health Cards. `p`'s cutoffs are the
-Olsen-P method figures, applicable to Punjab's predominantly alkaline soils.
-
-### agronomy_rules.yaml
-
-Rule-layer parameters for the NPK calculator / risk engine: nutrient credit window (days),
-rain-hold thresholds (mm / days), over- and under-application risk ratios, and the sanity-test
-formula tolerance (%). Every key carries an inline comment with either a source citation or
-the words "team assumption". R1's `soil_rating_multipliers` block was **removed in R3** — it
-doesn't fit either the retired demand/supply/efficiency formula or the current
-dose/adjustment/credit one. All keys remain `team assumption` placeholders; validating them
-against real guidance is follow-up work.
+Full coverage (organic_carbon, n, p, k, ph) from ICAR-IISS Bhopal's national soil-test
+interpretation ranges, as used on Soil Health Cards. `p`'s cutoffs are the Olsen-P method
+figures, applicable to Punjab's predominantly alkaline soils. `k`'s `very_low_below` is
+`TODO(data)` — PAU's wheat fertilizer table distinguishes a "very low" K tier (used by
+`soil_adjustments.csv`'s `wheat/k/very_low` row) but doesn't itself publish the kg/ha cutoff
+between "low" and "very low".
 
 ### seasonal_weather.csv
 
@@ -242,18 +271,24 @@ Fallback weather when a live/cached call isn't available (`weather.source = seas
 | `temperature_c`, `humidity_pct`, `rainfall_mm_5day` | Seasonal-average weather | °C, %, mm |
 | `source` | Citation | free text |
 
-**One example row as of R3** (`punjab_ludhiana`, January) — climate normals from a public
-aggregator, not IMD directly; `rainfall_mm_5day` is a derived approximation (monthly total
-scaled to a 5-day window), noted as such in the row's source cell. Remaining 11 months are a
-follow-up pass.
+One example row (`punjab_ludhiana`, January) — climate normals from a public aggregator, not
+IMD directly; `rainfall_mm_5day` is a derived approximation (monthly total scaled to a 5-day
+window), noted as such in the row's source cell. Remaining 11 months are a follow-up pass.
+
+### agronomy_rules.yaml
+
+Rule-layer parameters: nutrient credit window (days), rain-hold thresholds (mm / days), over-
+and under-application risk ratios, and the sanity-test formula tolerance (%). Every key carries
+an inline comment with either a source citation or the words "team assumption" — all keys
+remain placeholders; validating them against real guidance is follow-up work.
 
 ### explanation_templates.yaml
 
 `template_id -> {en, hi}` sentence with `{placeholders}`, keyed to Saloni's `rule_trace`
 `rule_id`s (contract C6). Full coverage (every rule_id, risk reason, soil/yield impact
-statement) is R9's job — one example exists as of R3, matching the
-`soil_test_adjustments.csv` wheat-K-low rule, to prove the shape out.
+statement) is a follow-up pass — one example exists, matching `soil_adjustments.csv`'s
+wheat-K-low rule, to prove the shape out.
 
 ## Reference tables (`ml/data/external/`, schemas in the prompt packs, contract C5)
 
-`crops.csv`, `crop_varieties.csv`, `growth_stages.csv`, `crop_requirements.csv`, `soil_test_adjustments.csv`, `split_schedule.csv`, `fertilizer_products.csv`, `soil_test_ratings.csv`, `agronomy_rules.yaml`, `explanation_templates.yaml`, `seasonal_weather.csv`. Every value has a `source`. (`nutrient_efficiency.csv` from the original R3 schema is retired — see the engine-formula note above.)
+`crops.csv`, `crop_varieties.csv`, `growth_stages.csv`, `reference_doses.csv`, `soil_adjustments.csv`, `stcr_equations.csv` (optional), `split_schedule.csv`, `nutrient_efficiency.csv` (per crop, used for credit only), `fertilizer_products.csv`, `soil_test_ratings.csv`, `agronomy_rules.yaml`, `explanation_templates.yaml`, `seasonal_weather.csv`. Every value has a `source`.

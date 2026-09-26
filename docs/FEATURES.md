@@ -7,7 +7,7 @@ P0 is what the problem statement asks for and must work in the demo. P1 strength
 1. **Soil health input.** N, P, K, pH, organic carbon and moisture (the schema is fixed). Each value shows a low, medium or high rating from the reference cut-offs.
 2. **Crop and growth stage.** Crop, optional variety (only if our data has varieties), sowing date and current growth stage.
 3. **Weather.** Current conditions and a 5-day forecast for the field's coordinates, with a cached and seasonal-average fallback.
-4. **Fertilizer recommendation.** Product(s) and quantity per acre from the deficit formula, adjusted for weather and previous usage, with a model refining the product choice.
+4. **Fertilizer recommendation.** Product(s) and quantity per acre from the standard dose plus soil-test adjustment, adjusted for weather and previous usage, with a model refining the product choice.
 5. **Application schedule.** Dated, split doses: what, how much and when.
 6. **Over- and under-application warning.** Risk level with the reason and the plain-language impact on soil health and yield.
 7. **Previous fertilizer usage log.** Per field, used in every later recommendation.
@@ -19,7 +19,7 @@ P0 is what the problem statement asks for and must work in the demo. P1 strength
 10. **Printable schedule and PDF.** A print-friendly schedule page, saved as PDF from the browser.
 11. **Check my own dose.** The farmer enters a planned quantity and gets the risk warning before applying (`POST /risk-score`).
 12. **Trends and history.** Nutrient levels, usage and recommendations over time per field.
-13. **Explanations.** The 2 to 3 reasons and the deficit numbers behind each recommendation.
+13. **Explanations.** The 2 to 3 reasons and the dose numbers (standard dose, soil adjustment, credit) behind each recommendation.
 14. **Hindi and English toggle.**
 15. **Interactive 3D soil and field view.** React Three Fiber and GSAP. The standout demo feature.
 16. **Offline-friendly last recommendation.**

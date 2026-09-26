@@ -1,6 +1,6 @@
-parameter,unit,low_below,high_above,source
-organic_carbon,%,0.5,0.75,"ICAR-IISS Bhopal soil-test interpretation ranges, as used on Soil Health Cards nationally (low <0.5%, medium 0.5-0.75%, high >0.75%)."
-n,kg/ha,280,560,"ICAR-IISS Bhopal soil-test interpretation ranges, as used on Soil Health Cards nationally (low <280 kg/ha, medium 280-560 kg/ha, high >560 kg/ha available N)."
-p,kg/ha,10,25,"ICAR-IISS Bhopal soil-test interpretation ranges, as used on Soil Health Cards nationally (low <10 kg/ha, medium 10-25 kg/ha, high >25 kg/ha available P, Olsen method for alkaline/neutral soils -- Punjab soils are predominantly alkaline, so Olsen-P is the applicable method)."
-k,kg/ha,108,280,"ICAR-IISS Bhopal soil-test interpretation ranges, as used on Soil Health Cards nationally (low <108 kg/ha, medium 108-280 kg/ha, high >280 kg/ha available K)."
-ph,pH units,6.5,7.5,"ICAR-IISS Bhopal soil-test interpretation ranges, as used on Soil Health Cards nationally (acidic <6.5, normal/near-neutral 6.5-7.5, alkaline >7.5)."
+parameter,unit,very_low_below,low_below,high_above,source
+organic_carbon,%,,0.5,0.75,"ICAR-IISS Bhopal soil-test interpretation ranges, as used on Soil Health Cards nationally (low <0.5%, medium 0.5-0.75%, high >0.75%)."
+n,kg/ha,,280,560,"ICAR-IISS Bhopal soil-test interpretation ranges, as used on Soil Health Cards nationally (low <280 kg/ha, medium 280-560 kg/ha, high >560 kg/ha available N)."
+p,kg/ha,,10,25,"ICAR-IISS Bhopal soil-test interpretation ranges, as used on Soil Health Cards nationally (low <10 kg/ha, medium 10-25 kg/ha, high >25 kg/ha available P, Olsen method for alkaline/neutral soils -- Punjab soils are predominantly alkaline, so Olsen-P is the applicable method)."
+k,kg/ha,TODO(data),108,280,"ICAR-IISS Bhopal ranges for low/medium/high (low <108 kg/ha, medium 108-280 kg/ha, high >280 kg/ha). very_low_below is TODO(data): PAU's wheat fertilizer table (Rabi 2025-26, p.9) distinguishes a 'very low' K tier from 'low' (escalating the K2O adjustment, see soil_adjustments.csv), but does not itself state the kg/ha cutoff between the two -- it's a qualitative SHC-report category, not a number we could find published in the sources checked so far."
+ph,pH units,,6.5,7.5,"ICAR-IISS Bhopal soil-test interpretation ranges, as used on Soil Health Cards nationally (acidic <6.5, normal/near-neutral 6.5-7.5, alkaline >7.5)."

@@ -17,7 +17,7 @@ An AI/ML-powered fertilizer optimization system. It recommends the fertilizer ty
 
 - `frontend/`: React + React Three Fiber + GSAP + Tailwind + Zustand
 - `backend/`: Node.js/Express + PostgreSQL (Prisma) + JWT auth
-- `ml/`: Python + FastAPI (deficit engine, model, risk analyzer, weather)
+- `ml/`: Python + FastAPI (dose engine, model, risk analyzer, weather)
 
 ## Team
 

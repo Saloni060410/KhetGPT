@@ -1,14 +1,13 @@
-# Rule-layer parameters for the NPK calculator / dosage engine (contract C5, Richa + Saloni).
-# Engine formula: fertilizer needed = (crop demand - soil supply) / use efficiency - credit
-# from recent applications. crop demand comes from crop_requirements.csv, soil supply and
-# use efficiency from nutrient_efficiency.csv. This file holds everything else the formula
-# and the risk/explanation layer need. Every key below has a source comment or the words
-# "team assumption" -- see R3 prompt. Supersedes the R1 placeholder soil_rating_multipliers
-# block, which doesn't fit this formula and has been removed.
+# Rule-layer parameters for the NPK calculator / dosage-adjustment engine (contract C5,
+# Richa + Saloni). Formula: fertilizer needed = standard dose (reference_doses.csv) +
+# soil-test adjustment (soil_adjustments.csv) - credit from recent applications (this file's
+# credit_window_days, plus nutrient_efficiency.csv's fertilizer_use_efficiency). Every key
+# below has a source comment or the words "team assumption".
 
 credit_window_days: 60
   # team assumption -- placeholder. Number of days a previous fertilizer application is
   # still credited against (subtracted from) the current recommendation's nutrient need.
+  # credit_kg_ha = prior_application_kg_ha * nutrient_efficiency.csv's fertilizer_use_efficiency.
 
 rain_hold_mm: 20
   # team assumption -- placeholder. Forecast rainfall (mm) above which nitrogen top-dressing
@@ -33,6 +32,6 @@ under_application_ratio: 0.75
   # recommendation flags under-application (yield-risk direction, not just over-use/runoff).
 
 formula_tolerance_pct: 10
-  # team assumption -- placeholder. Percent tolerance band used by the sanity test / by
-  # evaluation.norm_conformity() to count a computed recommendation as consistent with the
-  # crop_requirements.csv + nutrient_efficiency.csv formula output.
+  # team assumption -- placeholder. Percent tolerance band used by the sanity test /
+  # evaluation.formula_conformity() to count a computed recommendation as consistent with
+  # the reference_doses.csv + soil_adjustments.csv + nutrient_efficiency.csv formula output.

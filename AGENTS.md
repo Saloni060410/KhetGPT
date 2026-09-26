@@ -20,7 +20,7 @@ Each of `frontend/`, `backend/`, `ml/` has its own `AGENTS.md`. An agent working
 ## Fixed decisions (do not change without the team)
 
 - **The soil schema is fixed by the problem statement:** `n`, `p`, `k`, `ph`, `organic_carbon`, `moisture` (`organicCarbon` in the backend and frontend). Never add, remove or rename soil fields.
-- The core method is the transparent deficit formula: fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications. Every recommendation shows those inputs.
+- The core method is a transparent soil-test-based dose: fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications. The standard dose is the published dose for the crop. The adjustment comes from published soil-test rules or an STCR equation where one exists. Every recommendation shows those inputs.
 - ML endpoints: `POST /recommend`, `POST /risk-score`, `GET /health`, `GET /reference/*`.
 - Weather and geocoding come from Open-Meteo (no key). Live, then cached, then a seasonal-average fallback.
 - Crop variety is optional and only exists if Richa's chosen data has varieties.
@@ -34,7 +34,7 @@ Each of `frontend/`, `backend/`, `ml/` has its own `AGENTS.md`. An agent working
 - Region, crop, price and threshold numbers belong in data or config files (`ml/data/external/`, a backend config), never hardcoded in application logic. Every value has a source.
 - Recommendations must be explainable and reproducible. Keep `model_version` in every response.
 - Weather and reference calls degrade gracefully. They must not hard-fail a recommendation.
-- Commit messages: `<area>: <what changed>`, for example `ml: add NPK deficit calculator`. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
+- Commit messages: `<area>: <what changed>`, for example `ml: add NPK dose calculator`. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
 
 ## Commands
 
@@ -58,7 +58,7 @@ uvicorn src.api.main:app --reload --port 8001
 
 | Person | Area |
 |---|---|
-| Saloni | AI/ML: deficit engine, model, FastAPI serving |
+| Saloni | AI/ML: dose engine, model, FastAPI serving |
 | Richa | AI/ML: datasets, reference tables, weather, risk analyzer, evaluation |
 | Josh | Backend: auth, database, API, compose and CI |
 | Darsh | Frontend: UI, 3D, animation |
