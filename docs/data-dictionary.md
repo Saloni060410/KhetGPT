@@ -228,11 +228,15 @@ stand-in and flagged as such) — P and K are `TODO(data)`.
 | `n_pct`, `p2o5_pct`, `k2o_pct` | Nutrient content by weight (guaranteed grade, per FCO 1985 nomenclature) | % (0–100) |
 | `price_inr_per_kg` | Retail price | INR/kg, or `TODO(data)` if no defensible dated price was found |
 | `price_date` | Date the price was current as of | ISO date, or `TODO(data)` if not confirmed |
+| `bag_size_kg` | Retail bag size, for `GET /reference/fertilizers` | kg, or `TODO(data)`/null if unknown for that product |
 | `source` | Citation (IFFCO price list, PIB/Department of Fertilizers notification, state MRP, etc.) | free text |
 
 All 9 grades in the chosen training dataset have real N/P2O5/K2O percentages (FCO nomenclature
-is definitional). Prices are real and dated for urea, DAP, NP 28-28-0 and NPK 10-26-26 (IFFCO's
-published price list, w.e.f. 1 Jan 2025). MOP, SSP and the remaining NPK grades are
+is definitional). Prices, dates and bag sizes are real and confirmed for urea (45kg), DAP,
+NP 28-28-0 and NPK 10-26-26 (all 50kg) — IFFCO's published price list, w.e.f. 1 Jan 2025.
+`bag_size_kg` is left `TODO(data)` rather than assumed for the remaining products even though
+50kg is the common industry-standard bag size for most Indian fertilizer grades — no primary
+citation was found for those specific products. MOP, SSP and the remaining NPK grades are
 `price_inr_per_kg: TODO(data)` — they're under a **decontrolled MRP regime** (confirmed via PIB
 Backgrounder, Release ID 2211384, 5 Jan 2026), so only their government *subsidy* rate is
 publicly fixed, not the consumer price; subsidy figures are noted in each row for context but
