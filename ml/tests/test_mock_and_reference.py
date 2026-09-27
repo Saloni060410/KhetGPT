@@ -199,16 +199,17 @@ def test_mock_reference_crops_include_one_crop_with_varieties_and_one_without():
     assert all(c["stages"] for c in crops)
 
 
-def test_real_mode_reference_crops_excludes_a_not_ready_crop(use_settings):
-    # Barley has a real reference dose but zero split_schedule.csv rows -- ready_crops() calls
-    # this out by name ("no split_schedule rows") and its own docstring says /reference/crops
-    # is supposed to list only the ready ones. Verified live before this fix: barley appeared
-    # in this list anyway (load_crops() had a stale "readiness filtering... added when the
-    # shared loader lands" comment describing a filter that was never actually wired in).
+def test_real_mode_reference_crops_lists_every_currently_ready_crop(use_settings):
+    # This used to assert barley specifically was excluded (it had a real reference dose but
+    # zero split_schedule.csv rows -- ready_crops()'s own "not ready" reason). That gap is now
+    # closed (PAU POP Rabi 2025-26 p.25 gives barley a real split_schedule row), so barley is
+    # ready like every other crop right now. See
+    # src/api/reference_data.py's own test coverage (or test_npk_calculator.py's synthetic
+    # not-ready-crop test) for the exclusion behavior itself, kept independent of any one real
+    # crop's data so it can't go stale this same way again.
     use_settings(predict_mode="real")
     ids = [c["id"] for c in client.get("/reference/crops").json()]
-    assert "barley" not in ids
-    assert "wheat" in ids  # sanity: the endpoint still returns real, ready crops
+    assert "wheat" in ids and "barley" in ids  # sanity: the endpoint returns real, ready crops
 
 
 def test_mock_reference_lists_validate():

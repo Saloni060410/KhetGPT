@@ -36,7 +36,6 @@ def test_ready_crops_matches_known_v0_coverage():
     assert readiness["maize"]["ready"] is True
     assert readiness["cotton"]["ready"] is True
     assert readiness["sugarcane"]["ready"] is True
-    # barley has a reference dose but no split_schedule row yet (disclosed gap, see
-    # test_reference_tables.py's _KNOWN_MISSING_SPLIT_SCHEDULE) -- correctly not ready.
-    assert readiness["barley"]["ready"] is False
-    assert readiness["barley"]["reason"] == "no split_schedule rows"
+    # barley's split_schedule gap (PAU POP Rabi 2025-26 p.25, closed after Saloni's S8/S9
+    # review found the two real consumer-side bugs it caused) -- ready now, like every crop.
+    assert readiness["barley"]["ready"] is True
