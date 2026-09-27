@@ -1,0 +1,44 @@
+# Training config for the fertilizer-product classifier (S3). Read by
+# `python -m src.models.train --config configs/train.yaml`.
+
+seed: 42
+folds: 5  # Richa's EDA_FINDINGS.md recommends k=5 given the smallest usable class has 5 rows
+
+model_name: fertilizer-classifier
+
+models:
+  majority:
+    kind: dummy
+    strategy: most_frequent
+  stratified:
+    kind: dummy
+    strategy: stratified
+  logistic_regression:
+    kind: logistic_regression
+    # Regularized per Richa's EDA_FINDINGS.md: ~35 training rows badly overfits an
+    # unconstrained model, so C is kept low (strong L2) rather than left at sklearn's default.
+    C: 0.5
+    max_iter: 2000
+  xgboost:
+    kind: xgboost
+    # Heavily constrained per the same finding: a many-tree XGBoost overfits this dataset
+    # size. Few, shallow trees and strong L2, not sklearn/xgboost's defaults.
+    n_estimators: 30
+    max_depth: 2
+    learning_rate: 0.1
+    reg_lambda: 5.0
+
+# The candidate to register if it beats the stronger baseline by more than the fold noise
+# (mean - std of the challenger above mean + std of the best baseline).
+candidate: xgboost
+
+leakage_smell_test:
+  macro_f1_warn_above: 0.98
+  feature_importance_warn_above: 0.60
+
+# npk_10_26_26 has only 2 rows in the training data (Richa's EDA_FINDINGS.md) -- too few to
+# learn or even to place in every CV fold. Excluded from the classifier target; the
+# rule-based reference_doses.csv / soil_adjustments.csv layer picks a nutrient-matched
+# product for it instead of asking the classifier to learn an unlearnable 2-example class.
+excluded_classes:
+  - npk_10_26_26
