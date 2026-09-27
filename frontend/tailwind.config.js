@@ -1,31 +1,111 @@
+import terraYieldPreset from './terrayield.tailwind.preset.js';
+
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{js,jsx}'],
+  presets: [terraYieldPreset],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
-        paper: '#F4F1E8',
-        ink: '#161A14',
-        field: {
-          50: '#EEF3EA',
-          100: '#DCE7D3',
-          500: '#4F7A3C',
-          700: '#2F5230',
-          900: '#1F3D2B',
+        bg: {
+          base: 'var(--color-bg-base)',
+          surface: 'var(--color-bg-surface)',
+          subtle: 'var(--color-bg-subtle)',
+          muted: 'var(--color-bg-muted)',
+          elevated: 'var(--color-bg-elevated)',
         },
-        clay: {
-          100: '#F1DFCF',
-          500: '#B5673A',
-          700: '#8A4826',
+        paper: 'var(--color-bg-base)',
+        ink: {
+          primary: 'var(--color-text-primary)',
+          secondary: 'var(--color-text-secondary)',
+          muted: 'var(--color-text-muted)',
+          inverse: 'var(--color-text-inverse)',
+          DEFAULT: 'var(--color-text-primary)',
+        },
+        border: {
+          subtle: 'var(--color-border-subtle)',
+          default: 'var(--color-border-default)',
+          strong: 'var(--color-border-strong)',
+        },
+        primary: {
+          50: 'var(--color-primary-50)',
+          100: 'var(--color-primary-100)',
+          200: 'var(--color-primary-200)',
+          500: 'var(--color-primary-500)',
+          600: 'var(--color-primary-600)',
+          700: 'var(--color-primary-700)',
+          900: 'var(--color-primary-900)',
+          DEFAULT: 'var(--color-primary-600)',
+        },
+        field: {
+          50: 'var(--color-primary-50)',
+          100: 'var(--color-primary-100)',
+          500: 'var(--color-primary-500)',
+          700: 'var(--color-primary-700)',
+          900: 'var(--color-primary-900)',
+        },
+        accent: {
+          ochre: 'var(--color-accent-ochre)',
+          maize: 'var(--color-accent-maize)',
+          amber: 'var(--color-accent-amber)',
         },
         risk: {
-          low: '#4F7A3C',
-          medium: '#C8902B',
-          high: '#B23A2E',
+          low: 'var(--color-risk-low-text)',
+          medium: 'var(--color-risk-med-text)',
+          high: 'var(--color-risk-high-text)',
+          'low-bg': 'var(--color-risk-low-bg)',
+          'low-text': 'var(--color-risk-low-text)',
+          'low-border': 'var(--color-risk-low-border)',
+          'med-bg': 'var(--color-risk-med-bg)',
+          'med-text': 'var(--color-risk-med-text)',
+          'med-border': 'var(--color-risk-med-border)',
+          'high-bg': 'var(--color-risk-high-bg)',
+          'high-text': 'var(--color-risk-high-text)',
+          'high-border': 'var(--color-risk-high-border)',
+        },
+        info: {
+          bg: 'var(--color-info-bg)',
+          text: 'var(--color-info-text)',
+          border: 'var(--color-info-border)',
         },
       },
       fontFamily: {
-        sans: ['"Inter"', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-sans)'],
+        mono: ['var(--font-mono)'],
+      },
+      minHeight: {
+        touch: '44px',
+      },
+      minWidth: {
+        touch: '44px',
+      },
+      borderRadius: {
+        xs: 'var(--radius-xs)',
+        sm: 'var(--radius-sm)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
+        full: 'var(--radius-full)',
+      },
+      boxShadow: {
+        sm: 'var(--shadow-sm)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
+        focus: 'var(--shadow-focus)',
+        'focus-danger': 'var(--shadow-focus-danger)',
+      },
+      transitionTimingFunction: {
+        default: 'var(--ease-default)',
+        in: 'var(--ease-in)',
+        out: 'var(--ease-out)',
+        'in-out': 'var(--ease-in-out)',
+        spring: 'var(--ease-spring)',
+      },
+      transitionDuration: {
+        instant: 'var(--dur-instant)',
+        fast: 'var(--dur-fast)',
+        normal: 'var(--dur-normal)',
+        slow: 'var(--dur-slow)',
       },
     },
   },

@@ -1,9 +1,45 @@
+/* Self-hosted English font via Fontsource (woff2, font-display: swap) */
+/* Devanagari font is loaded dynamically on demand when Hindi is selected (PRD Feature 11) */
+@import '@fontsource/plus-jakarta-sans/400.css';
+@import '@fontsource/plus-jakarta-sans/500.css';
+@import '@fontsource/plus-jakarta-sans/600.css';
+@import '@fontsource/plus-jakarta-sans/700.css';
+
+@import './tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+  html[lang="hi"] {
+    font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
   body {
-    @apply bg-paper text-ink font-sans antialiased;
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    max-width: 100%;
+    overflow-x: clip;
+    overflow-wrap: break-word;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Accessibility: Respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
