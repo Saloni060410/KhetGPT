@@ -28,6 +28,25 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      JWT_ACCESS_SECRET: ci-access-secret-not-a-real-secret
+      JWT_REFRESH_SECRET: ci-refresh-secret-not-a-real-secret
+      CORS_ORIGIN: http://localhost:5173
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,9 +56,11 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npx prisma generate
-        env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       - run: npm run lint
+      - run: npx prisma migrate deploy
+      - run: npm test
+        env:
+          NODE_ENV: test
 
   ml:
     runs-on: ubuntu-latest
@@ -56,3 +77,23 @@ jobs:
       - run: pip install -r requirements.txt
       - run: ruff check .
       - run: pytest -q
+      # Called out as its own step, not folded into the line above, so a contract break
+      # (backend<->ML shape drift) shows up as its own named CI failure, not buried inside
+      # "pytest -q" -- test_contract.py is already part of that full run either way.
+      - name: Contract tests (backend <-> ML shape, docs/api-contract.md)
+        run: pytest tests/test_contract.py -q
+
+  docker-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [backend, ml]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.service }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}

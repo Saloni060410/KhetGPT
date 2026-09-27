@@ -1,8 +1,10 @@
 import { Router } from 'express'
-import { notImplemented } from '../controllers/notImplemented.controller.js'
+import { requireAuth } from '../middleware/auth.middleware.js'
+import { getRecommendationById } from '../controllers/recommendation.controller.js'
 
 const router = Router()
 
-router.all('/', notImplemented)
+router.use(requireAuth)
+router.get('/:id', getRecommendationById)
 
 export default router
