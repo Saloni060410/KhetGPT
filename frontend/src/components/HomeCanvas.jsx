@@ -568,11 +568,6 @@ export function HomeCanvas({
             onSelectCrop={onSelectCrop}
             activeNutrientStream={activeNutrientStream}
           />
-          <EffectComposer disableNormalPass multisampling={0}>
-            <N8AO halfRes aoRadius={0.35} intensity={1.8} color="#050808" quality="medium" />
-            <Bloom luminanceThreshold={0.88} intensity={0.3} mipmapBlur />
-            <Vignette offset={0.15} darkness={0.7} />
-          </EffectComposer>
         </Suspense>
       </Canvas>
     </div>
