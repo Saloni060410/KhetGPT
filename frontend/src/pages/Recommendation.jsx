@@ -197,6 +197,7 @@ export default function Recommendation() {
             setIsDocketOpen(true);
           }}
           activeNutrientStream={activeNutrientStream}
+          isPaused={viewMode !== '3d'}
         />
       </div>
 

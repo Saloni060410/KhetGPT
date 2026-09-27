@@ -342,38 +342,37 @@ export default function CropInspectorHUD({
           {/* ========================================================
               CARD 4: ESTIMATED SAVINGS BANNER (Replica of Image 3)
              ======================================================== */}
-          <div className="bg-[#FAF8F5] text-slate-900 rounded-3xl p-5 sm:p-6 border border-[#E8E3DA] shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+          <div className="bg-[#FAF8F5] text-slate-900 rounded-3xl p-4 sm:p-5 border border-[#E8E3DA] shadow-xl flex flex-col gap-3.5">
+            <div className="flex items-start sm:items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-emerald-100/90 text-emerald-800 flex items-center justify-center flex-shrink-0 shadow-xs">
                 <TrendingDown className="w-5 h-5 text-emerald-700" />
               </div>
-              <div>
-                <h4 className="font-serif font-bold text-base sm:text-lg text-slate-900">
+              <div className="min-w-0 flex-1">
+                <h4 className="font-serif font-bold text-base sm:text-lg text-slate-900 leading-snug">
                   Estimated {docketCrop.estimatedSavings.amount} Saved in Unnecessary Fertilizer
                 </h4>
-                <p className="text-xs text-slate-600 font-sans">
+                <p className="text-xs text-slate-600 font-sans mt-0.5 leading-relaxed">
                   {docketCrop.estimatedSavings.description}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 self-end sm:self-center flex-shrink-0 text-xs font-sans font-medium">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-200/80 text-xs font-sans font-medium">
               <button
                 type="button"
                 onClick={() => onOpenCalibration && onOpenCalibration('risk')}
-                className="text-amber-800 hover:text-amber-950 transition-colors flex items-center gap-0.5 cursor-pointer underline decoration-amber-400"
+                className="text-amber-800 hover:text-amber-950 transition-colors flex items-center gap-1 cursor-pointer underline decoration-amber-400 py-0.5"
               >
-                <span>Check Over-Application Risk</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <span>{isHindi ? 'अति-प्रयोग जोखिम जांचें' : 'Check Over-Application Risk'}</span>
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
               </button>
-              <span className="text-slate-300">·</span>
               <button
                 type="button"
                 onClick={() => onOpenCalibration && onOpenCalibration('calibrate')}
-                className="text-emerald-800 hover:text-emerald-950 transition-colors flex items-center gap-0.5 cursor-pointer underline decoration-emerald-400"
+                className="text-emerald-800 hover:text-emerald-950 transition-colors flex items-center gap-1 cursor-pointer underline decoration-emerald-400 py-0.5"
               >
-                <span>Calibrate Soil Values</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <span>{isHindi ? 'मृदा मान कैलिब्रेट करें' : 'Calibrate Soil Values'}</span>
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
               </button>
             </div>
           </div>
