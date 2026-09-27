@@ -186,11 +186,49 @@ decision, that requirement was dropped (`ingest.py`/`clean.py` fixes, then the
 data outright, not a supplement waiting on a real file. S3 is closed on that basis; see its
 entry above.
 
+## Done, and not blocked (S7)
+
+- **S7 — API hardening and contract tests.**
+  - `tests/test_contract.py` (9 tests): round-trips both fixtures through both endpoints in
+    both modes and validates the response against `RecommendResponse`/`RiskScoreResponse`
+    (types and required keys, never the illustrative numbers). Also exercises the documented
+    error shapes end to end: pydantic-native 422, business-logic 422, 503, and the new 413.
+  - **Real drift found and fixed**: `docs/api-contract.md` rule 9 has always said
+    `422 { detail: [...] }`, matching FastAPI's own pydantic validation-error shape
+    (`docs/contract-fixtures/error_422.json`). But `UnknownCropError`/`UnknownStageError` were
+    being turned into `422 { detail: "<string>" }` by each endpoint's own try/except — a real
+    mismatch between actual behavior and the always-correct doc. Fixed by adding
+    `src/api/errors.py`: global FastAPI exception handlers that convert both business-logic
+    exception pairs to the exact contract shapes (422 list-of-details for the first pair, 503
+    detail-string for `ReferenceDataIncomplete`/`EngineUnavailable`), registered once in
+    `main.py`. This also let `recommend.py`/`risk_score.py` drop their duplicated try/except
+    entirely.
+  - Added a request-size limit (413 above 64KB — an engineering hardening default, not sourced
+    from any traffic data; typical payloads are a few KB) and structured JSON request logging
+    (`src/api/logging_utils.py`): `field_id`, `crop_type`, `model_version`, `latency_ms` only,
+    never the soil/weather payload. Logged from inside `recommend.py`/`risk_score.py` around
+    the mock/real branch, so it covers both modes.
+  - `/docs` (OpenAPI): every request/response schema (`RecommendRequest/Response`,
+    `RiskScoreRequest/Response`, and the smaller reference/error/health models) now carries a
+    full `json_schema_extra["example"]`, sourced directly from `docs/contract-fixtures/` where
+    one exists (read at import time, not hand-copied, so it can't drift from the fixture).
+    Added `ValidationErrorResponse`/`ServiceUnavailableResponse` schemas so 422/503 show up in
+    `/docs` with their own example too, wired via each router's `responses=`.
+  - Re-read `docs/api-contract.md` end to end against `schemas.py`: no request/response *body*
+    field actually changed — the contract was already right, only the implementation's error
+    handling needed to catch up to it. **New, not previously documented:** a 413 response can
+    now happen (request body over 64KB) — this is a transport-level hardening guard, not a
+    documented `/recommend` or `/risk-score` error case; flagging for Josh rather than quietly
+    assuming it belongs in the contract's error taxonomy or that his `mlService.js` already
+    tolerates an unrecognized status code.
+
 ## Not started yet
 
-S7 (API hardening and contract tests) onward per the pack. S3, S4 (bar the MOP-price potash
-path), S5 and S6 are all done and re-verified end to end as of 2026-09-27: a real classifier
-is registered (`fertilizer-classifier-0.1.0`), `/health` reports `ok` with its version, the
-fixture demo in real mode validates against the contract, `/risk-score` works, and p95 latency
-over 50 calls is 64.9ms (well inside NFR1's 3s). The one still-open gap is S4's potash path,
-genuinely blocked on MOP's price (Richa's lane, re-confirmed as recently as today).
+S8 (formula sanity gate, final test evaluation) onward per the pack. S3, S4 (bar the
+MOP-price potash path), S5, S6 and S7 are all done and re-verified end to end as of
+2026-09-27: a real classifier is registered (`fertilizer-classifier-0.1.0`), `/health` reports
+`ok` with its version, the fixture demo in real mode validates against the contract,
+`/risk-score` works, p95 latency over 50 calls is 64.9ms (well inside NFR1's 3s), and the API
+is hardened with contract tests, a request-size limit, structured logging and a global
+error-shape handler. The one still-open gap is S4's potash path, genuinely blocked on MOP's
+price (Richa's lane, re-confirmed as recently as today).
