@@ -20,6 +20,7 @@ import FieldProfile from './pages/FieldProfile.jsx'
 import Login from './pages/Auth/Login.jsx'
 import Register from './pages/Auth/Register.jsx'
 import NotFound from './pages/NotFound.jsx'
+import ServerError from './pages/ServerError.jsx'
 import Kit from './pages/Kit.jsx'
 
 export default function App() {
@@ -131,6 +132,24 @@ export default function App() {
                 <History />
               </Shell>
             </RequireAuth>
+          }
+        />
+
+        {/* Error Pages */}
+        <Route
+          path="/404"
+          element={
+            <Shell>
+              <NotFound />
+            </Shell>
+          }
+        />
+        <Route
+          path="/500"
+          element={
+            <Shell>
+              <ServerError />
+            </Shell>
           }
         />
 

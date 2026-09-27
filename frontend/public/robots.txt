@@ -1,0 +1,13 @@
+# KhetGPT Robots Exclusion File
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /kit
+Allow: /404
+Allow: /500
+Disallow: /dashboard
+Disallow: /fields/
+Disallow: /optimizer
+
+Sitemap: https://khetgpt.in/sitemap.xml
