@@ -50,9 +50,11 @@ leakage_smell_test:
   macro_f1_warn_above: 0.98
   feature_importance_warn_above: 0.60
 
-# npk_10_26_26 has only 2 rows in the training data (Richa's EDA_FINDINGS.md) -- too few to
-# learn or even to place in every CV fold. Excluded from the classifier target; the
-# rule-based reference_doses.csv / soil_adjustments.csv layer picks a nutrient-matched
-# product for it instead of asking the classifier to learn an unlearnable 2-example class.
+# npk_10_26_26 had only 2 rows in an earlier data delivery (Richa's EDA_FINDINGS.md, about the
+# original small real dataset) -- too few to learn or even place in every CV fold. Verified
+# 2026-09-27: it has zero rows in the current 2,800-row synthetic train.csv. Either way,
+# excluded from the classifier target; the rule-based reference_doses.csv / soil_adjustments.csv
+# layer picks a nutrient-matched product for it instead of asking the classifier to learn a
+# class this thin (or absent).
 excluded_classes:
   - npk_10_26_26

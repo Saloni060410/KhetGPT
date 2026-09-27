@@ -43,7 +43,7 @@ from src.data_pipeline.feature_engineering import (
     build_features,
     load_training_frame,
 )
-from src.evaluation.metrics import evaluate_classifier
+from src.evaluation.metrics import evaluate_classifier, per_slice
 from src.models.fertilizer_model import build_pipeline
 from src.models.seeding import seed_everything
 
@@ -74,6 +74,8 @@ class Frame:
     target: pd.Series
     source: str  # "real" (Richa's load_training_frame) or "fallback" (sample_train.csv)
     note: str | None = None
+    crop_id: pd.Series | None = None  # only populated for the test split -- per-crop metrics
+    # (S10's model card) need the raw crop_id, which build_features one-hot-encodes away.
 
 
 def _records_from_frame(df: pd.DataFrame) -> list[dict]:
@@ -119,7 +121,9 @@ def load_frame(split: str, excluded_classes: list[str]) -> Frame:
         )
     df, target = loaded
     df, target, note = _filtered(df, target, excluded_classes, split)
-    return Frame(features=build_features(_records_from_frame(df)), target=target, source="real", note=note)
+    return Frame(
+        features=build_features(_records_from_frame(df)), target=target, source="real", note=note, crop_id=df["crop_id"]
+    )
 
 
 def load_train_and_val(excluded_classes: list[str]) -> tuple[Frame, Frame | None]:
@@ -290,6 +294,7 @@ def env_versions() -> dict:
 
 
 def run(config_path: Path, final_test: bool) -> int:
+    run_start = time.monotonic()
     config = yaml.safe_load(config_path.read_text())
     seed_everything(config["seed"])
 
@@ -382,7 +387,13 @@ def run(config_path: Path, final_test: bool) -> int:
             test_frame.target, pred, classes=label_encoder.classes_.tolist(), seed=config["seed"]
         )
         test_metrics["n_rows"] = test_metrics.pop("n")
-        summary = {k: v for k, v in test_metrics.items() if k not in ("confusion_matrix", "per_class")}
+        # Per-crop breakdown (S10's model card needs "per crop", not just pooled, metrics --
+        # the pooled number can look better than any single crop's, since a crop only ever
+        # sees a few of the products in the confusion matrix). Richa's per_slice(), same
+        # frozen predictions, no second look at the test rows.
+        if test_frame.crop_id is not None:
+            test_metrics["per_crop"] = per_slice(test_frame.target.to_numpy(), pred, test_frame.crop_id.to_numpy())
+        summary = {k: v for k, v in test_metrics.items() if k not in ("confusion_matrix", "per_class", "per_crop")}
         print(f"\nFinal test-split metrics (evaluated once): {json.dumps(summary, indent=2)}")
 
     ARTIFACT_DIR.mkdir(exist_ok=True)
@@ -427,7 +438,12 @@ def run(config_path: Path, final_test: bool) -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "config.yaml").write_text(config_path.read_text())
     (run_dir / "metrics.json").write_text(json.dumps({"cv": results, "test": test_metrics}, indent=2, default=str))
-    (run_dir / "env.json").write_text(json.dumps(env_versions(), indent=2))
+    # Wall clock persisted here, not just printed by main() -- main()'s own timer never
+    # reaches run(), so it was never actually recorded anywhere a later reproducibility
+    # report (the model card, S10) could read it back from.
+    env = env_versions()
+    env["wall_clock_seconds"] = round(time.monotonic() - run_start, 1)
+    (run_dir / "env.json").write_text(json.dumps(env, indent=2))
 
     print(f"\nRegistered {model_name} {version} -> {artifact_path.relative_to(project_root)}")
     print(f"Run record: {run_dir.relative_to(project_root)}")

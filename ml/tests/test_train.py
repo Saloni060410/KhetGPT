@@ -278,6 +278,7 @@ def test_final_test_enriches_metrics_with_bootstrap_confidence_intervals(monkeyp
         features=pd.DataFrame({"x": list(range(10))}),
         target=pd.Series((["a"] * 5) + (["b"] * 5)),
         source="real",
+        crop_id=pd.Series((["wheat"] * 5) + (["rice"] * 5)),
     )
     monkeypatch.setattr(train_module, "load_train_and_val", lambda excluded_classes: (train_frame, None))
     monkeypatch.setattr(train_module, "load_frame", lambda split, excluded_classes: test_frame)
@@ -307,6 +308,8 @@ def test_final_test_enriches_metrics_with_bootstrap_confidence_intervals(monkeyp
     assert "per_class" in test_metrics
     assert "confusion_matrix" in test_metrics
     assert test_metrics["n_rows"] == 10
+    assert set(test_metrics["per_crop"]) == {"wheat", "rice"}
+    assert test_metrics["per_crop"]["wheat"]["n"] == 5
 
 
 def test_run_registers_a_model_with_a_labels_sidecar(config):
@@ -365,6 +368,7 @@ def test_run_writes_a_run_record_with_env_versions(config):
     run_dirs = list(train_module.RUNS_DIR.iterdir())
     assert len(run_dirs) == 1
     env = json.loads((run_dirs[0] / "env.json").read_text())
-    assert {"python", "scikit_learn", "xgboost"} <= set(env)
+    assert {"python", "scikit_learn", "xgboost", "wall_clock_seconds"} <= set(env)
+    assert env["wall_clock_seconds"] >= 0
     assert (run_dirs[0] / "metrics.json").exists()
     assert (run_dirs[0] / "config.yaml").exists()
