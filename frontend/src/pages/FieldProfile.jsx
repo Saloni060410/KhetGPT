@@ -27,8 +27,10 @@ import useDocumentTitle from '../hooks/useDocumentTitle.js'
 import * as endpoints from '../services/endpoints.js'
 import EditFieldModal from '../components/farms/EditFieldModal.jsx'
 import { getNutrientRating, getPhRating, getOrganicCarbonRating, getOverallSoilRating } from '../utils/soilRating.js'
+import { useT } from '../i18n/useT.js'
 
 export default function FieldProfile() {
+  const { t, isHindi, formatDate, formatCrop, formatVariety, formatStage, formatNumber } = useT()
   const { fieldId } = useParams()
 
   const [field, setField] = useState(null)
@@ -380,53 +382,47 @@ export default function FieldProfile() {
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div className="p-3.5 rounded-xl bg-bg-subtle/80 border border-border-default space-y-1">
                   <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider block">
-                    Cultivated Crop
+                    {t('history.cropLabel') || 'Cultivated Crop'}
                   </span>
                   <div className="text-base font-bold text-ink-primary capitalize">
-                    {field.cropType || 'Wheat'}
+                    {formatCrop(field.cropType) || 'Wheat'}
                   </div>
                   <span className="text-xs text-ink-secondary">
-                    {field.cropVariety ? `Variety: ${field.cropVariety}` : 'Standard variety'}
+                    {field.cropVariety ? `${formatVariety(field.cropType, field.cropVariety) || field.cropVariety}` : 'Standard variety'}
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-bg-subtle/80 border border-border-default space-y-1">
                   <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider block">
-                    Current Stage
+                    {t('history.currentStageLabel') || 'Current Stage'}
                   </span>
                   <div className="text-base font-bold text-primary-700 dark:text-primary-300 capitalize">
-                    {field.growthStage?.replace(/_/g, ' ') || 'Sowing'}
+                    {formatStage(field.growthStage) || 'Sowing'}
                   </div>
                   <span className="text-xs text-ink-muted">
-                    {das != null ? `${das} Days After Sowing` : 'Basal timing'}
+                    {das != null ? `${formatNumber(das)} ${isHindi ? 'दिन बुवाई बाद' : 'Days After Sowing'}` : 'Basal timing'}
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-bg-subtle/80 border border-border-default space-y-1">
                   <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider block">
-                    Sowing Date
+                    {isHindi ? 'बुवाई तिथि' : 'Sowing Date'}
                   </span>
                   <div className="text-sm font-bold text-ink-primary">
-                    {field.sowingDate
-                      ? new Date(field.sowingDate).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })
-                      : 'Not recorded'}
+                    {field.sowingDate ? formatDate(field.sowingDate) : (isHindi ? 'दर्ज नहीं' : 'Not recorded')}
                   </div>
-                  <span className="text-[11px] text-ink-muted">Determines split calendar</span>
+                  <span className="text-[11px] text-ink-muted">{isHindi ? 'खुराक कैलेंडर तय करता है' : 'Determines split calendar'}</span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-bg-subtle/80 border border-border-default space-y-1">
                   <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider block">
-                    Plot Size
+                    {isHindi ? 'खेत का आकार' : 'Plot Size'}
                   </span>
                   <div className="text-sm font-bold text-ink-primary">
-                    {field.areaAcres ? `${field.areaAcres} Acres` : '1.0 Acre'}
+                    {t('history.areaLabel', { area: formatNumber(field.areaAcres || 1.0, 1) })}
                   </div>
                   <span className="text-[11px] text-ink-muted">
-                    ≈ {((field.areaAcres || 1.0) / 2.4711).toFixed(2)} Hectares
+                    ≈ {formatNumber((field.areaAcres || 1.0) / 2.4711, 2)} {isHindi ? 'हेक्टेयर' : 'Hectares'}
                   </span>
                 </div>
               </div>

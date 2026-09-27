@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SoilScroll from '../components/SoilScroll';
+import LanguageToggle from '../components/ui/LanguageToggle.jsx';
+import { useT } from '../i18n/useT.js';
 import { 
   Sprout, 
   ArrowUpRight, 
@@ -11,6 +13,7 @@ import {
 } from 'lucide-react';
 
 export default function HomePage({ onNavigate }) {
+  const { t } = useT();
   const navigate = useNavigate();
   const [headerVisible, setHeaderVisible] = useState(true);
   const lastScrollYRef = useRef(0);
@@ -70,12 +73,13 @@ export default function HomePage({ onNavigate }) {
           </div>
 
           <div className="flex items-center space-x-3">
+            <LanguageToggle />
             <a
               href="/login"
               onClick={(e) => handleNav(e, '/login')}
               className="px-3.5 py-1.5 rounded-full border border-stone-800 hover:border-stone-600 text-stone-300 hover:text-white font-mono text-xs transition-colors"
             >
-              Sign In
+              {t('nav.login')}
             </a>
             <a
               href="/dashboard"

@@ -29,6 +29,7 @@ import Skeleton from '../components/ui/Skeleton.jsx'
 import Toast from '../components/ui/Toast.jsx'
 import * as endpoints from '../services/endpoints.js'
 import { useFarmStore } from '../store/useFarmStore.js'
+import { useT } from '../i18n/useT.js'
 
 // The six soil fields fixed by the problem statement — never add, remove, or rename
 const SOIL_FIELD_CONFIGS = [
@@ -191,6 +192,7 @@ function formatDate(dateStr) {
 }
 
 export default function SoilInput() {
+  const { t, isHindi, formatCrop, formatVariety, formatStage, formatFertilizer, formatNumber } = useT()
   const { fieldId } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -821,7 +823,7 @@ export default function SoilInput() {
           id="tab-btn-soil"
         >
           <FlaskConical className="w-4 h-4" />
-          <span>Soil Health Parameters</span>
+          <span>{t('soil.tabSoil')}</span>
           {hasSoilTest && (
             <span className="w-2 h-2 rounded-full bg-risk-low-text" aria-hidden="true" />
           )}
@@ -838,7 +840,7 @@ export default function SoilInput() {
           id="tab-btn-crop"
         >
           <Sprout className="w-4 h-4" />
-          <span>Crop, Variety & Stage</span>
+          <span>{t('soil.tabCrop')}</span>
           {hasCropAndStage && (
             <span className="w-2 h-2 rounded-full bg-risk-low-text" aria-hidden="true" />
           )}
@@ -855,7 +857,7 @@ export default function SoilInput() {
           id="tab-btn-fertilizer"
         >
           <History className="w-4 h-4" />
-          <span>Prior Fertilizer Logs</span>
+          <span>{t('soil.tabFertilizer')}</span>
           {pastFertilizerLogs.length > 0 && (
             <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-primary-100 text-primary-800 font-bold">
               {pastFertilizerLogs.length}
@@ -962,7 +964,13 @@ export default function SoilInput() {
                         >
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-bold text-ink-primary">
-                              {cfg.label}
+                              {cfg.key === 'n' ? t('soil.nitrogenLabel') :
+                               cfg.key === 'p' ? t('soil.phosphorusLabel') :
+                               cfg.key === 'k' ? t('soil.potassiumLabel') :
+                               cfg.key === 'ph' ? t('soil.phLabel') :
+                               cfg.key === 'organicCarbon' ? t('soil.organicCarbonLabel') :
+                               cfg.key === 'moisture' ? t('soil.moistureLabel') :
+                               cfg.label}
                             </span>
                             <span className="text-xs font-semibold text-primary-700 bg-primary-50 px-2 py-0.5 rounded border border-primary-200">
                               {cfg.unit}
@@ -1035,7 +1043,7 @@ export default function SoilInput() {
                         leftIcon={Check}
                         id="btn-save-soil-test"
                       >
-                        {isSubmittingSoil ? 'Recording Test...' : 'Save Soil Test'}
+                        {isSubmittingSoil ? (isHindi ? 'सहेज रहे हैं...' : 'Recording Test...') : t('soil.saveSoilTest')}
                       </Button>
 
                       <Button
@@ -1258,7 +1266,7 @@ export default function SoilInput() {
                       >
                         {referenceCrops.map((crop) => (
                           <option key={crop.id} value={crop.id}>
-                            {crop.nameEn} {crop.nameHi ? `(${crop.nameHi})` : ''}
+                            {isHindi && crop.nameHi ? `${crop.nameHi} (${crop.nameEn})` : `${crop.nameEn} ${crop.nameHi ? `(${crop.nameHi})` : ''}`}
                           </option>
                         ))}
                       </Select>
@@ -1285,7 +1293,7 @@ export default function SoilInput() {
                             <option value="">No specific variety / Leave empty</option>
                             {selectedCrop.varieties.map((v) => (
                               <option key={v.id} value={v.id}>
-                                {v.nameEn} {v.nameHi ? `(${v.nameHi})` : ''}
+                                {isHindi && v.nameHi ? `${v.nameHi} (${v.nameEn})` : `${v.nameEn} ${v.nameHi ? `(${v.nameHi})` : ''}`}
                               </option>
                             ))}
                           </Select>
@@ -1327,7 +1335,7 @@ export default function SoilInput() {
                           availableStages.map((stg) => (
                             <option key={stg.id} value={stg.id}>
                               {stg.order ? `${stg.order}. ` : ''}
-                              {stg.nameEn} {stg.nameHi ? `(${stg.nameHi})` : ''}
+                              {isHindi && stg.nameHi ? `${stg.nameHi} (${stg.nameEn})` : `${stg.nameEn} ${stg.nameHi ? `(${stg.nameHi})` : ''}`}
                             </option>
                           ))
                         ) : (

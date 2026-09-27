@@ -23,6 +23,7 @@ import Badge from '../ui/Badge.jsx'
 import Skeleton from '../ui/Skeleton.jsx'
 import useDebounce from '../../hooks/useDebounce.js'
 import * as endpoints from '../../services/endpoints.js'
+import { useT } from '../../i18n/useT.js'
 
 // Standard Indian bag weights for farmer visual context
 const BAG_WEIGHTS_KG = {
@@ -33,7 +34,7 @@ const BAG_WEIGHTS_KG = {
   ssp: 50,
 }
 
-function calculateBagText(fertilizerType, totalKgPerAcre, acres = 1) {
+function calculateBagText(fertilizerType, totalKgPerAcre, acres = 1, isHindi = false) {
   const normType = fertilizerType?.toLowerCase() || ''
   let bagWeight = 50
   if (normType.includes('urea')) bagWeight = 45
@@ -45,12 +46,19 @@ function calculateBagText(fertilizerType, totalKgPerAcre, acres = 1) {
   const wholeBags = Math.floor(bags)
   const remainderKg = Math.round(totalKg % bagWeight)
 
+  if (isHindi) {
+    if (wholeBags === 0) return `${Math.round(totalKg)} किग्रा खुला`
+    if (remainderKg === 0) return `${wholeBags} बोरी (${bagWeight} किग्रा)`
+    return `${wholeBags} बोरी + ${remainderKg} किग्रा`
+  }
+
   if (wholeBags === 0) return `${Math.round(totalKg)} kg loose`
   if (remainderKg === 0) return `${wholeBags} bag${wholeBags > 1 ? 's' : ''} (${bagWeight}kg)`
   return `${wholeBags} bag${wholeBags > 1 ? 's' : ''} + ${remainderKg} kg`
 }
 
 export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldArea = 2.5, cropType = 'Wheat' }) {
+  const { t, isHindi, formatNumber, formatFertilizer, formatCrop } = useT()
   const navigate = useNavigate()
   const componentId = useId()
 
@@ -161,30 +169,36 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
     const level = riskResult?.risk?.level || 'low'
     if (level === 'high') {
       return {
-        tag: '[HIGH RISK: OVER-APPLICATION]',
+        tag: isHindi ? '[उच्च जोखिम: अत्यधिक रासायनिक प्रयोग]' : '[HIGH RISK: OVER-APPLICATION]',
         badgeVariant: 'danger',
         icon: AlertOctagon,
         titleColor: 'text-red-700 dark:text-red-400',
         boxClass: 'border-red-300 dark:border-red-900 bg-red-50/50 dark:bg-red-950/30',
-        summary: 'Severe risk of nutrient runoff, root burn, and excessive vegetative lodging.',
+        summary: isHindi
+          ? 'रासायनिक खाद की अत्यधिक मात्रा से मिट्टी के खारे होने और पोषक तत्वों के बह जाने का गंभीर खतरा है।'
+          : 'Severe risk of nutrient runoff, root burn, and excessive vegetative lodging.',
       }
     } else if (level === 'medium') {
       return {
-        tag: '[MODERATE RISK: NUTRIENT IMBALANCE]',
+        tag: isHindi ? '[मध्यम जोखिम: पोषक तत्व असंतुलन]' : '[MODERATE RISK: NUTRIENT IMBALANCE]',
         badgeVariant: 'warning',
         icon: AlertTriangle,
         titleColor: 'text-amber-700 dark:text-amber-400',
         boxClass: 'border-amber-300 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/30',
-        summary: 'Application variance detected. Adjust dosage to protect soil fertility balance.',
+        summary: isHindi
+          ? 'खुराक में असंतुलन मिला। मिट्टी की उर्वरता बनाए रखने के लिए मात्रा समायोजित करें।'
+          : 'Application variance detected. Adjust dosage to protect soil fertility balance.',
       }
     }
     return {
-      tag: '[BALANCED: SAFE DOSAGE]',
+      tag: isHindi ? '[संतुलित: सुरक्षित खुराक]' : '[BALANCED: SAFE DOSAGE]',
       badgeVariant: 'success',
       icon: ShieldCheck,
       titleColor: 'text-emerald-700 dark:text-emerald-400',
       boxClass: 'border-emerald-300 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30',
-      summary: 'Planned application aligns with crop uptake capacity and native soil reserves.',
+      summary: isHindi
+        ? 'प्रस्तावित खुराक फसल की जरूरत और मिट्टी के पोषक तत्वों के पूर्ण अनुकूल है।'
+        : 'Planned application aligns with crop uptake capacity and native soil reserves.',
     }
   })()
 
@@ -198,14 +212,17 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
           <div className="flex items-center gap-2">
             <FlaskConical className="w-5 h-5 text-primary-600" />
             <h2 className="text-lg font-black text-ink-primary tracking-tight">
-              Check My Own Fertilizer Plan (FR12)
+              {t('riskCheck.title')}
             </h2>
             <Badge variant="subtle" size="sm">
-              Live Simulator
+              {t('riskCheck.liveSimulator')}
             </Badge>
           </div>
           <p className="text-xs text-ink-secondary leading-relaxed max-w-xl">
-            Test your customary or intended fertilizer doses for <strong>{cropType}</strong> ({fieldArea} acres). KhetGPT evaluates nutrient ratios and flags toxic buildup, leaching, and yield impact in real time.
+            {t('riskCheck.simulatorDesc', {
+              crop: formatCrop(cropType),
+              area: formatNumber(fieldArea, 1),
+            })}
           </p>
         </div>
 
@@ -218,7 +235,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
             leftIcon={ArrowRight}
             className="text-xs"
           >
-            Back to Recommended Plan
+            {t('riskCheck.backToRecommended')}
           </Button>
         </div>
       </div>
@@ -228,12 +245,12 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
         <div className="flex items-center gap-1.5">
           <Info className="w-3.5 h-3.5 text-primary-600 shrink-0" />
           <span>
-            <strong>Safety Sandbox:</strong> Inputs in this simulator are evaluated on-the-fly and never saved or applied to your permanent farm record.
+            {t('riskCheck.safetySandbox')}
           </span>
         </div>
         {isChecking && (
           <span className="font-mono text-primary-700 dark:text-primary-300 animate-pulse font-bold">
-            Evaluating...
+            {t('riskCheck.evaluating')}
           </span>
         )}
       </div>
@@ -245,23 +262,22 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
             <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                [HTTP 409] Missing Soil Test Prerequisite
+                {t('riskCheck.missingPrerequisiteTitle')}
               </h3>
               <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                {apiError.message ||
-                  'Field has no soil test recorded yet. Lab soil test data is required to calculate crop uptake capacity and assess application risk.'}
+                {apiError.message || t('riskCheck.missingPrerequisiteDesc')}
               </p>
             </div>
           </div>
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <Link to={`/fields/${fieldId}/soil`}>
               <Button variant="primary" size="sm">
-                Record Soil Test Lab Report →
+                {t('riskCheck.recordSoilTestBtn')}
               </Button>
             </Link>
             <Link to={`/fields/${fieldId}`}>
               <Button variant="outline" size="sm">
-                Back to Field Profile
+                {t('riskCheck.backToFieldProfile')}
               </Button>
             </Link>
           </div>
@@ -282,7 +298,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
             onClick={() => executeRiskCheck(plannedRows)}
           >
             <RotateCcw className="w-3.5 h-3.5 mr-1" />
-            Retry Check
+            {t('recommendation.retryCheck')}
           </Button>
         </div>
       )}
@@ -293,17 +309,20 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
           <div className="flex items-center gap-2">
             <Scale className="w-4 h-4 text-primary-600" />
             <h3 className="text-sm font-black text-ink-primary uppercase tracking-wider">
-              Enter Intended Application ({plannedRows.length} Product{plannedRows.length > 1 ? 's' : ''})
+              {t('riskCheck.enterIntended', {
+                count: formatNumber(plannedRows.length),
+                plural: plannedRows.length > 1 ? 's' : '',
+              })}
             </h3>
           </div>
           <span className="text-[11px] text-ink-muted">
-            Auto-evaluates as you type (debounced)
+            {t('riskCheck.autoEvaluates')}
           </span>
         </div>
 
         <div className="space-y-3">
           {plannedRows.map((row, idx) => {
-            const bagText = calculateBagText(row.fertilizerType, row.quantityKgPerAcre, fieldArea)
+            const bagText = calculateBagText(row.fertilizerType, row.quantityKgPerAcre, fieldArea, isHindi)
             return (
               <div
                 key={row.id}
@@ -316,7 +335,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                 {/* Product Select */}
                 <div className="flex-1">
                   <label htmlFor={`${componentId}-prod-${row.id}`} className="sr-only">
-                    Fertilizer Product
+                    {t('schedule.product')}
                   </label>
                   <select
                     id={`${componentId}-prod-${row.id}`}
@@ -326,7 +345,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                   >
                     {fertilizerOptions.map((opt) => (
                       <option key={opt.id} value={opt.id}>
-                        {opt.name || opt.id.toUpperCase()}
+                        {formatFertilizer(opt.id) || opt.name || opt.id.toUpperCase()}
                       </option>
                     ))}
                   </select>
@@ -347,12 +366,12 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                       className="w-full px-3 py-2 pr-16 rounded-lg border border-border-default bg-bg-surface text-ink-primary text-sm font-black font-mono focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                     <span className="absolute right-3 top-2.5 text-[11px] font-bold text-ink-muted pointer-events-none">
-                      kg / acre
+                      {t('common.kgPerAcre')}
                     </span>
                   </div>
                   {bagText && (
                     <div className="text-[10px] text-ink-muted font-mono mt-1">
-                      Plot Total: {bagText}
+                      {t('riskCheck.plotTotal', { bags: bagText })}
                     </div>
                   )}
                 </div>
@@ -362,7 +381,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                   <button
                     type="button"
                     onClick={() => handleRemoveRow(row.id)}
-                    aria-label="Remove fertilizer product"
+                    aria-label={t('riskCheck.removeProduct')}
                     className="p-2 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -383,7 +402,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
             leftIcon={Plus}
             className="text-xs"
           >
-            Add Another Fertilizer Product
+            {t('riskCheck.addProduct')}
           </Button>
 
           <Button
@@ -394,7 +413,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
             disabled={isChecking}
             className="text-xs"
           >
-            {isChecking ? 'Evaluating Risk...' : 'Evaluate Plan Risk'}
+            {isChecking ? t('riskCheck.evaluating') : t('riskCheck.calculateRisk')}
           </Button>
         </div>
       </div>
@@ -415,7 +434,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                   </span>
                   {riskResult.risk?.overApplicationPct != null && (
                     <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200">
-                      +{riskResult.risk.overApplicationPct}% Exceeds Target
+                      {t('riskCheck.exceedsTargetBadge', { pct: formatNumber(riskResult.risk.overApplicationPct) })}
                     </span>
                   )}
                 </div>
@@ -432,7 +451,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                   onClick={onBackToRecommended}
                   className="shadow-xs text-xs"
                 >
-                  Use Recommended Plan Instead →
+                  {t('riskCheck.useRecommendedInstead')}
                 </Button>
               </div>
             </div>
@@ -443,7 +462,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
               <div className="p-3.5 rounded-xl border border-border-default/80 bg-bg-surface/80 space-y-1">
                 <span className="font-extrabold text-ink-primary uppercase text-[10px] tracking-wider block flex items-center gap-1.5">
                   <Leaf className="w-3.5 h-3.5 text-emerald-600" />
-                  What it does to Soil Health:
+                  {t('risk.soilHealthImpact')}
                 </span>
                 <p className="text-ink-secondary leading-relaxed">
                   {riskResult.risk?.soilHealthImpact ||
@@ -455,13 +474,20 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
               <div className="p-3.5 rounded-xl border border-border-default/80 bg-bg-surface/80 space-y-1">
                 <span className="font-extrabold text-ink-primary uppercase text-[10px] tracking-wider block flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  What it does to Crop Yield:
+                  {t('risk.yieldImpact')}
                 </span>
                 <p className="text-ink-secondary leading-relaxed">
                   {riskResult.risk?.yieldImpact ||
                     'Targeted balanced nutrients foster robust tiller production, strong straw strength, and full grain development.'}
                 </p>
               </div>
+
+              {isHindi && (
+                <div className="col-span-1 md:col-span-2 text-[11px] text-ink-muted italic pt-1">
+                  {t('recommendation.mlExplanationNote')}
+                </div>
+              )}
+              {/* TODO(i18n): template-id based approach for ML risk explanations in v2 */}
             </div>
           </div>
 
@@ -472,11 +498,11 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-primary-600" />
                   <h3 className="text-sm font-black text-ink-primary uppercase tracking-wider">
-                    Nutrient Balance: Applied vs. Recommended (kg/ha)
+                    {t('riskCheck.appliedVsRecommended')}
                   </h3>
                 </div>
                 <span className="text-[11px] text-ink-muted">
-                  100% represents optimal agronomist target
+                  {t('riskCheck.optimal100Note')}
                 </span>
               </div>
 
@@ -490,7 +516,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                   return (
                     <div className="p-4 rounded-xl border border-border-default bg-bg-subtle/50 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-ink-primary">Nitrogen (N)</span>
+                        <span className="font-bold text-xs text-ink-primary">{t('soil.nitrogenLabel')}</span>
                         <span
                           className={`text-xs font-black px-2 py-0.5 rounded-full ${
                             isHigh
@@ -500,18 +526,18 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                               : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                           }`}
                         >
-                          {isHigh ? 'TOO HIGH' : isLow ? 'TOO LOW' : 'BALANCED'} ({pct}%)
+                          {isHigh ? t('riskCheck.tooHigh') : isLow ? t('riskCheck.tooLow') : t('riskCheck.balanced')} ({formatNumber(pct)}%)
                         </span>
                       </div>
 
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs font-mono">
-                          <span className="text-ink-secondary">Planned Applied:</span>
-                          <strong className="text-ink-primary">{n.appliedKgHa} kg/ha</strong>
+                          <span className="text-ink-secondary">{t('riskCheck.plannedApplied')}</span>
+                          <strong className="text-ink-primary">{formatNumber(n.appliedKgHa, 1)} kg/ha</strong>
                         </div>
                         <div className="flex justify-between text-xs font-mono">
-                          <span className="text-ink-secondary">Recommended Target:</span>
-                          <strong className="text-primary-700 dark:text-primary-300">{n.recommendedKgHa} kg/ha</strong>
+                          <span className="text-ink-secondary">{t('riskCheck.recommendedTarget')}</span>
+                          <strong className="text-primary-700 dark:text-primary-300">{formatNumber(n.recommendedKgHa, 1)} kg/ha</strong>
                         </div>
                       </div>
 
@@ -526,7 +552,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                           />
                         </div>
                         <span className="text-[10px] text-ink-muted block text-right mt-1 font-mono">
-                          Ratio: {n.ratio}x
+                          {t('riskCheck.ratioLabel', { ratio: formatNumber(n.ratio, 2) })}
                         </span>
                       </div>
                     </div>
@@ -542,7 +568,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                   return (
                     <div className="p-4 rounded-xl border border-border-default bg-bg-subtle/50 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-ink-primary">Phosphorus (P₂O₅)</span>
+                        <span className="font-bold text-xs text-ink-primary">{t('soil.phosphorusLabel')}</span>
                         <span
                           className={`text-xs font-black px-2 py-0.5 rounded-full ${
                             isHigh
@@ -552,18 +578,18 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                               : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                           }`}
                         >
-                          {isHigh ? 'TOO HIGH' : isLow ? 'TOO LOW' : 'BALANCED'} ({pct}%)
+                          {isHigh ? t('riskCheck.tooHigh') : isLow ? t('riskCheck.tooLow') : t('riskCheck.balanced')} ({formatNumber(pct)}%)
                         </span>
                       </div>
 
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs font-mono">
-                          <span className="text-ink-secondary">Planned Applied:</span>
-                          <strong className="text-ink-primary">{p.appliedKgHa} kg/ha</strong>
+                          <span className="text-ink-secondary">{t('riskCheck.plannedApplied')}</span>
+                          <strong className="text-ink-primary">{formatNumber(p.appliedKgHa, 1)} kg/ha</strong>
                         </div>
                         <div className="flex justify-between text-xs font-mono">
-                          <span className="text-ink-secondary">Recommended Target:</span>
-                          <strong className="text-primary-700 dark:text-primary-300">{p.recommendedKgHa} kg/ha</strong>
+                          <span className="text-ink-secondary">{t('riskCheck.recommendedTarget')}</span>
+                          <strong className="text-primary-700 dark:text-primary-300">{formatNumber(p.recommendedKgHa, 1)} kg/ha</strong>
                         </div>
                       </div>
 
@@ -578,7 +604,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                           />
                         </div>
                         <span className="text-[10px] text-ink-muted block text-right mt-1 font-mono">
-                          Ratio: {p.ratio}x
+                          {t('riskCheck.ratioLabel', { ratio: formatNumber(p.ratio, 2) })}
                         </span>
                       </div>
                     </div>
@@ -594,7 +620,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                   return (
                     <div className="p-4 rounded-xl border border-border-default bg-bg-subtle/50 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-ink-primary">Potassium (K₂O)</span>
+                        <span className="font-bold text-xs text-ink-primary">{t('soil.potassiumLabel')}</span>
                         <span
                           className={`text-xs font-black px-2 py-0.5 rounded-full ${
                             isHigh
@@ -604,18 +630,18 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                               : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                           }`}
                         >
-                          {isHigh ? 'TOO HIGH' : isLow ? 'TOO LOW' : 'BALANCED'} ({pct}%)
+                          {isHigh ? t('riskCheck.tooHigh') : isLow ? t('riskCheck.tooLow') : t('riskCheck.balanced')} ({formatNumber(pct)}%)
                         </span>
                       </div>
 
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs font-mono">
-                          <span className="text-ink-secondary">Planned Applied:</span>
-                          <strong className="text-ink-primary">{k.appliedKgHa} kg/ha</strong>
+                          <span className="text-ink-secondary">{t('riskCheck.plannedApplied')}</span>
+                          <strong className="text-ink-primary">{formatNumber(k.appliedKgHa, 1)} kg/ha</strong>
                         </div>
                         <div className="flex justify-between text-xs font-mono">
-                          <span className="text-ink-secondary">Recommended Target:</span>
-                          <strong className="text-primary-700 dark:text-primary-300">{k.recommendedKgHa} kg/ha</strong>
+                          <span className="text-ink-secondary">{t('riskCheck.recommendedTarget')}</span>
+                          <strong className="text-primary-700 dark:text-primary-300">{formatNumber(k.recommendedKgHa, 1)} kg/ha</strong>
                         </div>
                       </div>
 
@@ -630,7 +656,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                           />
                         </div>
                         <span className="text-[10px] text-ink-muted block text-right mt-1 font-mono">
-                          Ratio: {k.ratio}x
+                          {t('riskCheck.ratioLabel', { ratio: formatNumber(k.ratio, 2) })}
                         </span>
                       </div>
                     </div>
@@ -641,7 +667,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
               {/* Route from result back to recommended plan */}
               <div className="pt-4 border-t border-border-default flex flex-wrap items-center justify-between gap-3">
                 <span className="text-xs text-ink-secondary">
-                  Ready to adopt the optimal agronomic recommendation?
+                  {t('riskCheck.recPlanSummary')}
                 </span>
                 <Button
                   type="button"
@@ -650,7 +676,7 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
                   onClick={onBackToRecommended}
                   rightIcon={ArrowRight}
                 >
-                  Return to Recommended Plan
+                  {t('riskCheck.backToRecommended')}
                 </Button>
               </div>
             </div>

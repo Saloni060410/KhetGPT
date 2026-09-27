@@ -38,60 +38,7 @@ import { useRecommendationStore } from '../store/useRecommendationStore.js'
 import { useFarmStore } from '../store/useFarmStore.js'
 import * as endpoints from '../services/endpoints.js'
 
-// Formatters for fertilizers, stages and currency
-const FERTILIZER_NAMES = {
-  urea: 'Urea (46% N)',
-  dap: 'Di-Ammonium Phosphate (DAP 18:46:0)',
-  mop: 'Muriate of Potash (MOP 0:0:60)',
-  npk_10_26_26: 'NPK 10:26:26',
-  ssp: 'Single Super Phosphate (SSP 16% P)',
-}
-
-const STAGE_NAMES = {
-  sowing: 'Basal / Sowing',
-  crown_root_initiation: 'Crown Root Initiation (CRI)',
-  tillering: 'Tillering',
-  jointing: 'Jointing',
-  flowering: 'Flowering / Heading',
-  grain_filling: 'Grain Filling',
-  vegetative: 'Vegetative Growth',
-  nursery: 'Nursery / Seedling',
-  transplanting: 'Transplanting (Basal)',
-  panicle_initiation: 'Panicle Initiation',
-  knee_high: 'Knee-high (V6)',
-  tasseling: 'Tasseling / Silking',
-}
-
-function formatFertilizer(type) {
-  return FERTILIZER_NAMES[type?.toLowerCase()] || type?.toUpperCase() || 'Fertilizer'
-}
-
-function formatStage(stage) {
-  return STAGE_NAMES[stage?.toLowerCase()] || stage?.replace(/_/g, ' ') || 'General Stage'
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return 'TBD'
-  try {
-    const d = new Date(dateStr)
-    return d.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatInr(val) {
-  if (val == null) return null
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(val)
-}
+import { useT } from '../i18n/useT.js'
 
 // Normalizer: Handles both Backend camelCase and ML snake_case schemas smoothly
 function normalizeRecommendation(raw) {
@@ -220,6 +167,19 @@ function RecommendationSkeleton() {
 }
 
 export default function Recommendation() {
+  const {
+    t,
+    isHindi,
+    formatDate,
+    formatNumber,
+    formatCurrency,
+    formatCrop,
+    formatVariety,
+    formatStage,
+    formatFertilizer,
+  } = useT()
+  const formatInr = formatCurrency
+
   const { fieldId } = useParams()
   const currentFieldId = fieldId || '1'
 
@@ -366,36 +326,36 @@ export default function Recommendation() {
     Boolean(Number(weather.rainfallMmForecast) >= 20) ||
     Boolean(rec?.topFactors?.some((f) => /heavy rain|rain hold|rain delay/i.test(f)))
 
-  // Risk styling helper: understandable WITHOUT color alone (distinct icons, explicit text labels, high-contrast borders)
+  // Risk styling helper: understandable WITHOUT color alone
   const riskLevel = rec?.risk?.level || 'low'
   const riskDetails = {
     high: {
-      label: 'HIGH RISK',
-      sublabel: 'Severe Nutrient Imbalance or Leaching Hazard',
+      label: t('risk.high').toUpperCase(),
+      sublabel: t('risk.highSub'),
       icon: AlertOctagon,
       badgeVariant: 'risk-high',
       borderClass: 'border-risk-high-border bg-risk-high-bg text-risk-high-text',
       iconColor: 'text-risk-high-icon',
     },
     medium: {
-      label: 'MEDIUM RISK',
-      sublabel: 'Moderate Excess or Application Adjustment Advised',
+      label: t('risk.medium').toUpperCase(),
+      sublabel: t('risk.mediumSub'),
       icon: AlertTriangle,
       badgeVariant: 'risk-med',
       borderClass: 'border-risk-med-border bg-risk-med-bg text-risk-med-text',
       iconColor: 'text-risk-med-icon',
     },
     low: {
-      label: 'LOW RISK',
-      sublabel: 'Balanced Agronomic Dosage',
+      label: t('risk.low').toUpperCase(),
+      sublabel: t('risk.lowSub'),
       icon: ShieldCheck,
       badgeVariant: 'risk-low',
       borderClass: 'border-risk-low-border bg-risk-low-bg text-risk-low-text',
       iconColor: 'text-risk-low-icon',
     },
   }[riskLevel] || {
-    label: 'NORMAL',
-    sublabel: 'Standard Evaluation',
+    label: t('risk.low').toUpperCase(),
+    sublabel: t('risk.lowSub'),
     icon: CheckCircle2,
     badgeVariant: 'neutral',
     borderClass: 'border-border-default bg-bg-subtle text-ink-primary',
@@ -681,17 +641,17 @@ export default function Recommendation() {
                 <div className="flex flex-wrap items-center gap-2 text-xs text-ink-secondary">
                   <span className="inline-flex items-center gap-1 font-semibold text-ink-primary bg-bg-subtle px-2.5 py-1 rounded-md">
                     <Sprout className="w-3.5 h-3.5 text-primary-600" />
-                    {rec.cropType?.toUpperCase()} ({rec.cropVariety || 'Standard'})
+                    {formatCrop(rec.cropType)} ({formatVariety(rec.cropType, rec.cropVariety) || 'Standard'})
                   </span>
                   <span>•</span>
                   <span className="inline-flex items-center gap-1 bg-bg-subtle px-2.5 py-1 rounded-md">
                     <Leaf className="w-3.5 h-3.5 text-accent-green" />
-                    {formatStage(rec.growthStage)}
+                    {formatStage(rec.growthStage, rec.cropType)}
                   </span>
                   <span>•</span>
                   <span className="inline-flex items-center gap-1 bg-bg-subtle px-2.5 py-1 rounded-md">
                     <Scale className="w-3.5 h-3.5 text-accent-amber" />
-                    {fieldArea} Acres
+                    {formatNumber(fieldArea)} {t('common.acres')}
                   </span>
                 </div>
               </div>
@@ -830,14 +790,14 @@ export default function Recommendation() {
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-700 text-ink-inverse text-xs font-bold uppercase tracking-wider shadow-xs">
                       <Sparkles className="w-3.5 h-3.5" />
-                      Primary Fertilizer
+                      {t('recommendation.primaryFertilizer')}
                     </span>
                     <span className="text-xs text-ink-muted hidden sm:inline">
-                      Calculated from soil test deficit
+                      {t('recommendation.calculatedFromSoil')}
                     </span>
                   </div>
                   <span className="text-xs font-semibold text-primary-800 dark:text-primary-300 bg-primary-100 dark:bg-primary-950/60 px-2.5 py-1 rounded-md">
-                    Total across split schedule
+                    {t('recommendation.totalAcrossSchedule')}
                   </span>
                 </div>
 
@@ -847,19 +807,19 @@ export default function Recommendation() {
                       {formatFertilizer(rec.fertilizerType)}
                     </h3>
                     <p className="text-xs sm:text-sm text-ink-secondary mt-1">
-                      Targeted dosage formulated to supply net crop nutrient demand without chemical burn or salt toxicity.
+                      {t('recommendation.primaryDesc')}
                     </p>
                   </div>
 
                   <div className="text-left sm:text-right shrink-0 mt-2 sm:mt-0">
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-4xl sm:text-5xl font-black text-primary-700 dark:text-primary-400 tracking-tight">
-                        {rec.quantityKgPerAcre}
+                        {formatNumber(rec.quantityKgPerAcre)}
                       </span>
-                      <span className="text-base font-bold text-ink-secondary">kg / acre</span>
+                      <span className="text-base font-bold text-ink-secondary">{t('common.kgPerAcre')}</span>
                     </div>
                     <div className="text-xs font-medium text-ink-muted mt-0.5 font-mono">
-                      ≈ {(rec.quantityKgPerAcre * fieldArea).toFixed(1)} kg total for {fieldArea} acres
+                      ≈ {formatNumber((rec.quantityKgPerAcre * fieldArea).toFixed(1))} kg {t('common.fieldTotal')} ({formatNumber(fieldArea)} {t('common.acres')})
                     </div>
                   </div>
                 </div>
@@ -872,19 +832,19 @@ export default function Recommendation() {
                 <div className="space-y-0.5">
                   <h3 className="text-base sm:text-lg font-bold text-ink-primary flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-primary-600" />
-                    Dated Application Schedule
+                    {t('recommendation.scheduleTitle')}
                   </h3>
                   <p className="text-xs text-ink-secondary">
-                    Split doses synchronized with crop growth stages to maximize fertilizer use efficiency.
+                    {t('recommendation.scheduleDesc')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-ink-muted bg-bg-subtle px-2.5 py-1 rounded-md">
-                    {rec.schedule?.length || 0} scheduled splits
+                    {t('recommendation.scheduledSplits', { count: rec.schedule?.length || 0 })}
                   </span>
                   <Link to={`/fields/${currentFieldId}/schedule`}>
                     <Button variant="outline" size="sm" rightIcon={ArrowRight}>
-                      Printable Schedule (D8)
+                      {t('schedule.savePdf')}
                     </Button>
                   </Link>
                 </div>
@@ -907,16 +867,16 @@ export default function Recommendation() {
                       <div className="space-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary-100 text-primary-800 dark:bg-primary-950/60 dark:text-primary-300">
-                            Split {idx + 1} • {formatStage(item.stage)}
+                            {t('recommendation.splitNum', { num: idx + 1 })} • {formatStage(item.stage, rec.cropType)}
                           </span>
                           <span className="text-xs text-ink-muted flex items-center gap-1 font-mono">
                             <Clock className="w-3.5 h-3.5 text-ink-muted" />
-                            Apply by {formatDate(item.applyBy)}
+                            {t('recommendation.applyBy', { date: formatDate(item.applyBy) })}
                           </span>
                           {isDelay && (
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200 flex items-center gap-1">
                               <CloudRain className="w-3 h-3" />
-                              Rain Hold
+                              {t('recommendation.rainHold')}
                             </span>
                           )}
                         </div>
@@ -935,11 +895,11 @@ export default function Recommendation() {
 
                       <div className="text-left sm:text-right shrink-0">
                         <div className="text-sm sm:text-base font-extrabold text-ink-primary">
-                          {item.quantityKgPerAcre}{' '}
-                          <span className="text-xs font-medium text-ink-secondary">kg / acre</span>
+                          {formatNumber(item.quantityKgPerAcre)}{' '}
+                          <span className="text-xs font-medium text-ink-secondary">{t('common.kgPerAcre')}</span>
                         </div>
                         <div className="text-xs text-ink-muted font-mono">
-                          {itemTotalKg} kg field total
+                          {formatNumber(itemTotalKg)} kg {t('common.fieldTotal')}
                         </div>
                       </div>
                     </div>
@@ -978,11 +938,19 @@ export default function Recommendation() {
                 </div>
               </div>
 
-              {/* Risk Headline Reason */}
+              {/* Risk Headline Reason with ML explanation Hindi note */}
               {rec.risk?.reason && (
                 <div className="p-4 rounded-xl bg-bg-surface/85 border border-current/20 text-sm font-semibold flex items-start gap-3">
                   <Info className="w-5 h-5 shrink-0 mt-0.5 opacity-80" />
-                  <span className="leading-relaxed">{rec.risk.reason}</span>
+                  <div className="space-y-1">
+                    <span className="leading-relaxed">{rec.risk.reason}</span>
+                    {isHindi && (
+                      <p className="text-[11px] text-ink-muted italic font-normal">
+                        {t('recommendation.mlExplanationNote')}
+                        {/* TODO(i18n): template-id based approach for ML explanations in v2 */}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -992,11 +960,17 @@ export default function Recommendation() {
                   <div className="p-4 rounded-xl border border-current/25 bg-bg-surface space-y-1.5">
                     <span className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 text-ink-primary">
                       <Sprout className="w-4 h-4 text-primary-600" />
-                      What it does to Soil Health
+                      {t('risk.soilHealth')}
                     </span>
                     <p className="text-xs sm:text-sm text-ink-secondary leading-relaxed">
                       {rec.risk.soilHealthImpact}
                     </p>
+                    {isHindi && (
+                      <p className="text-[10px] text-ink-muted italic font-normal">
+                        {t('recommendation.mlExplanationNote')}
+                        {/* TODO(i18n): template-id based approach for soil health impact in v2 */}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -1004,11 +978,17 @@ export default function Recommendation() {
                   <div className="p-4 rounded-xl border border-current/25 bg-bg-surface space-y-1.5">
                     <span className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 text-ink-primary">
                       <Leaf className="w-4 h-4 text-accent-green" />
-                      What it does to Yield
+                      {t('risk.yieldImpact')}
                     </span>
                     <p className="text-xs sm:text-sm text-ink-secondary leading-relaxed">
                       {rec.risk.yieldImpact}
                     </p>
+                    {isHindi && (
+                      <p className="text-[10px] text-ink-muted italic font-normal">
+                        {t('recommendation.mlExplanationNote')}
+                        {/* TODO(i18n): template-id based approach for yield impact in v2 */}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -1044,24 +1024,24 @@ export default function Recommendation() {
                 <div className="flex items-center gap-2">
                   <Calculator className="w-5 h-5 text-primary-600" />
                   <h3 className="text-base sm:text-lg font-bold text-ink-primary">
-                    The Working: Transparent Nutrient Math
+                    {t('recommendation.workingTitle')}
                   </h3>
                 </div>
                 <p className="text-xs text-ink-secondary">
-                  The recommended dose is never a black box. Below is the transparent calculation for Nitrogen, Phosphorus and Potassium.
+                  {t('recommendation.workingDesc')}
                 </p>
               </div>
 
               {/* Formula & Method Callout */}
               <div className="p-4 rounded-xl bg-bg-subtle border border-border-default space-y-2.5">
                 <span className="text-xs font-bold text-ink-muted uppercase tracking-wider block">
-                  Deficit Equation & Methodology (ICAR / STCR Model)
+                  {t('recommendation.equationMethod')}
                 </span>
                 <div className="font-mono text-xs sm:text-sm text-primary-800 dark:text-primary-300 font-semibold bg-bg-surface p-2.5 rounded-lg border border-border-default overflow-x-auto">
                   {rec.formula}
                 </div>
                 <p className="text-[11px] text-ink-muted leading-relaxed">
-                  <strong>Methodology used:</strong> STCR (Soil Test Crop Response) Deficit Balancing. The system takes the standard crop uptake demand, subtracts what your soil test supplies (adjusted for soil pH and organic carbon availability), divides by uptake efficiency, and deducts credits from recent fertilizer applications.
+                  <strong>{t('recommendation.methodLabel')}</strong> {t('recommendation.methodExplanation')}
                 </p>
               </div>
 
@@ -1076,48 +1056,48 @@ export default function Recommendation() {
                           <span className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-black flex items-center justify-center">
                             N
                           </span>
-                          Nitrogen
+                          {isHindi ? 'नाइट्रोजन (N)' : 'Nitrogen (N)'}
                         </span>
                         <span className="text-xs font-bold text-primary-700 dark:text-primary-400">
-                          {rec.nutrientBalance.n.fertilizerNeededKgHa} kg/ha needed
+                          {formatNumber(rec.nutrientBalance.n.fertilizerNeededKgHa)} {t('common.kgPerHa')} {t('recommendation.neededToApply')}
                         </span>
                       </div>
 
                       <div className="space-y-1.5 text-xs text-ink-secondary">
                         <div className="flex justify-between">
-                          <span>Standard Crop Demand:</span>
+                          <span>{t('recommendation.standardDemand')}</span>
                           <span className="font-semibold text-ink-primary">
-                            {rec.nutrientBalance.n.cropDemandKgHa} kg/ha
+                            {formatNumber(rec.nutrientBalance.n.cropDemandKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Soil Supply (Test Adjustment):</span>
+                          <span>{t('recommendation.soilSupply')}</span>
                           <span className="font-semibold text-ink-primary">
-                            -{rec.nutrientBalance.n.soilSupplyKgHa} kg/ha
+                            -{formatNumber(rec.nutrientBalance.n.soilSupplyKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Calculated Deficit:</span>
+                          <span>{t('recommendation.calculatedDeficit')}</span>
                           <span className="font-semibold text-ink-primary">
-                            {rec.nutrientBalance.n.deficitKgHa} kg/ha
+                            {formatNumber(rec.nutrientBalance.n.deficitKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Use Efficiency:</span>
+                          <span>{t('recommendation.useEfficiency')}</span>
                           <span className="font-semibold text-ink-primary">
-                            {(rec.nutrientBalance.n.useEfficiency * 100).toFixed(0)}%
+                            {formatNumber((rec.nutrientBalance.n.useEfficiency * 100).toFixed(0))}%
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Recent Application Credit:</span>
+                          <span>{t('recommendation.priorCredit')}</span>
                           <span className="font-semibold text-ink-primary">
-                            -{rec.nutrientBalance.n.priorCreditKgHa} kg/ha
+                            -{formatNumber(rec.nutrientBalance.n.priorCreditKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                       </div>
 
                       <div className="pt-2 border-t border-border-default text-[11px] text-ink-muted">
-                        Method: {rec.nutrientBalance.n.methodUsed}
+                        {t('recommendation.methodLabel')} {rec.nutrientBalance.n.methodUsed}
                       </div>
                     </div>
                   )}
@@ -1130,48 +1110,48 @@ export default function Recommendation() {
                           <span className="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-black flex items-center justify-center">
                             P
                           </span>
-                          Phosphorus
+                          {isHindi ? 'फास्फोरस (P)' : 'Phosphorus (P)'}
                         </span>
                         <span className="text-xs font-bold text-primary-700 dark:text-primary-400">
-                          {rec.nutrientBalance.p.fertilizerNeededKgHa} kg/ha needed
+                          {formatNumber(rec.nutrientBalance.p.fertilizerNeededKgHa)} {t('common.kgPerHa')} {t('recommendation.neededToApply')}
                         </span>
                       </div>
 
                       <div className="space-y-1.5 text-xs text-ink-secondary">
                         <div className="flex justify-between">
-                          <span>Standard Crop Demand:</span>
+                          <span>{t('recommendation.standardDemand')}</span>
                           <span className="font-semibold text-ink-primary">
-                            {rec.nutrientBalance.p.cropDemandKgHa} kg/ha
+                            {formatNumber(rec.nutrientBalance.p.cropDemandKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Soil Supply (Test Adjustment):</span>
+                          <span>{t('recommendation.soilSupply')}</span>
                           <span className="font-semibold text-ink-primary">
-                            -{rec.nutrientBalance.p.soilSupplyKgHa} kg/ha
+                            -{formatNumber(rec.nutrientBalance.p.soilSupplyKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Calculated Deficit:</span>
+                          <span>{t('recommendation.calculatedDeficit')}</span>
                           <span className="font-semibold text-ink-primary">
-                            {rec.nutrientBalance.p.deficitKgHa} kg/ha
+                            {formatNumber(rec.nutrientBalance.p.deficitKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Use Efficiency:</span>
+                          <span>{t('recommendation.useEfficiency')}</span>
                           <span className="font-semibold text-ink-primary">
-                            {(rec.nutrientBalance.p.useEfficiency * 100).toFixed(0)}%
+                            {formatNumber((rec.nutrientBalance.p.useEfficiency * 100).toFixed(0))}%
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Recent Application Credit:</span>
+                          <span>{t('recommendation.priorCredit')}</span>
                           <span className="font-semibold text-ink-primary">
-                            -{rec.nutrientBalance.p.priorCreditKgHa} kg/ha
+                            -{formatNumber(rec.nutrientBalance.p.priorCreditKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                       </div>
 
                       <div className="pt-2 border-t border-border-default text-[11px] text-ink-muted">
-                        Method: {rec.nutrientBalance.p.methodUsed}
+                        {t('recommendation.methodLabel')} {rec.nutrientBalance.p.methodUsed}
                       </div>
                     </div>
                   )}
@@ -1184,48 +1164,48 @@ export default function Recommendation() {
                           <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-xs font-black flex items-center justify-center">
                             K
                           </span>
-                          Potassium
+                          {isHindi ? 'पोटाश (K)' : 'Potassium (K)'}
                         </span>
                         <span className="text-xs font-bold text-primary-700 dark:text-primary-400">
-                          {rec.nutrientBalance.k.fertilizerNeededKgHa} kg/ha needed
+                          {formatNumber(rec.nutrientBalance.k.fertilizerNeededKgHa)} {t('common.kgPerHa')} {t('recommendation.neededToApply')}
                         </span>
                       </div>
 
                       <div className="space-y-1.5 text-xs text-ink-secondary">
                         <div className="flex justify-between">
-                          <span>Standard Crop Demand:</span>
+                          <span>{t('recommendation.standardDemand')}</span>
                           <span className="font-semibold text-ink-primary">
-                            {rec.nutrientBalance.k.cropDemandKgHa} kg/ha
+                            {formatNumber(rec.nutrientBalance.k.cropDemandKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Soil Supply (Test Adjustment):</span>
+                          <span>{t('recommendation.soilSupply')}</span>
                           <span className="font-semibold text-ink-primary">
-                            -{rec.nutrientBalance.k.soilSupplyKgHa} kg/ha
+                            -{formatNumber(rec.nutrientBalance.k.soilSupplyKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Calculated Deficit:</span>
+                          <span>{t('recommendation.calculatedDeficit')}</span>
                           <span className="font-semibold text-ink-primary">
-                            {rec.nutrientBalance.k.deficitKgHa} kg/ha
+                            {formatNumber(rec.nutrientBalance.k.deficitKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Use Efficiency:</span>
+                          <span>{t('recommendation.useEfficiency')}</span>
                           <span className="font-semibold text-ink-primary">
-                            {(rec.nutrientBalance.k.useEfficiency * 100).toFixed(0)}%
+                            {formatNumber((rec.nutrientBalance.k.useEfficiency * 100).toFixed(0))}%
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Recent Application Credit:</span>
+                          <span>{t('recommendation.priorCredit')}</span>
                           <span className="font-semibold text-ink-primary">
-                            -{rec.nutrientBalance.k.priorCreditKgHa} kg/ha
+                            -{formatNumber(rec.nutrientBalance.k.priorCreditKgHa)} {t('common.kgPerHa')}
                           </span>
                         </div>
                       </div>
 
                       <div className="pt-2 border-t border-border-default text-[11px] text-ink-muted">
-                        Method: {rec.nutrientBalance.k.methodUsed}
+                        {t('recommendation.methodLabel')} {rec.nutrientBalance.k.methodUsed}
                       </div>
                     </div>
                   )}
@@ -1239,15 +1219,18 @@ export default function Recommendation() {
                 <div className="space-y-0.5">
                   <h3 className="text-base sm:text-lg font-bold text-ink-primary flex items-center gap-2">
                     <DollarSign className="w-5 h-5 text-accent-green" />
-                    Economics & Fertilizer Cost
+                    {t('recommendation.costEconomics')}
                   </h3>
                   <p className="text-xs text-ink-secondary">
-                    Subsidized input costs and estimated savings across {fieldArea} acres.
+                    {t('recommendation.totalSpendEstimate', {
+                      cost: formatInr(rec.cost?.estimatedCostPerAcre * fieldArea),
+                      area: formatNumber(fieldArea),
+                    })}
                   </p>
                 </div>
                 {rec.cost?.savingPerAcre != null && rec.cost.savingPerAcre > 0 && (
                   <Badge variant="success" size="md">
-                    Saves {formatInr(rec.cost.savingPerAcre)} / acre
+                    {t('common.saving')}: {formatInr(rec.cost.savingPerAcre)} / {t('common.acre')}
                   </Badge>
                 )}
               </div>
@@ -1256,32 +1239,32 @@ export default function Recommendation() {
                 {/* 1. Recommended Plan Cost */}
                 <div className="p-4 rounded-xl border border-border-default bg-bg-surface space-y-1">
                   <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider block">
-                    Recommended Plan Cost
+                    {t('recommendation.estimatedCost')}
                   </span>
                   <div className="text-xl sm:text-2xl font-black text-ink-primary">
                     {formatInr(rec.cost?.estimatedCostPerAcre)}{' '}
-                    <span className="text-xs font-normal text-ink-muted">/ acre</span>
+                    <span className="text-xs font-normal text-ink-muted">/ {t('common.acre')}</span>
                   </div>
                   <span className="text-[11px] text-ink-muted font-mono">
-                    ≈ {formatInr(rec.cost?.estimatedCostPerAcre * fieldArea)} plot total ({fieldArea} ac)
+                    ≈ {formatInr(rec.cost?.estimatedCostPerAcre * fieldArea)} {t('common.fieldTotal')} ({formatNumber(fieldArea)} {t('common.acres')})
                   </span>
                 </div>
 
                 {/* 2. Previous Practice Cost */}
                 <div className="p-4 rounded-xl border border-border-default bg-bg-surface space-y-1">
                   <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider block">
-                    Previous Practice Cost
+                    {t('recommendation.previousCost')}
                   </span>
                   <div className="text-xl sm:text-2xl font-bold text-ink-secondary">
                     {rec.cost?.previousCostPerAcre != null
                       ? `${formatInr(rec.cost.previousCostPerAcre)} `
                       : '— '}
-                    <span className="text-xs font-normal text-ink-muted">/ acre</span>
+                    <span className="text-xs font-normal text-ink-muted">/ {t('common.acre')}</span>
                   </div>
                   <span className="text-[11px] text-ink-muted">
                     {rec.cost?.previousCostPerAcre != null
-                      ? `≈ ${formatInr(rec.cost.previousCostPerAcre * fieldArea)} plot total`
-                      : 'No prior usage logged'}
+                      ? `≈ ${formatInr(rec.cost.previousCostPerAcre * fieldArea)} ${t('common.fieldTotal')}`
+                      : t('recommendation.logUsagePrompt')}
                   </span>
                 </div>
 
@@ -1292,10 +1275,10 @@ export default function Recommendation() {
                     <div>
                       <span className="text-xs font-extrabold text-primary-800 dark:text-primary-300 uppercase tracking-wider flex items-center gap-1">
                         <History className="w-3.5 h-3.5" />
-                        Log Usage to See Savings
+                        {t('recommendation.logUsagePrompt')}
                       </span>
                       <p className="text-[11px] text-ink-secondary mt-1 leading-snug">
-                        Log previous fertilizer applications to calculate your exact financial savings.
+                        {t('recommendation.logUsagePrompt')}
                       </p>
                     </div>
                     <Link to={`/fields/${currentFieldId}/soil`}>
@@ -1303,7 +1286,7 @@ export default function Recommendation() {
                         type="button"
                         className="text-xs font-bold text-primary-700 dark:text-primary-300 hover:underline inline-flex items-center gap-1 cursor-pointer pt-1"
                       >
-                        <span>Log previous usage</span>
+                        <span>{t('recommendation.addSoilTest')}</span>
                         <ArrowRight className="w-3 h-3" />
                       </button>
                     </Link>
@@ -1314,14 +1297,14 @@ export default function Recommendation() {
                 {rec.cost?.savingPerAcre != null && rec.cost.savingPerAcre < 0 && (
                   <div className="p-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 space-y-1">
                     <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wider block">
-                      Additional Investment
+                      {isHindi ? 'अतिरिक्त निवेश' : 'Additional Investment'}
                     </span>
                     <div className="text-xl sm:text-2xl font-black text-amber-900 dark:text-amber-200">
                       +{formatInr(Math.abs(rec.cost.savingPerAcre))}{' '}
-                      <span className="text-xs font-normal text-amber-700 dark:text-amber-300">/ acre</span>
+                      <span className="text-xs font-normal text-amber-700 dark:text-amber-300">/ {t('common.acre')}</span>
                     </div>
                     <span className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
-                      +{formatInr(Math.abs(rec.cost.savingPerAcre * fieldArea))} field investment
+                      +{formatInr(Math.abs(rec.cost.savingPerAcre * fieldArea))} {t('common.fieldTotal')}
                     </span>
                   </div>
                 )}
@@ -1330,14 +1313,14 @@ export default function Recommendation() {
                 {rec.cost?.savingPerAcre != null && rec.cost.savingPerAcre > 0 && (
                   <div className="p-4 rounded-xl border border-accent-green/40 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-1">
                     <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider block">
-                      Saving per Acre
+                      {t('recommendation.costSavings')}
                     </span>
                     <div className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400">
                       {formatInr(rec.cost.savingPerAcre)}{' '}
-                      <span className="text-xs font-normal text-emerald-800 dark:text-emerald-300">/ acre</span>
+                      <span className="text-xs font-normal text-emerald-800 dark:text-emerald-300">/ {t('common.acre')}</span>
                     </div>
                     <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                      {formatInr(rec.cost.savingTotal || rec.cost.savingPerAcre * fieldArea)} total for {fieldArea} acres
+                      {formatInr(rec.cost.savingTotal || rec.cost.savingPerAcre * fieldArea)} {t('common.fieldTotal')} ({formatNumber(fieldArea)} {t('common.acres')})
                     </span>
                   </div>
                 )}

@@ -767,11 +767,11 @@ export const mockData = {
       ph: { acidicBelow: 6.5, alkalineAbove: 7.5, optimal: '6.5 - 7.5' },
     },
     fertilizers: [
-      { id: 'urea', name: 'Urea (46% N)', nPct: 46, p2o5Pct: 0, k2oPct: 0, priceInrPerKg: 5.36, priceDate: '2026-09-01' },
-      { id: 'dap', name: 'Di-Ammonium Phosphate (DAP)', nPct: 18, p2o5Pct: 46, k2oPct: 0, priceInrPerKg: 27.0, priceDate: '2026-09-01' },
-      { id: 'mop', name: 'Muriate of Potash (MOP)', nPct: 0, p2o5Pct: 0, k2oPct: 60, priceInrPerKg: 34.0, priceDate: '2026-09-01' },
-      { id: 'npk_10_26_26', name: 'NPK 10:26:26', nPct: 10, p2o5Pct: 26, k2oPct: 26, priceInrPerKg: 29.4, priceDate: '2026-09-01' },
-      { id: 'ssp', name: 'Single Super Phosphate (SSP)', nPct: 0, p2o5Pct: 16, k2oPct: 0, priceInrPerKg: 11.0, priceDate: '2026-09-01' },
+      { id: 'urea', name: 'Urea (46% N)', nameEn: 'Urea (46% N)', nameHi: 'यूरिया (४६% एन)', nPct: 46, p2o5Pct: 0, k2oPct: 0, priceInrPerKg: 5.36, priceDate: '2026-09-01' },
+      { id: 'dap', name: 'Di-Ammonium Phosphate (DAP)', nameEn: 'Di-Ammonium Phosphate (DAP 18:46:0)', nameHi: 'डीएपी (१८:४६:०)', nPct: 18, p2o5Pct: 46, k2oPct: 0, priceInrPerKg: 27.0, priceDate: '2026-09-01' },
+      { id: 'mop', name: 'Muriate of Potash (MOP)', nameEn: 'Muriate of Potash (MOP 0:0:60)', nameHi: 'एमओपी पोटाश (०:०:६०)', nPct: 0, p2o5Pct: 0, k2oPct: 60, priceInrPerKg: 34.0, priceDate: '2026-09-01' },
+      { id: 'npk_10_26_26', name: 'NPK 10:26:26', nameEn: 'NPK 10:26:26', nameHi: 'एनपीके १०:२६:२६', nPct: 10, p2o5Pct: 26, k2oPct: 26, priceInrPerKg: 29.4, priceDate: '2026-09-01' },
+      { id: 'ssp', name: 'Single Super Phosphate (SSP)', nameEn: 'Single Super Phosphate (SSP 16% P)', nameHi: 'एसएसपी (१६% पी)', nPct: 0, p2o5Pct: 16, k2oPct: 0, priceInrPerKg: 11.0, priceDate: '2026-09-01' },
     ],
   },
 }

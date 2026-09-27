@@ -1,13 +1,9 @@
-/* Self-hosted fonts via Fontsource (woff2, font-display: swap) */
+/* Self-hosted English font via Fontsource (woff2, font-display: swap) */
+/* Devanagari font is loaded dynamically on demand when Hindi is selected (PRD Feature 11) */
 @import '@fontsource/plus-jakarta-sans/400.css';
 @import '@fontsource/plus-jakarta-sans/500.css';
 @import '@fontsource/plus-jakarta-sans/600.css';
 @import '@fontsource/plus-jakarta-sans/700.css';
-
-@import '@fontsource/noto-sans-devanagari/400.css';
-@import '@fontsource/noto-sans-devanagari/500.css';
-@import '@fontsource/noto-sans-devanagari/600.css';
-@import '@fontsource/noto-sans-devanagari/700.css';
 
 @import './tokens.css';
 
@@ -21,6 +17,9 @@
     -webkit-tap-highlight-color: transparent;
     max-width: 100%;
     overflow-x: clip;
+  }
+  html[lang="hi"] {
+    font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, sans-serif;
   }
   body {
     background-color: var(--color-bg-base);

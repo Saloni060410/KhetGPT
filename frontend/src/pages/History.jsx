@@ -37,57 +37,22 @@ import CostTrendsChart from '../components/charts/CostTrendsChart.jsx'
 import { getNutrientRating, getOverallSoilRating } from '../utils/soilRating.js'
 import * as endpoints from '../services/endpoints.js'
 import { useFarmStore } from '../store/useFarmStore.js'
-
-function formatDate(dateStr) {
-  if (!dateStr) return 'TBD'
-  try {
-    const d = new Date(dateStr)
-    return d.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatInr(val) {
-  if (val == null) return null
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(val)
-}
-
-function formatFertilizer(type) {
-  const map = {
-    urea: 'Urea (46% N)',
-    dap: 'DAP (18:46:0)',
-    mop: 'MOP (0:0:60)',
-    npk_10_26_26: 'NPK 10:26:26',
-    ssp: 'SSP (16% P)',
-  }
-  return map[type?.toLowerCase()] || type?.toUpperCase() || 'Fertilizer'
-}
-
-function formatStage(stage) {
-  const map = {
-    sowing: 'Basal / Sowing',
-    crown_root_initiation: 'Crown Root (CRI)',
-    tillering: 'Tillering',
-    jointing: 'Jointing',
-    flowering: 'Flowering',
-    grain_filling: 'Grain Filling',
-    vegetative: 'Vegetative Growth',
-    transplanting: 'Transplanting',
-    knee_high: 'Knee-high (V6)',
-  }
-  return map[stage?.toLowerCase()] || stage?.replace(/_/g, ' ') || 'General'
-}
+import { useT } from '../i18n/useT.js'
 
 export default function History() {
+  const {
+    t,
+    isHindi,
+    formatDate,
+    formatCurrency,
+    formatCrop,
+    formatVariety,
+    formatStage,
+    formatFertilizer,
+    formatNumber,
+  } = useT()
+  const formatInr = formatCurrency
+
   const { fieldId } = useParams()
   const currentFieldId = fieldId || '1'
 
@@ -325,12 +290,12 @@ export default function History() {
                   <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs text-ink-secondary">
                     <span className="inline-flex items-center gap-1 font-bold text-ink-primary">
                       <Sprout className="w-3.5 h-3.5 text-primary-600" />
-                      Crop: {field.cropType?.toUpperCase()} ({field.cropVariety || 'Standard'})
+                      {t('history.cropLabel')} {formatCrop(field.cropType)} ({formatVariety(field.cropType, field.cropVariety) || field.cropVariety || 'Standard'})
                     </span>
                     <span>•</span>
                     <span className="inline-flex items-center gap-1">
                       <Layers className="w-3.5 h-3.5 text-ink-muted" />
-                      Current Stage: <strong className="capitalize text-primary-700 dark:text-primary-300">{formatStage(field.growthStage)}</strong>
+                      {t('history.currentStageLabel')} <strong className="capitalize text-primary-700 dark:text-primary-300">{formatStage(field.growthStage)}</strong>
                     </span>
                     <span>•</span>
                     <span className="inline-flex items-center gap-1">
@@ -340,7 +305,7 @@ export default function History() {
                     <span>•</span>
                     <span className="inline-flex items-center gap-1">
                       <Scale className="w-3.5 h-3.5 text-accent-amber" />
-                      Area: {field.areaAcres || 2.5} Acres
+                      {t('history.areaLabel', { area: formatNumber(field.areaAcres || 2.5, 1) })}
                     </span>
                   </div>
                 </div>
@@ -348,7 +313,7 @@ export default function History() {
                 {/* Latest Soil Rating Chip */}
                 <div className="p-3.5 rounded-xl border border-border-default bg-bg-subtle text-left md:text-right shrink-0 space-y-1">
                   <span className="text-[10px] uppercase font-bold text-ink-muted block tracking-wider">
-                    Latest Soil Health Rating
+                    {t('history.latestSoilRating')}
                   </span>
                   <div className="flex items-center md:justify-end gap-2">
                     <Badge variant={soilRating.badgeVariant || 'neutral'} size="md">
@@ -375,7 +340,7 @@ export default function History() {
                         : 'text-ink-secondary hover:text-ink-primary'
                     }`}
                   >
-                    Overview & Trends
+                    {t('history.overviewTab')}
                   </button>
                   <button
                     type="button"
@@ -386,7 +351,7 @@ export default function History() {
                         : 'text-ink-secondary hover:text-ink-primary'
                     }`}
                   >
-                    Recommendations Log ({recommendationsData.total})
+                    {t('history.recommendationsLog', { total: formatNumber(recommendationsData.total) })}
                   </button>
                   <button
                     type="button"
@@ -397,7 +362,7 @@ export default function History() {
                         : 'text-ink-secondary hover:text-ink-primary'
                     }`}
                   >
-                    Charts Only
+                    {t('history.chartsOnly')}
                   </button>
                 </div>
 
@@ -449,7 +414,7 @@ export default function History() {
                       <div className="flex items-center gap-2">
                         <TrendingDown className="w-5 h-5 text-primary-600" />
                         <h2 className="text-lg font-black text-ink-primary tracking-tight">
-                          Agronomic & Financial Trajectory Charts
+                          {t('history.trajectoryCharts')}
                         </h2>
                       </div>
                       <span className="text-xs text-ink-muted font-mono">
@@ -484,17 +449,23 @@ export default function History() {
                         <div className="flex items-center gap-2">
                           <Clock className="w-5 h-5 text-primary-600" />
                           <h2 className="text-base font-black text-ink-primary uppercase tracking-wider">
-                            Historical Recommendations Log
+                            {t('history.historicalLogTitle')}
                           </h2>
                         </div>
                         <p className="text-xs text-ink-secondary mt-0.5">
-                          Showing {recommendationsData.items.length} of {recommendationsData.total} past records (newest first)
+                          {t('history.showingRecords', {
+                            count: formatNumber(recommendationsData.items.length),
+                            total: formatNumber(recommendationsData.total),
+                          })}
                         </p>
                       </div>
 
                       {/* Pagination Top Indicator */}
                       <div className="text-xs font-mono text-ink-muted">
-                        Page {recommendationsData.page} of {totalPages}
+                        {t('history.pageOf', {
+                          page: formatNumber(recommendationsData.page),
+                          total: formatNumber(totalPages),
+                        })}
                       </div>
                     </div>
 
@@ -503,13 +474,13 @@ export default function History() {
                       <table className="w-full text-left text-xs">
                         <thead className="bg-bg-subtle border-b border-border-default text-ink-muted uppercase font-bold text-[11px]">
                           <tr>
-                            <th scope="col" className="py-3 px-3">When</th>
-                            <th scope="col" className="py-3 px-3">Crop & Stage</th>
-                            <th scope="col" className="py-3 px-3">Product</th>
-                            <th scope="col" className="py-3 px-3">Quantity</th>
-                            <th scope="col" className="py-3 px-3">Risk Assessment</th>
-                            <th scope="col" className="py-3 px-3">Savings</th>
-                            <th scope="col" className="py-3 px-3 text-right">Details</th>
+                            <th scope="col" className="py-3 px-3">{t('history.whenHeader')}</th>
+                            <th scope="col" className="py-3 px-3">{t('history.cropStageHeader')}</th>
+                            <th scope="col" className="py-3 px-3">{t('history.productHeader')}</th>
+                            <th scope="col" className="py-3 px-3">{t('history.quantityHeader')}</th>
+                            <th scope="col" className="py-3 px-3">{t('history.riskHeader')}</th>
+                            <th scope="col" className="py-3 px-3">{t('history.savingsHeader')}</th>
+                            <th scope="col" className="py-3 px-3 text-right">{t('history.detailsHeader')}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border-subtle">
@@ -537,7 +508,7 @@ export default function History() {
                                 {/* 2. Crop & Stage */}
                                 <td className="py-3.5 px-3 whitespace-nowrap">
                                   <div className="font-bold text-ink-primary capitalize">
-                                    {item.cropType || field.cropType}
+                                    {formatCrop(item.cropType || field.cropType)}
                                   </div>
                                   <span className="text-[11px] text-ink-secondary">
                                     {formatStage(item.growthStage || 'sowing')}
@@ -552,9 +523,9 @@ export default function History() {
                                 {/* 4. Quantity */}
                                 <td className="py-3.5 px-3 font-mono text-ink-primary whitespace-nowrap">
                                   <span className="font-black text-sm">
-                                    {Number(item.quantityKgPerAcre).toFixed(1)}
+                                    {formatNumber(Number(item.quantityKgPerAcre), 1)}
                                   </span>{' '}
-                                  <span className="text-[11px] text-ink-muted">kg/ac</span>
+                                  <span className="text-[11px] text-ink-muted">{t('common.kgPerAcre')}</span>
                                 </td>
 
                                 {/* 5. Risk */}
@@ -588,7 +559,7 @@ export default function History() {
                                     }}
                                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-bg-subtle text-primary-700 dark:text-primary-300 font-bold hover:bg-primary-50 dark:hover:bg-primary-950 transition-colors"
                                   >
-                                    <span>Open</span>
+                                    <span>{t('history.openBtn')}</span>
                                     <ArrowRight className="w-3.5 h-3.5" />
                                   </button>
                                 </td>

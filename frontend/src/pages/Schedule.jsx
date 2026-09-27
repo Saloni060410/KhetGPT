@@ -23,45 +23,23 @@ import PageShell from '../components/ui/PageShell.jsx'
 import Button from '../components/ui/Button.jsx'
 import Badge from '../components/ui/Badge.jsx'
 import Skeleton from '../components/ui/Skeleton.jsx'
+import LanguageToggle from '../components/ui/LanguageToggle.jsx'
 import { useRecommendationStore } from '../store/useRecommendationStore.js'
 import { useFarmStore } from '../store/useFarmStore.js'
 import * as endpoints from '../services/endpoints.js'
-
-// Formatters for fertilizers, stages and standard Indian packaging
-const FERTILIZER_NAMES = {
-  urea: 'Urea (46% N)',
-  dap: 'Di-Ammonium Phosphate (DAP 18:46:0)',
-  mop: 'Muriate of Potash (MOP 0:0:60)',
-  npk_10_26_26: 'NPK 10:26:26',
-  ssp: 'Single Super Phosphate (SSP 16% P)',
-}
-
-const STAGE_NAMES = {
-  sowing: 'Basal / Sowing',
-  crown_root_initiation: 'Crown Root Initiation (CRI)',
-  tillering: 'Tillering',
-  jointing: 'Jointing',
-  flowering: 'Flowering / Heading',
-  grain_filling: 'Grain Filling',
-  vegetative: 'Vegetative Growth',
-  nursery: 'Nursery / Seedling',
-  transplanting: 'Transplanting (Basal)',
-  panicle_initiation: 'Panicle Initiation',
-  knee_high: 'Knee-high (V6)',
-  tasseling: 'Tasseling / Silking',
-}
+import { useT } from '../i18n/useT.js'
 
 const STAGE_TIMING_HINTS = {
-  sowing: 'At field preparation / seed drill placement',
-  transplanting: 'During seedling transplanting / puddle settling',
-  crown_root_initiation: '20–25 days after sowing (first irrigation)',
-  tillering: '30–35 days after transplanting / sowing',
-  knee_high: '30–35 days after sowing (V6 stage)',
-  jointing: '45–50 days after sowing (stem elongation)',
-  panicle_initiation: '50–60 days after transplanting',
-  tasseling: '55–65 days after sowing (prior to silk emergence)',
-  flowering: '65–75 days after sowing',
-  grain_filling: '80–90 days after sowing (milking stage)',
+  sowing: { en: 'At field preparation / seed drill placement', hi: 'खेत की तैयारी / बुवाई के समय' },
+  transplanting: { en: 'During seedling transplanting / puddle settling', hi: 'पौध रोपाई / लेव लगाने के समय' },
+  crown_root_initiation: { en: '20–25 days after sowing (first irrigation)', hi: 'बुवाई के २०-२५ दिन बाद (पहली सिंचाई पर)' },
+  tillering: { en: '30–35 days after transplanting / sowing', hi: 'रोपाई/बुवाई के ३०-३५ दिन बाद (कल्ले फूटते समय)' },
+  knee_high: { en: '30–35 days after sowing (V6 stage)', hi: 'बुवाई के ३०-३५ दिन बाद (घुटने की ऊंचाई)' },
+  jointing: { en: '45–50 days after sowing (stem elongation)', hi: 'बुवाई के ४५-५० दिन बाद (गांठ बनते समय)' },
+  panicle_initiation: { en: '50–60 days after transplanting', hi: 'रोपाई के ५०-६० दिन बाद (बाली निकलते समय)' },
+  tasseling: { en: '55–65 days after sowing (prior to silk emergence)', hi: 'बुवाई के ५५-६५ दिन बाद (मंजर निकलते समय)' },
+  flowering: { en: '65–75 days after sowing', hi: 'बुवाई के ६५-७५ दिन बाद (फूल आने पर)' },
+  grain_filling: { en: '80–90 days after sowing (milking stage)', hi: 'बुवाई के ८०-९० दिन बाद (दूधिया दाना भराव)' },
 }
 
 // Standard Indian agricultural bag weights
@@ -73,38 +51,7 @@ const BAG_WEIGHTS_KG = {
   ssp: 50,
 }
 
-function formatFertilizer(type) {
-  return FERTILIZER_NAMES[type?.toLowerCase()] || type?.toUpperCase() || 'Fertilizer'
-}
-
-function formatStage(stage) {
-  return STAGE_NAMES[stage?.toLowerCase()] || stage?.replace(/_/g, ' ') || 'General Stage'
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return 'TBD'
-  try {
-    const d = new Date(dateStr)
-    return d.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatInr(val) {
-  if (val == null) return null
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(val)
-}
-
-function calculateBags(fertilizerType, totalKg) {
+function calculateBags(fertilizerType, totalKg, isHindi = false) {
   const normType = fertilizerType?.toLowerCase() || ''
   let bagWeight = 50
   if (normType.includes('urea')) bagWeight = 45
@@ -113,6 +60,16 @@ function calculateBags(fertilizerType, totalKg) {
   const exactBags = totalKg / bagWeight
   const wholeBags = Math.floor(exactBags)
   const remainingKg = Math.round(totalKg % bagWeight)
+
+  if (isHindi) {
+    if (wholeBags === 0) {
+      return `${Math.round(totalKg)} किग्रा खुला`
+    } else if (remainingKg === 0) {
+      return `${wholeBags} बोरी (${bagWeight} किग्रा)`
+    } else {
+      return `${wholeBags} बोरी + ${remainingKg} किग्रा`
+    }
+  }
 
   if (wholeBags === 0) {
     return `${Math.round(totalKg)} kg loose`
@@ -165,6 +122,19 @@ function normalizeRecommendation(raw) {
 }
 
 export default function Schedule() {
+  const {
+    t,
+    isHindi,
+    formatDate,
+    formatNumber,
+    formatCurrency,
+    formatCrop,
+    formatVariety,
+    formatStage,
+    formatFertilizer,
+  } = useT()
+  const formatInr = formatCurrency
+
   const { fieldId } = useParams()
   const currentFieldId = fieldId || '1'
 
@@ -288,7 +258,7 @@ export default function Schedule() {
     })
 
     return Object.values(summaryMap)
-  }, [rec?.schedule, fieldArea])
+  }, [rec?.schedule, fieldArea, formatFertilizer, formatStage])
 
   // Total investment estimate
   const totalEstimatedCost = rec?.cost?.estimatedCostPerAcre
@@ -395,10 +365,11 @@ export default function Schedule() {
               className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-secondary hover:text-ink-primary min-h-touch py-1"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back to Recommendation Analysis</span>
+              <span>{t('common.back')}</span>
             </Link>
 
             <div className="flex items-center gap-2">
+              <LanguageToggle />
               <Button
                 variant="primary"
                 size="md"
@@ -406,7 +377,7 @@ export default function Schedule() {
                 onClick={handlePrint}
                 className="shadow-sm"
               >
-                Print / Save as PDF
+                {t('schedule.savePdf')}
               </Button>
             </div>
           </div>
@@ -499,17 +470,17 @@ export default function Schedule() {
                   <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs text-ink-secondary print:text-black print:font-semibold">
                     <span className="inline-flex items-center gap-1 font-bold text-ink-primary print:text-black">
                       <Sprout className="w-3.5 h-3.5 text-primary-600 print:hidden" />
-                      Crop: {rec.cropType?.toUpperCase()} ({rec.cropVariety || 'Standard'})
+                      {t('fieldProfile.currentCrop')}: {formatCrop(rec.cropType)} ({formatVariety(rec.cropType, rec.cropVariety) || 'Standard'})
                     </span>
                     <span>•</span>
                     <span className="inline-flex items-center gap-1">
                       <Scale className="w-3.5 h-3.5 text-accent-amber print:hidden" />
-                      Plot Area: {fieldArea} Acres
+                      {t('fieldProfile.area')}: {formatNumber(fieldArea)} {t('common.acres')}
                     </span>
                     <span>•</span>
                     <span className="inline-flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-ink-muted print:hidden" />
-                      Sowing Date: {formatDate(field.sowingDate)}
+                      {t('common.date')}: {formatDate(field.sowingDate)}
                     </span>
                   </div>
                 </div>
@@ -517,11 +488,11 @@ export default function Schedule() {
                 {/* Print button on top right of paper */}
                 <div className="text-left sm:text-right shrink-0 print:text-right">
                   <div className="text-xs text-ink-muted print:text-black print:font-mono">
-                    Date Generated: {formatDate(rec.createdAt)}
+                    {t('common.date')}: {formatDate(rec.createdAt)}
                   </div>
                   {totalEstimatedCost != null && (
                     <div className="text-sm font-extrabold text-ink-primary print:text-black mt-1">
-                      Est. Total Cost: {formatInr(totalEstimatedCost)}
+                      {t('recommendation.estimatedCost')}: {formatInr(totalEstimatedCost)}
                     </div>
                   )}
                 </div>
@@ -557,13 +528,13 @@ export default function Schedule() {
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-border-default print:border-b print:border-black text-[11px] text-ink-muted print:text-black uppercase font-bold">
-                      <th className="py-2 pr-3">Fertilizer Product</th>
-                      <th className="py-2 px-3">Dose / Acre</th>
+                      <th className="py-2 pr-3">{t('schedule.product')}</th>
+                      <th className="py-2 px-3">{t('schedule.ratePerAcre')}</th>
                       <th className="py-2 px-3 font-extrabold text-ink-primary print:text-black">
-                        Total Quantity ({fieldArea} ac)
+                        {t('schedule.totalQuantity', { area: formatNumber(fieldArea, 1) })}
                       </th>
                       <th className="py-2 pl-3 font-black text-primary-700 dark:text-primary-300 print:text-black">
-                        Bag Equivalent
+                        {t('schedule.bagEquivalent')}
                       </th>
                     </tr>
                   </thead>
@@ -573,19 +544,19 @@ export default function Schedule() {
                         <td className="py-2.5 pr-3 font-bold text-ink-primary print:text-black">
                           {item.name}
                           <span className="block text-[10px] text-ink-muted print:text-black font-normal">
-                            Stages: {item.stages.join(' + ')}
+                            {t('schedule.stagesLabel', { stages: item.stages.join(' + ') })}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 font-mono text-ink-secondary print:text-black">
-                          {item.totalKgPerAcre.toFixed(1)} kg/ac
+                          {formatNumber(item.totalKgPerAcre, 1)} {t('common.kgPerAcre')}
                         </td>
                         <td className="py-2.5 px-3 font-mono font-bold text-ink-primary print:text-black">
-                          {item.totalKg.toFixed(1)} kg
+                          {formatNumber(item.totalKg, 1)} {t('common.kg')}
                         </td>
                         <td className="py-2.5 pl-3 font-bold text-primary-700 dark:text-primary-300 print:text-black">
                           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-bg-surface border border-border-default print:border-black print:px-0">
                             <Package className="w-3.5 h-3.5 text-primary-600 print:hidden" />
-                            {calculateBags(item.type, item.totalKg)}
+                            {calculateBags(item.type, item.totalKg, isHindi)}
                           </span>
                         </td>
                       </tr>
@@ -601,11 +572,11 @@ export default function Schedule() {
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-primary-600 print:text-black" />
                   <h2 className="text-sm font-black text-ink-primary uppercase tracking-wider print:text-black">
-                    Dated Field Application Timeline ({rec.schedule?.length || 0} Splits)
+                    {t('schedule.timelineTitle', { count: formatNumber(rec.schedule?.length || 0) })}
                   </h2>
                 </div>
                 <span className="text-[11px] text-ink-muted print:text-black">
-                  Read in under 30 seconds
+                  {t('schedule.readUnder30s')}
                 </span>
               </div>
 
@@ -613,10 +584,10 @@ export default function Schedule() {
               <div className="space-y-3">
                 {rec.schedule?.map((item, idx) => {
                   const itemFieldTotalKg = (item.quantityKgPerAcre * fieldArea).toFixed(1)
-                  const bagsFormatted = calculateBags(item.fertilizerType, Number(itemFieldTotalKg))
+                  const bagsFormatted = calculateBags(item.fertilizerType, Number(itemFieldTotalKg), isHindi)
                   const timingHint =
-                    STAGE_TIMING_HINTS[item.stage?.toLowerCase()] ||
-                    'Apply as scheduled according to crop uptake window'
+                    STAGE_TIMING_HINTS[item.stage?.toLowerCase()]?.[isHindi ? 'hi' : 'en'] ||
+                    (isHindi ? 'फसल की आवश्यकता अनुसार निर्धारित समय पर डालें' : 'Apply as scheduled according to crop uptake window')
                   const isDelay = item.rainDelay || (item.rainDelayNote && item.rainDelayNote.length > 0)
 
                   return (
@@ -633,16 +604,16 @@ export default function Schedule() {
                         <div className="space-y-1.5 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-primary-100 text-primary-800 dark:bg-primary-950/60 dark:text-primary-300 print:bg-black print:text-white">
-                              Split #{idx + 1} • {formatStage(item.stage)}
+                              {t('schedule.splitNumber', { num: formatNumber(idx + 1) })} • {formatStage(item.stage)}
                             </span>
                             <span className="text-xs font-bold font-mono text-ink-primary print:text-black flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5 text-ink-muted print:hidden" />
-                              Apply By: {formatDate(item.applyBy)}
+                              {t('schedule.applyByLabel', { date: formatDate(item.applyBy) })}
                             </span>
                             {isDelay && (
                               <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200 border border-blue-300 print:border-black print:bg-white print:text-black flex items-center gap-1">
                                 <CloudRain className="w-3 h-3 print:hidden" />
-                                Rain Hold
+                                {t('schedule.rainHold')}
                               </span>
                             )}
                           </div>
@@ -657,7 +628,7 @@ export default function Schedule() {
 
                           {item.rainDelayNote && (
                             <p className="text-xs font-bold text-blue-800 dark:text-blue-200 print:text-black print:font-bold">
-                              Notice: {item.rainDelayNote}
+                              {item.rainDelayNote}
                             </p>
                           )}
                         </div>
@@ -665,13 +636,13 @@ export default function Schedule() {
                         {/* Quantity in kg/acre and bags */}
                         <div className="text-left sm:text-right shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-border-subtle print:border-none">
                           <div className="text-lg font-black text-ink-primary print:text-black">
-                            {item.quantityKgPerAcre}{' '}
+                            {formatNumber(item.quantityKgPerAcre, 1)}{' '}
                             <span className="text-xs font-bold text-ink-secondary print:text-black">
-                              kg / acre
+                              {t('common.kgPerAcre')}
                             </span>
                           </div>
                           <div className="text-xs font-bold text-primary-700 dark:text-primary-300 print:text-black">
-                            {itemFieldTotalKg} kg for plot
+                            {t('schedule.kgForPlot', { count: formatNumber(Number(itemFieldTotalKg), 1) })}
                           </div>
                           <div className="text-xs font-mono text-ink-muted print:text-black">
                             ≈ {bagsFormatted}
@@ -688,14 +659,14 @@ export default function Schedule() {
             <div className="pt-4 border-t-2 border-ink-primary/10 print:border-t-2 print:border-black print:pt-3 text-xs text-ink-secondary print:text-black space-y-1.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono text-[11px]">
                 <span>
-                  <strong>Field Verification:</strong> GPS Coordinates: {field.latitude || '28.6139'}° N, {field.longitude || '77.2090'}° E
+                  <strong>{t('schedule.fieldVerification')}:</strong> GPS Coordinates: {field.latitude || '28.6139'}° N, {field.longitude || '77.2090'}° E
                 </span>
                 <span>
-                  <strong>Weather Provenance:</strong> Open-Meteo ({rec.weatherSource || 'live'})
+                  <strong>{t('schedule.weatherProvenance')}:</strong> Open-Meteo ({rec.weatherSource === 'live' ? t('recommendation.liveWeather') : t('recommendation.staleWeather')})
                 </span>
               </div>
               <p className="text-[11px] leading-relaxed">
-                Instructions for Dealer & Farmer: Verify soil moisture prior to top-dressing. Never apply urea or DAP directly to dry soil or under standing flood water. In case of unexpected heavy rain (&gt;20 mm), postpone top-dress splits by 2 to 3 days.
+                {t('schedule.footerInstructions')}
               </p>
             </div>
 
@@ -707,7 +678,7 @@ export default function Schedule() {
                 leftIcon={Printer}
                 onClick={handlePrint}
               >
-                Print Schedule (A4 / PDF)
+                {t('schedule.savePdf')}
               </Button>
             </div>
 

@@ -4,8 +4,10 @@ import PageShell from '../components/ui/PageShell.jsx'
 import PlanRiskChecker from '../components/farms/PlanRiskChecker.jsx'
 import { useFarmStore } from '../store/useFarmStore.js'
 import { useEffect } from 'react'
+import { useT } from '../i18n/useT.js'
 
 export default function RiskCheck() {
+  const { t, formatCrop } = useT()
   const { fieldId } = useParams()
   const currentFieldId = fieldId || '1'
   const navigate = useNavigate()
@@ -37,8 +39,8 @@ export default function RiskCheck() {
 
   return (
     <PageShell
-      title="Check My Own Plan"
-      description="Compare custom fertilizer dosages against agronomist safety thresholds before application."
+      title={t('riskCheck.title')}
+      description={t('riskCheck.subtitle')}
     >
       <div className="max-w-4xl mx-auto space-y-6 pb-16">
         {/* Navigation & Demo Switcher */}
@@ -48,7 +50,7 @@ export default function RiskCheck() {
             className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-secondary hover:text-ink-primary min-h-touch py-1"
           >
             <ChevronLeft className="w-4 h-4" />
-            <span>Back to Recommended Plan</span>
+            <span>{t('riskCheck.backToRecommended')}</span>
           </Link>
 
           {/* Quick Demo Scenario Switcher */}

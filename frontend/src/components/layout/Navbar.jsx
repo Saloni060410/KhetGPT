@@ -14,20 +14,23 @@ import {
   Layers,
 } from 'lucide-react'
 import { useUserStore } from '../../store/useUserStore.js'
+import { useT } from '../../i18n/useT.js'
 import Button from '../ui/Button.jsx'
 import Badge from '../ui/Badge.jsx'
+import LanguageToggle from '../ui/LanguageToggle.jsx'
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, protected: true },
-  { to: '/fields/1', label: 'Field Profile', icon: Sprout, protected: true },
-  { to: '/fields/1/soil', label: 'Soil Test', icon: FlaskConical, protected: true },
-  { to: '/fields/1/recommendation', label: 'Recommendation', icon: Sparkles, protected: true },
-  { to: '/fields/1/schedule', label: 'Schedule', icon: Calendar, protected: true },
-  { to: '/fields/1/history', label: 'History', icon: HistoryIcon, protected: true },
-  { to: '/kit', label: 'Component Kit', icon: Layers, protected: false },
+  { to: '/dashboard', key: 'nav.dashboard', icon: LayoutDashboard, protected: true },
+  { to: '/fields/1', key: 'nav.fieldProfile', icon: Sprout, protected: true },
+  { to: '/fields/1/soil', key: 'nav.soilTest', icon: FlaskConical, protected: true },
+  { to: '/fields/1/recommendation', key: 'nav.recommendation', icon: Sparkles, protected: true },
+  { to: '/fields/1/schedule', key: 'nav.schedule', icon: Calendar, protected: true },
+  { to: '/fields/1/history', key: 'nav.history', icon: HistoryIcon, protected: true },
+  { to: '/kit', key: 'nav.kit', icon: Layers, protected: false },
 ]
 
 export default function Navbar() {
+  const { t } = useT()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const drawerRef = useRef(null)
   const menuButtonRef = useRef(null)
@@ -115,7 +118,7 @@ export default function Navbar() {
                   Khet<span className="text-primary-600">GPT</span>
                 </span>
                 <span className="text-[9px] sm:text-[10px] font-semibold text-ink-muted uppercase tracking-wider mt-0.5 hidden xs:inline-block">
-                  Fertilizer Optimizer
+                  {t('nav.tagline')}
                 </span>
               </div>
             </Link>
@@ -137,21 +140,23 @@ export default function Navbar() {
                   `}
                 >
                   <item.icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>{item.label}</span>
+                  <span>{t(item.key)}</span>
                 </NavLink>
               ))}
             </nav>
 
-            {/* Desktop Auth / User Controls */}
+            {/* Desktop Auth / User Controls & Language Toggle */}
             <div className="hidden sm:flex items-center gap-3">
+              <LanguageToggle />
+
               {isAuthenticated ? (
                 <div className="flex items-center gap-3">
                   <div className="flex flex-col text-right">
                     <span className="text-sm font-bold text-ink-primary leading-none">
-                      {user?.name || 'Farmer'}
+                      {user?.name || t('nav.role')}
                     </span>
                     <span className="text-xs text-primary-600 font-medium">
-                      {user?.role || 'FARMER'}
+                      {user?.role || t('nav.role')}
                     </span>
                   </div>
                   <Button
@@ -159,36 +164,38 @@ export default function Navbar() {
                     size="sm"
                     leftIcon={LogOut}
                     onClick={handleLogout}
-                    aria-label="Log out"
+                    aria-label={t('nav.logout')}
                   >
-                    Logout
+                    {t('nav.logout')}
                   </Button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <Link to="/login">
                     <Button variant="ghost" size="sm" leftIcon={LogIn}>
-                      Log In
+                      {t('nav.login')}
                     </Button>
                   </Link>
                   <Link to="/register">
                     <Button variant="primary" size="sm">
-                      Get Started
+                      {t('nav.register')}
                     </Button>
                   </Link>
                 </div>
               )}
             </div>
 
-            {/* Mobile Hamburger Button */}
-            <div className="flex items-center lg:hidden shrink-0 ml-auto">
+            {/* Mobile Controls: Language Toggle & Hamburger */}
+            <div className="flex items-center lg:hidden shrink-0 ml-auto gap-2">
+              <LanguageToggle />
+
               <button
                 ref={menuButtonRef}
                 type="button"
                 onClick={() => setIsDrawerOpen(!isDrawerOpen)}
                 aria-expanded={isDrawerOpen}
                 aria-controls="mobile-navigation-drawer"
-                aria-label={isDrawerOpen ? 'Close main menu' : 'Open main menu'}
+                aria-label={isDrawerOpen ? t('nav.closeMenu') : t('nav.openMenu')}
                 className="min-h-touch min-w-touch p-2 inline-flex items-center justify-center rounded-lg text-ink-secondary hover:text-ink-primary hover:bg-bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 cursor-pointer"
               >
                 {isDrawerOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -245,11 +252,11 @@ export default function Navbar() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-bold text-ink-primary leading-tight">
-                        {user?.name || 'Farmer'}
+                        {user?.name || t('nav.role')}
                       </p>
                       <p className="text-xs text-ink-secondary">{user?.email}</p>
                     </div>
-                    <Badge variant="primary" size="sm">{user?.role || 'FARMER'}</Badge>
+                    <Badge variant="primary" size="sm">{user?.role || t('nav.role')}</Badge>
                   </div>
                 </div>
               )}
@@ -271,7 +278,7 @@ export default function Navbar() {
                     `}
                   >
                     <item.icon className="w-5 h-5 shrink-0" aria-hidden="true" />
-                    <span>{item.label}</span>
+                    <span>{t(item.key)}</span>
                   </NavLink>
                 ))}
               </nav>
@@ -286,18 +293,18 @@ export default function Navbar() {
                   leftIcon={LogOut}
                   onClick={handleLogout}
                 >
-                  Sign Out
+                  {t('nav.logout')}
                 </Button>
               ) : (
                 <div className="space-y-2">
                   <Link to="/login" className="block w-full">
                     <Button variant="outline" className="w-full justify-center" leftIcon={LogIn}>
-                      Sign In
+                      {t('nav.login')}
                     </Button>
                   </Link>
                   <Link to="/register" className="block w-full">
                     <Button variant="primary" className="w-full justify-center">
-                      Create Account
+                      {t('nav.register')}
                     </Button>
                   </Link>
                 </div>
