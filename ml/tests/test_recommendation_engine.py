@@ -123,29 +123,41 @@ def test_recommend_maps_an_unknown_growth_stage_to_422(client, no_potash_request
     assert response.status_code == 422
 
 
-def test_recommend_still_recommends_the_unpriced_mop_but_excludes_its_cost(client):
+def test_recommend_now_prices_mop_since_a_real_price_was_sourced(client):
+    # MOP used to be genuinely unpriced (TODO(data)), and this test locked in that the engine
+    # still recommends it while excluding its cost. A real dated retail price was found on a
+    # third sourcing pass (PIB Release ID 2237470, 10 Mar 2026: "The average retail prices for
+    # other key grades... Muriate of Potash (MOP): Rs.1710.54" per 50kg bag) -- MOP now behaves
+    # like any other priced product. The "unpriced product still recommended, cost excluded"
+    # capability itself is still covered generically at the unit level
+    # (test_cost.py's ssp-based tests, ssp still genuinely TODO(data)).
     payload = load("recommend_request.json")  # real soil.k=90 -- genuinely needs potash
     response = client.post("/recommend", json=payload)
     assert response.status_code == 200
     body = response.json()
     mop_line = next(item for item in body["recommendation"]["schedule"] if item["fertilizer_type"] == "mop")
     assert mop_line["quantity_kg_per_acre"] > 0
-    assert "mop" not in {line["fertilizer_type"] for line in body["cost"]["breakdown"]}
-    assert any("mop" in note.lower() for note in body["explanation"]["data_notes"])
+    mop_cost_line = next(line for line in body["cost"]["breakdown"] if line["fertilizer_type"] == "mop")
+    assert mop_cost_line["cost_inr_per_acre"] > 0
+    assert not any("mop" in note.lower() for note in body["explanation"]["data_notes"])
 
 
-def test_recommend_for_a_crop_with_no_split_schedule_rows_is_a_503_not_a_fake_empty_plan(client):
-    # Barley has a real reference dose but zero split_schedule.csv rows -- ready_crops()'s own
-    # "not ready" reason. Before this fix, /recommend returned 200 with fertilizer_type "none"
-    # and an empty schedule, even though explanation.nutrient_balance showed a real N/P need --
-    # a confident wrong answer instead of the 503 every other missing-data gap raises.
+def test_recommend_for_barley_now_returns_a_real_plan_not_a_503(client):
+    # Barley used to have a real reference dose but zero split_schedule.csv rows, and
+    # /recommend returning 503 for it (instead of the old silent fake-empty-schedule bug) was
+    # the correct behavior for that gap. The gap is now closed (PAU POP Rabi 2025-26 p.25 --
+    # barley gets a real split_schedule row, same single-stage pattern as chickpea), so barley
+    # is ready like every other crop. The general "no split_schedule rows -> 503, never a fake
+    # empty plan" regression coverage lives in test_npk_calculator.py's synthetic-crop test,
+    # decoupled from barley's data so it can't go stale this same way again.
     payload = load("recommend_request.json")
     payload["crop_type"] = "barley"
     payload["variety"] = None
     payload["growth_stage"] = "sowing"
     response = client.post("/recommend", json=payload)
-    assert response.status_code == 503
-    assert "split_schedule" in response.json()["detail"]
+    assert response.status_code == 200
+    RecommendResponse.model_validate(response.json())
+    assert response.json()["recommendation"]["schedule"]  # a real plan, not an empty one
 
 
 def test_recommend_maps_missing_reference_tables_to_503(client, no_potash_request, tmp_path, monkeypatch):

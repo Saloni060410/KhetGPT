@@ -194,10 +194,10 @@ def test_schedule_has_no_negative_quantities_and_sums_to_the_primary_products_to
 
 def test_a_credit_larger_than_the_dose_clamps_to_zero_not_negative():
     # Wheat/generic N: standard_dose=123.6 kg/ha, no soil adjustment (wheat has no soil_adjustments.csv
-    # row for n), and n's fertilizer_use_efficiency IS sourced (nutrient_efficiency.csv's
-    # default/n row, 0.426) -- unlike p/k, whose default rows are both TODO(data) and would
-    # skip crediting entirely (see _prior_credit), which would make this scenario impossible
-    # to construct for those two nutrients right now.
+    # row for n), and n's fertilizer_use_efficiency is sourced (nutrient_efficiency.csv's
+    # default/n row, 0.426, Kaur et al. 2023). p/k's default rows are sourced too now (PIB
+    # Release ID 2237709, national NUE averages) -- this test only exercises N, not a claim
+    # that p/k crediting is unavailable.
     soil = {**_SOIL_EXTRAS, "n": 100.0, "p": 5.0, "k": 90.0}
     huge_prior_urea = [{"type": "urea", "quantity_kg_per_acre": 1000.0, "applied_on": TODAY.isoformat()}]
     balance, trace = compute_balance(

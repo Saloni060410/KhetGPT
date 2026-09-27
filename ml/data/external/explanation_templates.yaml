@@ -84,3 +84,49 @@ risk.healthy.soil_health_impact:
 risk.healthy.yield_impact:
   en: "This dose is expected to support the crop's yield potential without wasted input."
   hi: "इस खुराक से बिना किसी बर्बादी के फसल की उपज क्षमता को समर्थन मिलने की उम्मीद है।"
+
+# rule.* -- R10 (ml/src/evaluation/explainability.py's explain()). One template per rule_id
+# Saloni's npk_calculator.py / recommendation_engine.py actually emits into rule_trace --
+# read directly from her code (src/engine/npk_calculator.py, recommendation_engine.py), not
+# the prompt pack's placeholder list (which named rain_hold/split_stage rule_ids that don't
+# actually exist -- rain-hold and split-schedule are applied straight to the schedule, never
+# traced as a rule_trace item). The real set: dose_reference, soil_adjustment, dose_stcr,
+# stcr_soil_adjustment, prior_credit, credit_skipped_no_efficiency,
+# credit_ignored_unknown_product, classifier_disagreement.
+
+rule.dose_reference:
+  en: "The standard {irrigation} dose for {crop} is {value} kg/ha of {nutrient_label}."
+  hi: "{crop} के लिए मानक {irrigation} खुराक {nutrient_label} की {value} किग्रा/हेक्टेयर है।"
+rule.soil_adjustment:
+  en: "Your soil {nutrient_label} tests {soil_rating} ({value} kg/ha), so {effect} is adjusted into the dose."
+  hi: "आपकी मिट्टी में {nutrient_label} {soil_rating} स्तर पर है ({value} किग्रा/हेक्टेयर), इसलिए खुराक में {effect} का समायोजन किया गया है।"
+rule.dose_stcr:
+  en: "For a target yield of {target_yield_q_ha} q/ha, the soil-test crop-response equation calls for {value} kg/ha of {nutrient_label}."
+  hi: "{target_yield_q_ha} क्विंटल/हेक्टेयर के लक्ष्य उत्पादन के लिए, मृदा-परीक्षण फसल-प्रतिक्रिया समीकरण {nutrient_label} की {value} किग्रा/हेक्टेयर मांग करता है।"
+rule.stcr_soil_adjustment:
+  en: "Your soil {nutrient_label} test result of {value} kg/ha adjusts that STCR dose by {effect}."
+  hi: "आपकी मिट्टी में {nutrient_label} का परीक्षण परिणाम {value} किग्रा/हेक्टेयर उस STCR खुराक को {effect} से समायोजित करता है।"
+rule.prior_credit:
+  en: "You already applied about {raw_kg_ha} kg/ha of {nutrient_label}-containing fertilizer recently; at this crop's nutrient-use efficiency, that credits {value} kg/ha against the new dose."
+  hi: "आपने हाल ही में लगभग {raw_kg_ha} किग्रा/हेक्टेयर {nutrient_label}-युक्त उर्वरक पहले से डाला है; इस फसल की पोषक-उपयोग दक्षता पर, इससे नई खुराक में {value} किग्रा/हेक्टेयर की छूट मिलती है।"
+rule.credit_skipped_no_efficiency:
+  en: "No nutrient-use-efficiency data exists yet for this crop's {nutrient_label}, so the {value} kg/ha already applied could not be credited against the new dose."
+  hi: "इस फसल के {nutrient_label} के लिए अभी तक कोई पोषक-उपयोग-दक्षता डेटा उपलब्ध नहीं है, इसलिए पहले से डाले गए {value} किग्रा/हेक्टेयर को नई खुराक में शामिल नहीं किया जा सका।"
+rule.credit_ignored_unknown_product:
+  en: "Some previously logged fertilizer ({unknown_product_ids}) isn't in our product records, so it was left out of both the credit and the cost calculation."
+  hi: "पहले दर्ज किया गया कुछ उर्वरक ({unknown_product_ids}) हमारे उत्पाद रिकॉर्ड में नहीं है, इसलिए इसे क्रेडिट और लागत दोनों गणनाओं से बाहर रखा गया।"
+rule.classifier_disagreement:
+  en: "The prediction model's top guess for this field was {classifier_choice}, but the soil-test calculation recommends {balance_choice} instead -- the calculated dose is what's used."
+  hi: "इस खेत के लिए मॉडल का सबसे संभावित अनुमान {classifier_choice} था, लेकिन मिट्टी-परीक्षण गणना {balance_choice} की सिफारिश करती है -- उपयोग की गई गणना वही है।"
+
+# rule.product_choice.* -- one sentence naming the single input that most drove the
+# classifier's product pick. Two methods depending on the ACTIVE model
+# (src/models/model_registry/registry.json), since only XGBoost has a native per-row
+# attribution API -- random_forest is the currently locked-in production model (see
+# PROGRESS.md), not XGBoost, so this can't assume pred_contribs is always available.
+rule.product_choice.pred_contribs:
+  en: "For the product choice, the strongest per-field signal was {feature_label} ({feature_value}), pointing the model toward {product}."
+  hi: "उत्पाद चयन के लिए, सबसे मजबूत संकेत {feature_label} ({feature_value}) था, जिसने मॉडल को {product} की ओर इंगित किया।"
+rule.product_choice.feature_importance:
+  en: "Across its training data, the model's single most influential input for product choice is {feature_label} -- for this field, that value is {feature_value}."
+  hi: "अपने प्रशिक्षण डेटा में, उत्पाद चयन के लिए मॉडल का सबसे प्रभावशाली इनपुट {feature_label} है -- इस खेत के लिए, वह मान {feature_value} है।"

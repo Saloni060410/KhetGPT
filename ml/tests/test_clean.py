@@ -1,7 +1,23 @@
 import pandas as pd
 import pytest
 
-from src.data_pipeline.clean import CleaningError, harmonise, map_labels, reconcile_npk_units, run
+from src.data_pipeline.clean import (
+    RAW_PATH,
+    CleaningError,
+    harmonise,
+    map_labels,
+    reconcile_npk_units,
+    run,
+)
+
+# RAW_PATH (the real, gitignored 99-row Kaggle file) requires a manual, logged-in download --
+# genuinely absent on a fresh clone (see ml/data/README.md's "Reproduce from a fresh clone").
+# A caught-by-actually-running-a-fresh-clone-check bug: two tests below used to assume this
+# file was always present and failed for the wrong reason (a real, on-disk file missing) when
+# it wasn't, rather than skipping honestly.
+requires_real_kaggle_file = pytest.mark.skipif(
+    not RAW_PATH.exists(), reason="real Kaggle file not fetched on this machine -- see ml/data/README.md"
+)
 
 
 def test_run_produces_a_validation_report_with_expected_shape():
@@ -17,6 +33,7 @@ def test_run_produces_a_validation_report_with_expected_shape():
     }
 
 
+@requires_real_kaggle_file
 def test_out_of_vocab_crop_labels_are_dropped_not_kept():
     report = run()
     # Pulses is a known gap (generic label, not chickpea-specific) -- must be dropped, from
@@ -46,9 +63,13 @@ def test_no_missing_values_in_the_cleaned_output_except_real_rows_n_p_k():
     # reconcile them to). Every other column, and n/p/k for synthetic rows, must have zero
     # missingness.
     report = run()
+    # .get(..., 0), not ["real"]: row_count_by_data_source (a value_counts().to_dict()) has no
+    # "real" key at all when the real Kaggle file is absent (0 real rows) -- a real KeyError
+    # this test used to hit on a fresh clone, not a hypothetical.
+    real_rows = report["row_count_by_data_source"].get("real", 0)
     for column, count in report["missingness_per_column"].items():
         if column in ("n", "p", "k"):
-            assert count == report["row_count_by_data_source"]["real"]
+            assert count == real_rows
         else:
             assert count == 0, f"{column} has {count} missing value(s)"
 

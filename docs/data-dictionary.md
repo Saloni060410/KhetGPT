@@ -8,9 +8,9 @@ Never add, remove or rename these fields.
 
 | Field | Meaning | Unit |
 |---|---|---|
-| `n` | Available nitrogen | kg/ha. TODO(data): Richa confirms how each chosen dataset maps to this |
-| `p` | Available phosphorus | kg/ha. TODO(data): confirm |
-| `k` | Available potassium | kg/ha. TODO(data): confirm |
+| `n` | Available nitrogen | kg/ha (Soil Health Card basis, alkaline-permanganate method) |
+| `p` | Available phosphorus | kg/ha (Soil Health Card basis, Olsen-P method) |
+| `k` | Available potassium | kg/ha (Soil Health Card basis, ammonium-acetate method) |
 | `ph` | Soil pH | 0 to 14 |
 | `organic_carbon` | Organic carbon content | percent |
 | `moisture` | Soil moisture | percent |
@@ -46,6 +46,25 @@ PRD draft specified OpenWeatherMap; that was superseded (see commit `9f25bf5`).
 | `risk.level` | Over- and under-application risk | `low`, `medium`, `high` |
 | `cost.*_inr_per_acre` | Plan cost, previous cost, saving | INR per acre |
 | `model_version` | `<model>-<semver>+rules-<hash8>` | string |
+
+## Soil-estimate API fields (R14, proposed -- not yet wired into any endpoint)
+
+`ml/src/data_pipeline/soil_reference.py`'s `get_soil_estimate(lat, lon)` -- see
+`docs/soil-reference-proposal.md` for the full mapping rationale and the coverage-gap finding.
+Listed here because these are the fields a future `GET /soil-reference` endpoint (Josh) would
+return, not because they're live yet.
+
+| Field | Meaning | Unit / allowed values |
+|---|---|---|
+| `ph` | Estimated soil pH, SoilGrids `phh2o`, 0-5cm topsoil | 0 to 14, or `null` if SoilGrids has no coverage at this point |
+| `organic_carbon_pct` | Estimated organic carbon, SoilGrids `soc`, 0-5cm topsoil | percent, or `null` |
+| `n`, `p`, `k`, `moisture` | Always `null` | not estimable from this source -- see `soil_reference.py`'s `NOT_MAPPED` and `docs/soil-reference-proposal.md` for why each one specifically can't be, not just "not implemented" |
+| `source` | Attribution string (CC-BY 4.0 requires this be shown somewhere in the UI) | free text, e.g. `"soilgrids_v2.0 (ISRIC), 0-5cm topsoil, CC-BY 4.0 -- https://rest.isric.org"` |
+| `coverage.ph` / `coverage.organic_carbon_pct` | Whether SoilGrids actually returned a value at this exact point | boolean -- `false` is a real, expected outcome (verified for our own Ludhiana demo coordinates), never an error |
+
+**This never fills `n`, `p` or `k`.** If/when this ships, it can only ever pre-fill 2 of the 6
+fixed soil fields (`ph`, `organic_carbon`) -- N/P/K always remain a required, farmer-entered
+field. See the proposal doc for exactly what the UI must say about this.
 
 ## Training dataset unit reconciliation (R4)
 
@@ -160,7 +179,8 @@ crop nutrient demand (see the engine-formula note above).
 
 Engine lookup order: exact `(crop_id, variety_id)` match, then `(crop_id, "generic")`.
 
-**v0: wheat and rice** (real, PAU-sourced). Remaining crops land in a follow-up pass.
+**All 7 crops covered** (wheat, rice, chickpea, maize, cotton, sugarcane, barley -- real,
+PAU-sourced).
 
 ### soil_adjustments.csv
 
@@ -219,8 +239,9 @@ literal source column — flagged in case a different `applies_to` semantics was
 | `crop_id`, `stage_id` | Foreign keys into crops.csv / growth_stages.csv | snake_case id |
 | `n_fraction`, `p_fraction`, `k_fraction` | Share of that nutrient's total dose applied at this stage | 0–1, each nutrient's fractions sum to 1 across a crop's stages |
 
-**v0: wheat and rice.** Note rice's stage timing is in Days After Transplanting (DAT), not
-DAS — see the growth_stages.csv note above.
+**All 7 crops covered** (wheat, rice, chickpea, maize, cotton, sugarcane, barley). Note rice's
+stage timing is in Days After Transplanting (DAT), not DAS — see the growth_stages.csv note
+above.
 
 ### nutrient_efficiency.csv
 
@@ -236,9 +257,12 @@ formula's double-counting problem.
 | `source` | Citation, or an explicit "no defensible source found" statement — never left blank | free text |
 | `notes` | Caveats (national-average vs. region-specific, etc.) | free text |
 
-Engine lookup order: exact `crop_id` match, then `default`. **v0: `default`/N only** (a real
-but *national-average, rice-only* recovery-efficiency figure, 42.6%, used as an interim
-stand-in and flagged as such) — P and K are `TODO(data)`.
+Engine lookup order: exact `crop_id` match, then `default`. **`default`/N/P/K all sourced**:
+N is 42.6% (a real but *national-average, rice-only* recovery-efficiency figure, used as an
+interim stand-in and flagged as such, Kaur et al. 2023); P is 20% and K is 55% (PIB Release ID
+2237709, 10 Mar 2026, Ministry of Chemicals and Fertilizers, citing ICAR studies: national NUE
+ranges 15-25% for P and 50-60% for K — the midpoint of each range). No crop-specific override
+exists yet for any nutrient, only the `default` row.
 
 ### fertilizer_products.csv
 
@@ -255,15 +279,18 @@ stand-in and flagged as such) — P and K are `TODO(data)`.
 
 All 9 grades in the chosen training dataset have real N/P2O5/K2O percentages (FCO nomenclature
 is definitional). Prices, dates and bag sizes are real and confirmed for urea (45kg), DAP,
-NP 28-28-0 and NPK 10-26-26 (all 50kg) — IFFCO's published price list, w.e.f. 1 Jan 2025.
+NP 28-28-0 and NPK 10-26-26 (all 50kg) — IFFCO's published price list, w.e.f. 1 Jan 2025. MOP
+is also now priced (₹34.21/kg, 50kg bag) — a government-reported market-average retail price
+(PIB Release ID 2237470, 10 Mar 2026), not one company's MRP list the way the IFFCO-sourced
+grades are.
 `bag_size_kg` is left `TODO(data)` rather than assumed for the remaining products even though
 50kg is the common industry-standard bag size for most Indian fertilizer grades — no primary
-citation was found for those specific products. MOP, SSP and the remaining NPK grades are
-`price_inr_per_kg: TODO(data)` — they're under a **decontrolled MRP regime** (confirmed via PIB
-Backgrounder, Release ID 2211384, 5 Jan 2026), so only their government *subsidy* rate is
-publicly fixed, not the consumer price; subsidy figures are noted in each row for context but
-never substituted for a retail price. **The engine must only select priced products** — a
-missing price is never treated as 0.
+citation was found for those specific products. SSP and the remaining NPK grades (`npk_14_35_14`,
+`npk_17_17_17`, `np_20_20_0`) are still `price_inr_per_kg: TODO(data)` — they're under a
+**decontrolled MRP regime** (confirmed via PIB Backgrounder, Release ID 2211384, 5 Jan 2026), so
+only their government *subsidy* rate is publicly fixed, not the consumer price; subsidy figures
+are noted in each row for context but never substituted for a retail price. **The engine must
+only select priced products** — a missing price is never treated as 0.
 
 ### soil_test_ratings.csv
 

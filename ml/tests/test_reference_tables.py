@@ -38,12 +38,15 @@ def _is_number(value: str) -> bool:
         return False
 
 
-# barley has a reference dose (soil_data_loader row) but no split_schedule row yet: PAU POP
-# Rabi 2025-26 p.24 gives the flat N/P2O5/K2O rates but the split-timing sentence (like
-# wheat's "half N and full P&K at sowing, remaining half N at winter rains") falls on the
-# following page, not yet captured/sourced. A disclosed, named gap -- not silently ignored --
-# so this test still catches any OTHER crop drifting out of sync.
-_KNOWN_MISSING_SPLIT_SCHEDULE = {"barley"}
+# Was {"barley"}: PAU POP Rabi 2025-26 p.24 gave the flat N/P2O5/K2O rates but the
+# split-timing sentence was on the following page, not yet captured. Now sourced (p.25:
+# "Drill all fertilizers at sowing" -- same single-stage pattern as chickpea) and closed --
+# Saloni's S8/S9 review had already found and fixed the two real consumer-side bugs this gap
+# caused (/reference/crops listing barley as ready when it wasn't, and /recommend returning a
+# fake empty schedule instead of a 503), so this was worth closing promptly rather than
+# leaving as a known gap. Kept as an empty set (not deleted) so a *future* real gap has
+# somewhere to go without re-deriving this test's structure.
+_KNOWN_MISSING_SPLIT_SCHEDULE: set[str] = set()
 
 
 def test_every_reference_dose_crop_has_split_rows_and_vice_versa():
