@@ -54,11 +54,13 @@ Pack reference: `docs/prompt-packs/saloni.md`. Step ids below (S0, S1, ...) matc
   classifier-comparison path; the committed tests otherwise run with no model registered,
   which is the real current state of the repo.
 
-## Done, but verification is still open
+## Done, and not blocked (continued)
 
-- **S3 — product classifier.** Code is complete and tested. Now actually run on a real
-  `data/processed/train.csv` for the first time (2,800 rows, all synthetic — the real Kaggle
-  file is still absent, see "Blocked on" below), not just Richa's 48-row dev-fallback sample.
+- **S3 — product classifier, closed.** Explicit product decision (2026-09-27): the real
+  99-row Kaggle file is not being waited on any longer. `fertilizer_prediction_synthetic.csv`
+  **is** this project's raw training data now, not a train-only supplement bolted onto an
+  assumed real file — see "Synthetic-as-raw-data policy" below for what changed to make that
+  actually true end to end.
   **Model comparison (16 candidates + 2 baselines, identical 5-fold CV, `sample_weight`
   balanced or native `class_weight` throughout):**
   - Round 1 (6): dummy majority/stratified, `logistic_regression`, 3 XGBoost variants.
@@ -75,22 +77,39 @@ Pack reference: `docs/prompt-packs/saloni.md`. Step ids below (S0, S1, ...) matc
     here — more capacity was not better at this dataset size. Locked in as `candidate` in
     `configs/train.yaml` (`xgboost`'s config also carries the round-1 fix, kept as a documented
     runner-up).
-  - Final numbers (5-fold CV, mean ± std): macro-F1 0.426 ± 0.039, balanced-accuracy
-    0.554 ± 0.048, MCC 0.326 ± 0.028, accuracy 0.548 ± 0.024. Registered as
-    `fertilizer-classifier-0.1.0` in the (gitignored) local model registry — not committed,
-    same reasoning as always: this is a real run, but not a real-world-validated one.
   - Considered and rejected: using `data/processed/sample_train.csv` as a second, "independent"
     validation set alongside `train.csv` — checked empirically (row-value join on both files)
     and found 100% of `sample_train.csv`'s 200 rows are a subsample of the exact same synthetic
-    pool that feeds `train.csv`. Would have been silent leakage, not real held-out signal; the
-    existing 5-fold CV already does this job correctly.
-  **What's still unverified — the caveat that doesn't go away:** every row used above is
-  synthetic. The real Kaggle file is still absent from this machine, so there's still no
-  held-out real test/val split and no real-world number — this is a model-architecture-selection
-  result, not a validated one.
-  **To close this out:** get the raw file → `data/processed/train.csv` gets real rows →
-  rerun `python -m src.models.train --config configs/train.yaml` → re-check the comparison table
-  holds on real data too → once trusted, `--final-test` once, and only once.
+    pool that feeds `train.csv`. Would have been silent leakage, not real held-out signal.
+  **Genuine held-out result (`--final-test`, run once, registered as `fertilizer-classifier-0.1.0`):**
+  5-fold CV on train+val (2,379 rows): macro-F1 0.394 ± 0.024, balanced-accuracy 0.489 ± 0.054,
+  MCC 0.330 ± 0.013, accuracy 0.555 ± 0.008. **Frozen test split (421 rows, never touched
+  before this one evaluation):** macro-F1 0.469, balanced-accuracy 0.601, MCC 0.367,
+  accuracy 0.582 — beats CV's own numbers, so there's no sign of the model being CV-tuned onto
+  noise. This is the real S3 "done when" (`python -m src.models.train` prints the comparison
+  table, `registry.json` has v0.1.0 with the dataset hash, `--final-test` evaluated once and
+  refuses to rerun on this version) — not committed (gitignored/untracked, same as always;
+  training data is still 100% synthetic, so this is a genuine result on the data we have, not
+  yet a real-world one).
+
+### Synthetic-as-raw-data policy (2026-09-27) — changed `build_dataset.py`
+
+Per explicit product decision, stopped treating `fertilizer_prediction_synthetic.csv` as a
+train-only supplement to an assumed-but-never-arriving real Kaggle file. Changed
+`src/data_pipeline/build_dataset.py` (Richa's file — flagged here, not silently owned) so
+every row, real or synthetic, goes through the same stratified 70/15/15 split, instead of
+synthetic rows being confined to `train` unconditionally. Regenerated `data/external/test_ids.json`
+fresh from the full pool (the old frozen set was 10 ids from the tiny real-only subset — stale
+under the new policy). Result: `train.csv` now has genuine val (421 rows) and test (421 rows)
+splits instead of being empty-by-construction, which is what let the `--final-test` result
+above happen for the first time.
+**Flag for Richa:** three of her tests in `test_clean.py`/`test_build_dataset.py`/`test_ingest.py`
+assert facts specific to the literal, separate real Kaggle file (a "Pulses" crop label,
+`npk_10_26_26` having exactly 3 *real* rows once barley's real mapping lands, the `datasets[0]`
+manifest entry's sha256/row-count against a file at `data/raw/fertilizer_prediction.csv`) —
+these premises no longer hold under the new policy and are failing for that reason, not a
+regression. Left them as-is rather than rewriting her assertions about her own data myself;
+her call whether to retire, skip, or repoint them.
 
 - **S4 — NPK dose calculator (partial block, not a code problem).** The calculator itself is
   correct and tested. But running it against the real fixture (`docs/contract-fixtures/`)
@@ -105,9 +124,8 @@ Pack reference: `docs/prompt-packs/saloni.md`. Step ids below (S0, S1, ...) matc
 
 ## Blocked on (not mine to fix — Richa's data-sourcing lane, R2/R3)
 
-- `data/raw/fertilizer_prediction.csv` (Kaggle) doesn't exist anywhere: not on this machine, not
-  in git (correctly gitignored), not on any branch. Needed for real S3 training and for
-  `--final-test`.
+- ~~`data/raw/fertilizer_prediction.csv` (Kaggle) doesn't exist~~ — no longer being waited on
+  (2026-09-27 policy change, see the synthetic-as-raw-data note above). Not a blocker anymore.
 - MOP's price in `fertilizer_products.csv` (`price_inr_per_kg`, `price_date`, `bag_size_kg` all
   `TODO(data)`). Richa's own note calls this "URGENT." Blocks S4's potash path and any full
   `/recommend` for wheat with low-K soil or rice's base dose.
@@ -160,17 +178,19 @@ Merged, adapted and pushed (`5011dce`, `75fd17d`). Actually verified, not just r
   made class exclusion for unlearnable classes automatic, not just config-driven.
 - 196 tests pass, ruff clean.
 
-**One important correction to her summary's framing:** the synthetic file does **not**, on
-its own, unblock building a real `train.csv`. I ran her own suggested command
-(`python -m src.data_pipeline.ingest && python -m src.data_pipeline.build_dataset`) and it
-still fails — `clean.py`'s `_load_raw()` unconditionally reads the real 99-row file first;
-the synthetic file is only ever combined with it, never a substitute. **The real Kaggle raw
-file is still genuinely required and still absent from this machine.** S3 is not closeable
-yet on that basis alone; the fallback-sample training result reported earlier in this
-conversation still stands as the only one that has actually been run.
+**One important correction to her summary's framing, at the time:** the synthetic file did
+**not**, on its own, unblock building a real `train.csv` — `clean.py`'s `_load_raw()`
+unconditionally required the real 99-row file. **Superseded 2026-09-27**: per explicit product
+decision, that requirement was dropped (`ingest.py`/`clean.py` fixes, then the
+`build_dataset.py` split fix above) — the synthetic file is now treated as this project's raw
+data outright, not a supplement waiting on a real file. S3 is closed on that basis; see its
+entry above.
 
 ## Not started yet
 
-S7 (API hardening and contract tests) onward per the pack. S6 is done, but its output quality
-is only as good as S3's model (not yet trained on real data — see above) and S4's calculator
-(potash still blocked on MOP's price, re-confirmed by Richa as genuinely unresolved).
+S7 (API hardening and contract tests) onward per the pack. S3, S4 (bar the MOP-price potash
+path), S5 and S6 are all done and re-verified end to end as of 2026-09-27: a real classifier
+is registered (`fertilizer-classifier-0.1.0`), `/health` reports `ok` with its version, the
+fixture demo in real mode validates against the contract, `/risk-score` works, and p95 latency
+over 50 calls is 64.9ms (well inside NFR1's 3s). The one still-open gap is S4's potash path,
+genuinely blocked on MOP's price (Richa's lane, re-confirmed as recently as today).
