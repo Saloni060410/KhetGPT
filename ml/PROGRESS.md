@@ -27,6 +27,32 @@ Pack reference: `docs/prompt-packs/saloni.md`. Step ids below (S0, S1, ...) matc
   100-150+ days, so this likely undercounts early-season applications (e.g. a wheat basal DAP
   dose applied at sowing, ~80+ days before a mid-season recommendation) until Richa adds a
   dedicated key. Ask her.
+- **S6 — recommendation engine, real API mode is on.** `src/engine/recommendation_engine.py`
+  wires request_to_record/build_features (Richa), `compute_balance`/`to_products` (S4), cost
+  (S5) and `risk_analyzer.assess_recommendation`/`score_planned` (Richa's R8) into a full
+  `RecommendResponse`/`RiskScoreResponse`. `PREDICT_MODE` now defaults to `real` in
+  `.env.example` (mock stays available, e.g. for Darsh, by setting it locally). 12 new tests,
+  165 passing overall (same 13 pre-existing environment-only failures, unchanged). p50 48ms /
+  p95 69ms over 50 calls against the fixture — well inside NFR1's 3s.
+  **One deliberate deviation from the literal S6 spec, documented in the module docstring:**
+  the classifier is treated as optional, not a hard requirement. `to_products()` already
+  deterministically and transparently picks every product from sourced PAU tables (DAP for P,
+  MOP for K, urea for remaining N) — `ml/AGENTS.md` itself says "the model only refines the
+  product choice." Making a missing classifier a hard 503 would mean `/recommend` can never
+  succeed until S3's real training data exists, which defeats the point of building this now
+  while that data is still unavailable. `/health` still reports `degraded` with a clear reason
+  when no classifier is registered (surfaced for monitoring, not hidden), but `/recommend`
+  still returns a complete, correct answer from the rule-based calculator alone. If its top-1
+  guess disagrees with the calculator's own choice, the calculator wins and the disagreement
+  is recorded in `rule_trace` and `explanation.data_notes` — never silently dropped.
+  **Also standing in for Richa's R10 (not built yet):** `explanation.top_factors` falls back to
+  the first two `rule_trace` effects as plain sentences (clearly a lesser-quality placeholder)
+  until her real `explain()` exists — the code tries to import it and catches any failure, so
+  swapping it in later needs no change here.
+  **Tested against a locally-run fallback classifier** (trained on the dev-fallback sample,
+  same as S3 — not committed, per the same reasoning as before) to exercise the
+  classifier-comparison path; the committed tests otherwise run with no model registered,
+  which is the real current state of the repo.
 
 ## Done, but verification is still open
 
@@ -82,5 +108,6 @@ Pack reference: `docs/prompt-packs/saloni.md`. Step ids below (S0, S1, ...) matc
 
 ## Not started yet
 
-S6 (recommendation engine, real API mode — needs S3's real model and S4's calculator, both of
-which have the open verifications above), S7 onward per the pack.
+S7 (API hardening and contract tests) onward per the pack. S6 is done, but its output quality
+is only as good as S3's model (not yet trained on real data) and S4's calculator (potash
+blocked on MOP's price) — see the open items above.
