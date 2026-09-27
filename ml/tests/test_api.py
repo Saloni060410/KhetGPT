@@ -26,6 +26,26 @@ def test_health_reports_ok():
     assert response.json()["status"] == "ok"
 
 
+def test_health_says_when_it_is_in_mock_mode():
+    body = client.get("/health").json()
+    assert body["model_version"] == "mock-0.0.0+rules-mock"
+    assert "mock" in body["detail"]
+
+
+def test_health_in_real_mode_is_degraded_with_no_classifier_registered(use_settings, monkeypatch, tmp_path):
+    # S6: real mode is implemented now. Forces the "no classifier registered" scenario
+    # explicitly rather than relying on it being the ambient state -- a registered classifier
+    # is the normal, demo-ready local state now (S3's random_forest), not the absence of one.
+    import src.engine.recommendation_engine as engine_module
+
+    monkeypatch.setattr(engine_module, "REGISTRY_PATH", tmp_path / "registry.json")
+    monkeypatch.setattr(app.state, "engine", engine_module.Engine())
+    use_settings(predict_mode="real")
+    body = client.get("/health").json()
+    assert body["status"] == "degraded"
+    assert body["model_version"].startswith("unloaded+rules-")
+
+
 def test_fixtures_match_the_schemas():
     RecommendRequest.model_validate(load("recommend_request.json"))
     RecommendResponse.model_validate(load("recommend_response.json"))
@@ -33,12 +53,30 @@ def test_fixtures_match_the_schemas():
     RiskScoreResponse.model_validate(load("risk_score_response.json"))
 
 
-def test_recommend_is_not_implemented_until_the_engine_exists():
-    assert client.post("/recommend", json=load("recommend_request.json")).status_code == 501
+def test_recommend_in_real_mode_is_implemented_and_prices_mop(use_settings):
+    # S6: real mode is implemented now. The fixture's soil.k=90 genuinely needs potash. MOP
+    # used to have no verified price (Richa's first two re-checks: IFFCO's own price list
+    # doesn't carry it, market listings too inconsistent to cite) -- a real dated retail price
+    # was found on a third pass (PIB Release ID 2237470, 10 Mar 2026), so MOP now prices
+    # normally like any other product, no data_notes caveat needed for it. The underlying
+    # "an unpriced product still gets recommended, just excluded from cost" capability is
+    # still covered generically at the unit level (test_cost.py's ssp-based tests).
+    use_settings(predict_mode="real")
+    response = client.post("/recommend", json=load("recommend_request.json"))
+    assert response.status_code == 200
+    body = response.json()
+    assert "mop" in {item["fertilizer_type"] for item in body["recommendation"]["schedule"]}
+    assert "mop" in {line["fertilizer_type"] for line in body["cost"]["breakdown"]}
+    assert not any("mop" in note.lower() for note in body["explanation"]["data_notes"])
 
 
-def test_risk_score_is_not_implemented_until_the_analyzer_exists():
-    assert client.post("/risk-score", json=load("risk_score_request.json")).status_code == 501
+def test_risk_score_in_real_mode_is_implemented(use_settings):
+    # S6: real mode is implemented now. /risk-score never calls to_products(), so it isn't
+    # affected by MOP's pricing gap that data_notes flags for /recommend on this same field.
+    use_settings(predict_mode="real")
+    response = client.post("/risk-score", json=load("risk_score_request.json"))
+    assert response.status_code == 200
+    assert response.json()["risk"]["level"] in {"low", "medium", "high"}
 
 
 def test_invalid_soil_is_rejected():

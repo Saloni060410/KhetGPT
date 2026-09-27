@@ -40,7 +40,7 @@ Data gaps must never turn into invented numbers.
 | No adjustment row exists for a nutrient and rating | Adjustment is 0. A missing row means the source publishes none |
 | Stage timing (`das_*`) is `TODO(data)` | Dose is still computed. `apply_by` is `null` and `timing_note` says when, for example "At first irrigation" |
 | No fertilizer use efficiency for the crop and nutrient | Credit for recent applications is 0 and `explanation.data_notes` says so |
-| A product has no price | The product is never selected. If a needed nutrient has no priced product, `503` |
+| A product has no price | The product is still selected and dosed if a nutrient needs it -- it is left out of `cost.breakdown`/`estimated_cost_inr_per_acre` (never invented a price) and `explanation.data_notes` says its cost is unavailable. Only a product with no *row at all* in `fertilizer_products.csv` (name/nutrient % unknown, not just unpriced) is a `503` |
 | Live weather failed | The backend sends `cached` or `seasonal_average` weather. The engine still runs and echoes the source |
 | Unknown product id in previous usage | Ignored for credit and cost, and listed in `explanation.data_notes` |
 
@@ -124,8 +124,8 @@ Data gaps must never turn into invented numbers.
 - `risk` covers over- and under-application, soil health (organic carbon, pH) and runoff from forecast rain. `soil_health_impact` and `yield_impact` state the consequence in plain language, as the problem statement asks.
 - `nutrient_balance` is per nutrient on an N, P2O5 and K2O basis. `fertilizer_needed_kg_ha = max(0, standard_dose + soil_adjustment - prior_credit)`. The adjustment is signed. With `method: "stcr"`, `standard_dose = a x target yield` and `soil_adjustment = -b x soil test`.
 - DAP also supplies nitrogen. That nitrogen is credited against the first nitrogen stage in the schedule.
-- The engine only selects products that have a price in the reference tables. `cost.prices_as_of` is the oldest `price_date` used, so the UI can say how old the prices are.
-- `data_notes` lists caveats the user should see: skipped credit, non-live weather, old prices, ignored inputs.
+- The engine selects whichever product a needed nutrient maps to, priced or not (see the missing-data policy above). `cost.prices_as_of` is the oldest `price_date` among the *priced* products actually used, so the UI can say how old those prices are; an unpriced product doesn't affect it.
+- `data_notes` lists caveats the user should see: skipped credit, non-live weather, old prices, an unpriced product excluded from the cost breakdown, ignored inputs.
 - `saving_inr_per_acre` can be negative. The UI explains it.
 
 ## POST /risk-score

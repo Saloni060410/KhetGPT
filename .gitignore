@@ -20,10 +20,13 @@ ml/**/__pycache__/
 ml/data/raw/*
 ml/data/processed/*
 !ml/data/raw/.gitkeep
+!ml/data/raw/fertilizer_prediction_synthetic.csv
 !ml/data/processed/.gitkeep
+!ml/data/processed/sample_*.csv
 ml/models_artifacts/
 ml/.ipynb_checkpoints/
 
 # --- editors / OS ---
 .vscode/
 .DS_Store
+*.mp4

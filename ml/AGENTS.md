@@ -17,7 +17,9 @@ notebooks/                        exploration only. Nothing in src/ imports from
 src/
 ├── api/             SALONI  main.py, schemas.py, endpoints/ (recommend, risk_score, health, reference)
 ├── engine/          SALONI  npk_calculator.py (standard dose + soil adjustment), recommendation_engine.py (schedule, cost, blend)
-├── models/          SALONI  train.py, fertilizer_model.py, predict.py, model_registry/
+├── models/          SALONI  train.py, fertilizer_model.py, model_registry/ (model loading and
+│                            inference live in engine/recommendation_engine.py, not a separate
+│                            predict.py -- there was one early on, deleted, nothing imported it)
 ├── degradation/     RICHA   risk_analyzer.py (over/under-application risk and impact text)
 ├── data_pipeline/   RICHA   ingest.py, clean.py, feature_engineering.py, soil_data_loader.py
 ├── weather/         RICHA   weather_client.py (Open-Meteo)
@@ -42,4 +44,20 @@ pip install -r requirements.txt
 pytest -q && ruff check .
 jupyter notebook                                  # for notebooks/
 uvicorn src.api.main:app --reload --port 8001     # serve locally
+
+# Rebuild the training data from a clean checkout: ingest -> clean -> features -> split, in one
+# command. Prints a dataset_version (config version + content hash). Works with no manual step
+# (falls back to the committed synthetic dataset); the real Kaggle file, if you have it, is
+# picked up automatically from data/raw/ if present -- see ml/data/README.md.
+python -m src.data_pipeline.build_dataset --config configs/data.yaml
+
+# Recreate the model artifact from a clean checkout (models_artifacts/ is gitignored --
+# S9's Docker image gets it via a bind mount, not by baking it in):
+python -m src.models.train --config configs/train.yaml
+
+# Build and run the service image alone (S9) -- data/external/ and configs/ are baked in,
+# the model artifact is bind-mounted read-only so it never needs to be in the image:
+docker build -t khetgpt-ml .
+docker run -p 8001:8001 -e PREDICT_MODE=real \
+  -v "$(pwd)/models_artifacts:/app/models_artifacts:ro" khetgpt-ml
 ```

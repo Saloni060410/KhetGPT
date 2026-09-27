@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: #070B0E;
+    color: #e2e8f0;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+
+  #root {
+    min-height: 100vh;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Glassmorphic utilities for HUD panels */
+.glass-panel {
+  background: rgba(11, 19, 25, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(24, 44, 59, 0.65);
+  box-shadow: 0 12px 36px 0 rgba(4, 7, 9, 0.6), inset 0 1px 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.glass-panel-active {
+  background: rgba(16, 29, 39, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 245, 155, 0.35);
+  box-shadow: 0 0 25px -4px rgba(0, 245, 155, 0.18), inset 0 1px 2px 0 rgba(255, 255, 255, 0.1);
+}
+
+.glass-panel-ochre {
+  background: rgba(16, 29, 39, 0.82);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 0 25px -4px rgba(245, 158, 11, 0.16), inset 0 1px 2px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Subtle topological / grid background */
+.agri-grid-bg {
+  background-image: 
+    radial-gradient(circle at 50% 20%, rgba(0, 245, 155, 0.04) 0%, transparent 60%),
+    radial-gradient(circle at 80% 80%, rgba(245, 158, 11, 0.03) 0%, transparent 50%),
+    linear-gradient(to right, rgba(24, 44, 59, 0.15) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(24, 44, 59, 0.15) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #070B0E;
+}
+::-webkit-scrollbar-thumb {
+  background: #182C3B;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #10B981;
+}
+
+/* Pulse animation for live beacons */
+@keyframes beacon-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.animate-beacon {
+  animation: beacon-pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}

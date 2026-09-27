@@ -1,0 +1,60 @@
+# Training config for the fertilizer-product classifier (S3). Read by
+# `python -m src.models.train --config configs/train.yaml`.
+
+seed: 42
+folds: 5  # Richa's EDA_FINDINGS.md recommends k=5 given the smallest usable class has 5 rows
+
+model_name: fertilizer-classifier
+
+models:
+  majority:
+    kind: dummy
+    strategy: most_frequent
+  stratified:
+    kind: dummy
+    strategy: stratified
+  logistic_regression:
+    kind: logistic_regression
+    # Regularized per Richa's EDA_FINDINGS.md: ~35 training rows badly overfits an
+    # unconstrained model, so C is kept low (strong L2) rather than left at sklearn's default.
+    C: 0.5
+    max_iter: 2000
+  xgboost:
+    kind: xgboost
+    # These were originally sized for a 48-row dev-fallback sample (few, shallow trees,
+    # strong L2, to avoid overfitting that tiny set). On the real 2800-row dataset they
+    # underfit -- relaxed after an actual comparison run, not by guessing (see
+    # ml/PROGRESS.md's model-comparison entry for the full before/after numbers).
+    n_estimators: 200
+    max_depth: 5
+    learning_rate: 0.1
+    reg_lambda: 1.0
+  random_forest:
+    kind: random_forest
+    # Winner of a 16-candidate comparison across model families (dummy baselines, logistic
+    # regression, XGBoost variants, ExtraTrees, GradientBoosting, HistGradientBoosting, KNN,
+    # LinearSVM, GaussianNB -- see ml/PROGRESS.md). class_weight=balanced_subsample handles
+    # the severe class imbalance (urea 48% of rows, npk_17_17_17 under 1%) without the sharp
+    # accuracy-vs-fairness trade-off logistic_regression/GaussianNB/LinearSVM made trying the
+    # same thing. Shallower (150 trees, depth 6) clearly beat deeper (500 trees, uncapped) on
+    # every metric that matters here -- more capacity was not better on this dataset size.
+    n_estimators: 150
+    max_depth: 6
+    class_weight: balanced_subsample
+
+# The candidate to register if it beats the stronger baseline by more than the fold noise
+# (mean - std of the challenger above mean + std of the best baseline).
+candidate: random_forest
+
+leakage_smell_test:
+  macro_f1_warn_above: 0.98
+  feature_importance_warn_above: 0.60
+
+# npk_10_26_26 had only 2 rows in an earlier data delivery (Richa's EDA_FINDINGS.md, about the
+# original small real dataset) -- too few to learn or even place in every CV fold. Verified
+# 2026-09-27: it has zero rows in the current 2,800-row synthetic train.csv. Either way,
+# excluded from the classifier target; the rule-based reference_doses.csv / soil_adjustments.csv
+# layer picks a nutrient-matched product for it instead of asking the classifier to learn a
+# class this thin (or absent).
+excluded_classes:
+  - npk_10_26_26

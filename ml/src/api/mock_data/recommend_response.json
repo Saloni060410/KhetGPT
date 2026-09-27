@@ -1,0 +1,50 @@
+{
+  "_note": "Illustrative fixture. Doses follow the PAU wheat dose, prices and the potash price are placeholders until Richa's tables are complete. The first-irrigation stage has no sourced timing, so its apply_by is null.",
+  "recommendation": {
+    "fertilizer_type": "urea",
+    "quantity_kg_per_acre": 87.5,
+    "schedule": [
+      { "stage": "sowing", "fertilizer_type": "dap", "quantity_kg_per_acre": 54.4, "apply_by": "2026-11-05", "timing_note": "At sowing" },
+      { "stage": "sowing", "fertilizer_type": "mop", "quantity_kg_per_acre": 20.0, "apply_by": "2026-11-05", "timing_note": "At sowing" },
+      { "stage": "crown_root_initiation", "fertilizer_type": "urea", "quantity_kg_per_acre": 33.1, "apply_by": null, "timing_note": "At first irrigation" },
+      { "stage": "second_irrigation", "fertilizer_type": "urea", "quantity_kg_per_acre": 54.4, "apply_by": "2026-12-30", "timing_note": "At second irrigation, complete within 55 days of sowing" }
+    ]
+  },
+  "risk": {
+    "level": "medium",
+    "reason": "Last season's fertilizer was about 1.6 times what this crop needs.",
+    "soil_health_impact": "Nitrogen beyond crop need acidifies soil over time and leaches into groundwater.",
+    "yield_impact": "Extra nitrogen adds cost without adding yield and can make wheat fall over before harvest.",
+    "over_application_pct": null
+  },
+  "explanation": {
+    "top_factors": [
+      "The standard dose for irrigated wheat is 123.6 kg/ha of nitrogen and 61.8 kg/ha of phosphorus.",
+      "Your soil potassium is low (90 kg/ha), so 29.7 kg/ha of potash is added.",
+      "Your last-season use was about 1.6 times what this crop needs, so this plan is smaller."
+    ],
+    "nutrient_balance": {
+      "n": { "method": "reference_dose", "soil_rating": "low", "standard_dose_kg_ha": 123.6, "soil_adjustment_kg_ha": 0, "prior_credit_kg_ha": 0, "fertilizer_needed_kg_ha": 123.6 },
+      "p": { "method": "reference_dose", "soil_rating": "low", "standard_dose_kg_ha": 61.8, "soil_adjustment_kg_ha": 0, "prior_credit_kg_ha": 0, "fertilizer_needed_kg_ha": 61.8 },
+      "k": { "method": "reference_dose", "soil_rating": "low", "standard_dose_kg_ha": 0, "soil_adjustment_kg_ha": 29.7, "prior_credit_kg_ha": 0, "fertilizer_needed_kg_ha": 29.7 }
+    },
+    "formula": "fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications",
+    "data_notes": [
+      "No credit was given for last season's fertilizer because no use-efficiency figure is available for wheat.",
+      "Fertilizer prices are from 1 January 2025."
+    ]
+  },
+  "cost": {
+    "estimated_cost_inr_per_acre": 2667,
+    "previous_cost_inr_per_acre": 3344,
+    "saving_inr_per_acre": 677,
+    "prices_as_of": "2025-01-01",
+    "breakdown": [
+      { "fertilizer_type": "dap", "quantity_kg_per_acre": 54.4, "cost_inr_per_acre": 1469 },
+      { "fertilizer_type": "mop", "quantity_kg_per_acre": 20.0, "cost_inr_per_acre": 680 },
+      { "fertilizer_type": "urea", "quantity_kg_per_acre": 87.5, "cost_inr_per_acre": 518 }
+    ]
+  },
+  "impact": { "over_application_reduction_pct": 39.2 },
+  "model_version": "fixture-0.0.0+rules-fixture"
+}

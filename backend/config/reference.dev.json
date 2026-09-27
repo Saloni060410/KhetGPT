@@ -1,0 +1,54 @@
+{
+  "_note": "Dev-only fallback data, served only when ML_MODE=offline. Not sourced — for local frontend work without the ml/ container.",
+  "crops": [
+    {
+      "id": "wheat", "name_en": "Wheat", "name_hi": "गेहूं", "varieties": [],
+      "stages": [
+        { "id": "sowing", "name_en": "Sowing", "name_hi": "बुवाई", "order": 1 },
+        { "id": "crown_root_initiation", "name_en": "Crown Root Initiation / First Irrigation", "name_hi": "मूल प्रारंभ अवस्था", "order": 2 },
+        { "id": "second_irrigation", "name_en": "Second Irrigation / Late Tillering", "name_hi": "दूसरी सिंचाई अवस्था", "order": 3 },
+        { "id": "maturity", "name_en": "Maturity / Harvest", "name_hi": "परिपक्वता अवस्था", "order": 4 }
+      ]
+    },
+    {
+      "id": "rice", "name_en": "Rice", "name_hi": "चावल",
+      "varieties": [
+        { "id": "pr_132", "name_en": "PR 132", "name_hi": "पीआर 132" },
+        { "id": "pr_126", "name_en": "PR 126", "name_hi": "पीआर 126" }
+      ],
+      "stages": [
+        { "id": "nursery_sowing", "name_en": "Nursery Sowing", "name_hi": "नर्सरी बुवाई", "order": 1 },
+        { "id": "transplanting", "name_en": "Transplanting", "name_hi": "रोपाई", "order": 2 },
+        { "id": "first_n_split", "name_en": "First Nitrogen Split", "name_hi": "पहली नाइट्रोजन खुराक", "order": 3 },
+        { "id": "active_tillering", "name_en": "Active Tillering / Second Nitrogen Split", "name_hi": "सक्रिय कल्ले निकलना", "order": 4 },
+        { "id": "panicle_initiation", "name_en": "Panicle Initiation / Third Nitrogen Split", "name_hi": "बाली बनने की अवस्था", "order": 5 }
+      ]
+    }
+  ],
+  "soilRatings": [
+    { "parameter": "n", "unit": "kg/ha", "very_low_below": null, "low_below": 280, "high_above": 560 },
+    { "parameter": "p", "unit": "kg/ha", "very_low_below": null, "low_below": 10, "high_above": 25 },
+    { "parameter": "k", "unit": "kg/ha", "very_low_below": null, "low_below": 108, "high_above": 280 },
+    { "parameter": "organic_carbon", "unit": "%", "very_low_below": null, "low_below": 0.5, "high_above": 0.75 },
+    { "parameter": "ph", "unit": "pH units", "very_low_below": null, "low_below": 6.5, "high_above": 7.5 }
+  ],
+  "fertilizers": [
+    { "id": "urea", "name": "Urea (neem-coated)", "n_pct": 46, "p2o5_pct": 0, "k2o_pct": 0, "price_inr_per_kg": 5.92, "price_date": "2025-01-01", "bag_size_kg": 45 },
+    { "id": "dap", "name": "DAP", "n_pct": 18, "p2o5_pct": 46, "k2o_pct": 0, "price_inr_per_kg": 27.0, "price_date": "2025-01-01", "bag_size_kg": 50 },
+    { "id": "mop", "name": "MOP (Muriate of Potash)", "n_pct": 0, "p2o5_pct": 0, "k2o_pct": 60, "price_inr_per_kg": 34.0, "price_date": "2025-01-01", "bag_size_kg": 50 }
+  ],
+  "seasonalWeather": {
+    "1": { "temperature_c": 13.5, "humidity_pct": 59, "rainfall_mm_forecast": 4.3, "source": "seasonal_average" },
+    "2": { "temperature_c": 16.0, "humidity_pct": 55, "rainfall_mm_forecast": 4.0, "source": "seasonal_average" },
+    "3": { "temperature_c": 21.0, "humidity_pct": 45, "rainfall_mm_forecast": 3.0, "source": "seasonal_average" },
+    "4": { "temperature_c": 27.5, "humidity_pct": 33, "rainfall_mm_forecast": 1.5, "source": "seasonal_average" },
+    "5": { "temperature_c": 32.0, "humidity_pct": 30, "rainfall_mm_forecast": 2.0, "source": "seasonal_average" },
+    "6": { "temperature_c": 33.0, "humidity_pct": 45, "rainfall_mm_forecast": 5.5, "source": "seasonal_average" },
+    "7": { "temperature_c": 30.5, "humidity_pct": 75, "rainfall_mm_forecast": 30.0, "source": "seasonal_average" },
+    "8": { "temperature_c": 29.5, "humidity_pct": 78, "rainfall_mm_forecast": 30.0, "source": "seasonal_average" },
+    "9": { "temperature_c": 28.5, "humidity_pct": 70, "rainfall_mm_forecast": 12.0, "source": "seasonal_average" },
+    "10": { "temperature_c": 24.0, "humidity_pct": 55, "rainfall_mm_forecast": 2.0, "source": "seasonal_average" },
+    "11": { "temperature_c": 18.5, "humidity_pct": 58, "rainfall_mm_forecast": 0.5, "source": "seasonal_average" },
+    "12": { "temperature_c": 13.5, "humidity_pct": 65, "rainfall_mm_forecast": 1.5, "source": "seasonal_average" }
+  }
+}
