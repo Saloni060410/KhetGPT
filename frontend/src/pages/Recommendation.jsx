@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   Sparkles,
@@ -87,6 +87,77 @@ function formatInr(val) {
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(val)
+}
+
+// Normalizer: Handles both Backend camelCase and ML snake_case schemas smoothly
+function normalizeRecommendation(raw) {
+  if (!raw) return null
+  const rec = raw.recommendation ? { ...raw, ...raw.recommendation } : raw
+  return {
+    id: rec.id || 'rec-active',
+    fieldId: String(rec.fieldId || rec.field_id || '1'),
+    soilTestId: rec.soilTestId || rec.soil_test_id,
+    cropType: rec.cropType || rec.crop_type || 'wheat',
+    cropVariety: rec.cropVariety || rec.crop_variety,
+    growthStage: rec.growthStage || rec.growth_stage || 'vegetative',
+    fertilizerType: rec.fertilizerType || rec.fertilizer_type || 'urea',
+    quantityKgPerAcre: Number(rec.quantityKgPerAcre ?? rec.quantity_kg_per_acre ?? 0),
+    schedule: (rec.schedule || []).map((s) => ({
+      stage: s.stage,
+      fertilizerType: s.fertilizerType || s.fertilizer_type,
+      quantityKgPerAcre: Number(s.quantityKgPerAcre ?? s.quantity_kg_per_acre ?? 0),
+      applyBy: s.applyBy || s.apply_by,
+      rainDelay: Boolean(s.rainDelay ?? s.rain_delay),
+      rainDelayNote: s.rainDelayNote || s.rain_delay_note,
+    })),
+    risk: {
+      level: (rec.risk?.level || 'low').toLowerCase(),
+      reason: rec.risk?.reason || '',
+      soilHealthImpact: rec.risk?.soilHealthImpact || rec.risk?.soil_health_impact || '',
+      yieldImpact: rec.risk?.yieldImpact || rec.risk?.yield_impact || '',
+      overApplicationPct: rec.risk?.overApplicationPct ?? rec.risk?.over_application_pct ?? null,
+    },
+    topFactors: rec.topFactors || rec.explanation?.top_factors || rec.top_factors || [],
+    nutrientBalance: (() => {
+      const nb = rec.nutrientBalance || rec.explanation?.nutrient_balance || rec.nutrient_balance
+      if (!nb) return null
+      const mapNutrient = (item, defaultMethod) => {
+        if (!item) return null
+        return {
+          cropDemandKgHa: Number(item.cropDemandKgHa ?? item.crop_demand_kg_ha ?? 0),
+          soilSupplyKgHa: Number(item.soilSupplyKgHa ?? item.soil_supply_kg_ha ?? 0),
+          deficitKgHa: Number(item.deficitKgHa ?? item.deficit_kg_ha ?? 0),
+          useEfficiency: Number(item.useEfficiency ?? item.use_efficiency ?? 0.5),
+          priorCreditKgHa: Number(item.priorCreditKgHa ?? item.prior_credit_kg_ha ?? 0),
+          fertilizerNeededKgHa: Number(item.fertilizerNeededKgHa ?? item.fertilizer_needed_kg_ha ?? 0),
+          methodUsed: item.methodUsed || item.method_used || defaultMethod,
+        }
+      }
+      return {
+        n: mapNutrient(nb.n, 'STCR Soil Test Deficit Adjustment (subtraction with 50% uptake efficiency)'),
+        p: mapNutrient(nb.p, 'STCR Soil Test Deficit Adjustment (basal incorporation factor)'),
+        k: mapNutrient(nb.k, 'STCR Soil Test Deficit Adjustment (maintenance replenishment factor)'),
+      }
+    })(),
+    formula:
+      rec.formula ||
+      rec.explanation?.formula ||
+      'fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications',
+    cost: {
+      estimatedCostPerAcre: rec.cost?.estimatedCostPerAcre ?? rec.cost?.estimated_cost_inr_per_acre ?? null,
+      previousCostPerAcre: rec.cost?.previousCostPerAcre ?? rec.cost?.previous_cost_inr_per_acre ?? null,
+      savingPerAcre: rec.cost?.savingPerAcre ?? rec.cost?.saving_inr_per_acre ?? null,
+      savingTotal: rec.cost?.savingTotal ?? rec.cost?.saving_total_inr ?? null,
+    },
+    impact: {
+      overApplicationReductionPct:
+        rec.impact?.overApplicationReductionPct ?? rec.impact?.over_application_reduction_pct ?? null,
+    },
+    weatherSource: rec.weatherSource || rec.weather_source || 'live',
+    weatherStale: Boolean(rec.weatherStale ?? rec.weather_stale),
+    modelVersion: rec.modelVersion || rec.model_version || 'fixture-0.0.0+rules-fixture',
+    createdAt: rec.createdAt || rec.created_at || new Date().toISOString(),
+  }
 }
 
 // Full skeleton representation for layout preservation while loading
@@ -180,7 +251,8 @@ export default function Recommendation() {
       try {
         // Fetch field metadata and weather in parallel
         fetchField(targetFieldId).catch(() => {})
-        endpoints.getFieldWeather(targetFieldId)
+        endpoints
+          .getFieldWeather(targetFieldId)
           .then((res) => setWeatherData(res))
           .catch(() => setWeatherData(null))
 
@@ -226,7 +298,9 @@ export default function Recommendation() {
     }
   }, [currentFieldId, loadRecommendation])
 
-  const rec = currentRecommendation
+  // Normalized recommendation object for both camelCase and snake_case engine payloads
+  const rec = useMemo(() => normalizeRecommendation(currentRecommendation), [currentRecommendation])
+
   const field = currentField || {
     id: currentFieldId,
     name:
@@ -250,7 +324,7 @@ export default function Recommendation() {
 
   const fieldArea = Number(field?.areaAcres) || 2.5
 
-  // Weather data resolution (from endpoint or recommendation object)
+  // Weather data resolution (from GET /fields/:id/weather or recommendation fallback)
   const weather = weatherData || {
     temperatureC: 28.4,
     humidityPct: 65,
@@ -263,11 +337,11 @@ export default function Recommendation() {
   // Check if any split or top factors suggest a rain hold
   const hasRainDelay =
     Boolean(rec?.schedule?.some((s) => s.rainDelay || (s.rainDelayNote && s.rainDelayNote.length > 0))) ||
-    Boolean(Number(weather.rainfallMmForecast) >= 25) ||
+    Boolean(Number(weather.rainfallMmForecast) >= 20) ||
     Boolean(rec?.topFactors?.some((f) => /heavy rain|rain hold|rain delay/i.test(f)))
 
-  // Risk styling helper: understandable WITHOUT color alone (distinct icons, patterns, explicit text)
-  const riskLevel = rec?.risk?.level?.toLowerCase() || 'low'
+  // Risk styling helper: understandable WITHOUT color alone (distinct icons, explicit text labels, high-contrast borders)
+  const riskLevel = rec?.risk?.level || 'low'
   const riskDetails = {
     high: {
       label: 'HIGH RISK',
@@ -484,6 +558,35 @@ export default function Recommendation() {
         {/* Loading Skeleton */}
         {loading && showSkeleton && <RecommendationSkeleton />}
 
+        {/* Empty State when no recommendation exists and not loading */}
+        {!loading && !showSkeleton && !apiError && !rec && (
+          <div className="p-12 text-center bg-bg-surface border border-border-default rounded-2xl space-y-4 shadow-xs">
+            <div className="w-14 h-14 rounded-2xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 mx-auto flex items-center justify-center">
+              <Sparkles className="w-7 h-7" />
+            </div>
+            <h3 className="text-xl font-bold text-ink-primary">No Recommendation Available Yet</h3>
+            <p className="text-sm text-ink-secondary max-w-md mx-auto leading-relaxed">
+              Generate a scientific, data-driven fertilizer dose for this field based on current soil nutrient balances and crop demand.
+            </p>
+            <div className="pt-3 flex justify-center gap-3">
+              <Button
+                variant="primary"
+                size="md"
+                leftIcon={Sparkles}
+                onClick={() => loadRecommendation(currentFieldId, true)}
+                isLoading={loading}
+              >
+                Generate Plan Now
+              </Button>
+              <Link to={`/fields/${currentFieldId}/soil`}>
+                <Button variant="outline" size="md" leftIcon={FlaskConical}>
+                  View Soil Test
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Content View: Recommendation Active */}
         {!showSkeleton && !apiError && rec && (
           <div className="space-y-6">
@@ -495,7 +598,7 @@ export default function Recommendation() {
                     Optimized Fertilizer Plan
                   </span>
                   <Badge variant="neutral" size="sm">
-                    {rec.modelVersion || 'v1.0-rules'}
+                    {rec.modelVersion}
                   </Badge>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-black text-ink-primary tracking-tight">
@@ -544,7 +647,7 @@ export default function Recommendation() {
                 <div className="flex items-center gap-2">
                   <CloudSun className="w-5 h-5 text-accent-sky" />
                   <h3 className="text-sm font-bold text-ink-primary">
-                    Local Weather Context (Open-Meteo)
+                    Local Weather Telemetry (Open-Meteo)
                   </h3>
                 </div>
 
@@ -556,7 +659,7 @@ export default function Recommendation() {
                   )}
                   {weather.source === 'cached' && (
                     <Badge variant="warning" size="sm">
-                      Cached Forecast
+                      Cached Satellite
                     </Badge>
                   )}
                   {weather.source === 'seasonal_average' && (
@@ -605,39 +708,40 @@ export default function Recommendation() {
                 </div>
               </div>
 
-              {/* Weather Notes & Warnings */}
+              {/* Weather Notes & Warnings (Clear note when cached or seasonal average) */}
               {weather.source === 'cached' && (
                 <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                  <Info className="w-4 h-4 shrink-0" />
+                  <Info className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
                   <span>
-                    Note: Using cached weather observation from Open-Meteo. Live forecast will refresh automatically when connection resets.
+                    <strong>Notice:</strong> Using cached weather telemetry from Open-Meteo. Live forecast will refresh automatically when connection resets.
                   </span>
                 </div>
               )}
 
               {weather.source === 'seasonal_average' && (
                 <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
                   <span>
-                    Note: Live weather station unreachable. Schedule timings are estimated from seasonal historical climate normals.
+                    <strong>Notice:</strong> Live station unreachable. Application timings are estimated from seasonal historical climate averages.
                   </span>
                 </div>
               )}
 
-              {hasRainDelay && (Number(weather.rainfallMmForecast) >= 20 || rec.schedule?.some((s) => s.rainDelay)) && (
+              {/* Rain delay notice */}
+              {hasRainDelay && (
                 <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-xs sm:text-sm text-blue-900 dark:text-blue-100 flex items-start gap-2.5">
                   <CloudRain className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold block">Rain Delay Warning:</span>
+                    <span className="font-bold block">Rain Delay Action Needed:</span>
                     <span>
-                      Heavy rainfall ({weather.rainfallMmForecast} mm) forecast. Hold nitrogen application until soil surface water drains to prevent severe leaching and fertilizer runoff.
+                      Heavy rainfall ({weather.rainfallMmForecast} mm) forecast in application window. Hold basal nitrogen doses until soil surface water drains to prevent chemical leaching and runoff into groundwater.
                     </span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* 1. Hero Primary Product & Quantity Card */}
+            {/* 1. Hero Primary Product & Quantity Card (What to apply, how much and when) */}
             <div className="relative overflow-hidden rounded-2xl border-2 border-primary-500/40 bg-gradient-to-br from-primary-50 via-primary-50/40 to-bg-surface p-6 sm:p-7 shadow-xs">
               <div className="relative z-10 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -661,7 +765,7 @@ export default function Recommendation() {
                       {formatFertilizer(rec.fertilizerType)}
                     </h3>
                     <p className="text-xs sm:text-sm text-ink-secondary mt-1">
-                      Targeted dosage formulated to supply net crop nutrient demand without salt buildup or burn.
+                      Targeted dosage formulated to supply net crop nutrient demand without chemical burn or salt toxicity.
                     </p>
                   </div>
 
@@ -680,7 +784,7 @@ export default function Recommendation() {
               </div>
             </div>
 
-            {/* 2. Dated Application Schedule (What, How Much, When with Split Doses & Rain Delays) */}
+            {/* 2. Dated Application Schedule (Split Doses & Rain Delays Visible) */}
             <div className="bg-bg-surface border border-border-default rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="space-y-0.5">
@@ -689,7 +793,7 @@ export default function Recommendation() {
                     Dated Application Schedule
                   </h3>
                   <p className="text-xs text-ink-secondary">
-                    Split schedule synchronized with crop uptake curve to prevent nitrogen loss.
+                    Split doses synchronized with crop growth stages to maximize fertilizer use efficiency.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -741,7 +845,7 @@ export default function Recommendation() {
 
                         {/* Rain Delay Note if present */}
                         {item.rainDelayNote && (
-                          <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+                          <p className="text-xs text-blue-700 dark:text-blue-300 font-medium leading-relaxed">
                             {item.rainDelayNote}
                           </p>
                         )}
@@ -761,7 +865,7 @@ export default function Recommendation() {
                 })}
               </div>
 
-              {/* Bottom Schedule Link */}
+              {/* Direct Link to Schedule Page (D8) */}
               <div className="pt-2 text-center sm:text-right">
                 <Link
                   to={`/fields/${currentFieldId}/schedule`}
@@ -773,7 +877,7 @@ export default function Recommendation() {
               </div>
             </div>
 
-            {/* 3. Risk Level & Agronomic Impact (Understandable without colour) */}
+            {/* 3. Risk Level & Impact Sentences (Understandable without colour) */}
             <div className={`rounded-2xl p-5 sm:p-6 shadow-xs space-y-4 border-2 ${riskDetails.borderClass}`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-0.5">
@@ -784,7 +888,7 @@ export default function Recommendation() {
                     </h3>
                   </div>
                   <p className="text-xs opacity-85 font-medium">
-                    {riskDetails.sublabel} (Evaluated via norm cut-offs without relying on color alone)
+                    {riskDetails.sublabel} (Evaluated via scientific norm cut-offs without relying on color alone)
                   </p>
                 </div>
                 <div className="px-3 py-1.5 rounded-xl border border-current font-extrabold text-xs tracking-wider uppercase">
@@ -794,13 +898,13 @@ export default function Recommendation() {
 
               {/* Risk Headline Reason */}
               {rec.risk?.reason && (
-                <div className="p-4 rounded-xl bg-bg-surface/80 border border-current/20 text-sm font-semibold flex items-start gap-3">
+                <div className="p-4 rounded-xl bg-bg-surface/85 border border-current/20 text-sm font-semibold flex items-start gap-3">
                   <Info className="w-5 h-5 shrink-0 mt-0.5 opacity-80" />
                   <span className="leading-relaxed">{rec.risk.reason}</span>
                 </div>
               )}
 
-              {/* The Two Impact Sentences: Soil Health and Yield (Plain language, understandable) */}
+              {/* The Two Impact Sentences: Soil Health and Yield (Understandable without colour) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
                 {rec.risk?.soilHealthImpact && (
                   <div className="p-4 rounded-xl border border-current/25 bg-bg-surface space-y-1.5">
@@ -851,25 +955,24 @@ export default function Recommendation() {
                   </h3>
                 </div>
                 <p className="text-xs text-ink-secondary">
-                  The recommended dose is never a black box. Below is the transparent agronomic balance for Nitrogen, Phosphorus and Potassium.
+                  The recommended dose is never a black box. Below is the transparent calculation for Nitrogen, Phosphorus and Potassium.
                 </p>
               </div>
 
-              {/* Formula Callout */}
-              <div className="p-4 rounded-xl bg-bg-subtle border border-border-default space-y-2">
+              {/* Formula & Method Callout */}
+              <div className="p-4 rounded-xl bg-bg-subtle border border-border-default space-y-2.5">
                 <span className="text-xs font-bold text-ink-muted uppercase tracking-wider block">
-                  Deficit Equation (PRD / Contract C1)
+                  Deficit Equation & Methodology (ICAR / STCR Model)
                 </span>
                 <div className="font-mono text-xs sm:text-sm text-primary-800 dark:text-primary-300 font-semibold bg-bg-surface p-2.5 rounded-lg border border-border-default overflow-x-auto">
-                  {rec.formula ||
-                    'fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications'}
+                  {rec.formula}
                 </div>
                 <p className="text-[11px] text-ink-muted leading-relaxed">
-                  Every dose starts with standard crop uptake demand, subtracts what your soil test already supplies (adjusted for pH and organic carbon), factors in absorption efficiency, and deducts recent fertilizer credits.
+                  <strong>Methodology used:</strong> STCR (Soil Test Crop Response) Deficit Balancing. The system takes the standard crop uptake demand, subtracts what your soil test supplies (adjusted for soil pH and organic carbon availability), divides by uptake efficiency, and deducts credits from recent fertilizer applications.
                 </p>
               </div>
 
-              {/* Nutrient Balance Working Cards / Grid */}
+              {/* Nutrient Balance Working Cards */}
               {rec.nutrientBalance && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
                   {/* Nitrogen (N) */}
@@ -890,28 +993,38 @@ export default function Recommendation() {
                       <div className="space-y-1.5 text-xs text-ink-secondary">
                         <div className="flex justify-between">
                           <span>Standard Crop Demand:</span>
-                          <span className="font-semibold text-ink-primary">{rec.nutrientBalance.n.cropDemandKgHa} kg/ha</span>
+                          <span className="font-semibold text-ink-primary">
+                            {rec.nutrientBalance.n.cropDemandKgHa} kg/ha
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Soil Supply (Test Adjustment):</span>
-                          <span className="font-semibold text-ink-primary">-{rec.nutrientBalance.n.soilSupplyKgHa} kg/ha</span>
+                          <span className="font-semibold text-ink-primary">
+                            -{rec.nutrientBalance.n.soilSupplyKgHa} kg/ha
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Calculated Soil Deficit:</span>
-                          <span className="font-semibold text-ink-primary">{rec.nutrientBalance.n.deficitKgHa} kg/ha</span>
+                          <span>Calculated Deficit:</span>
+                          <span className="font-semibold text-ink-primary">
+                            {rec.nutrientBalance.n.deficitKgHa} kg/ha
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Use Efficiency:</span>
-                          <span className="font-semibold text-ink-primary">{(rec.nutrientBalance.n.useEfficiency * 100).toFixed(0)}%</span>
+                          <span className="font-semibold text-ink-primary">
+                            {(rec.nutrientBalance.n.useEfficiency * 100).toFixed(0)}%
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Recent Log Credit:</span>
-                          <span className="font-semibold text-ink-primary">-{rec.nutrientBalance.n.priorCreditKgHa} kg/ha</span>
+                          <span>Recent Application Credit:</span>
+                          <span className="font-semibold text-ink-primary">
+                            -{rec.nutrientBalance.n.priorCreditKgHa} kg/ha
+                          </span>
                         </div>
                       </div>
 
                       <div className="pt-2 border-t border-border-default text-[11px] text-ink-muted">
-                        Supplied primarily via Urea (46% N) split across growth stages.
+                        Method: {rec.nutrientBalance.n.methodUsed}
                       </div>
                     </div>
                   )}
@@ -934,28 +1047,38 @@ export default function Recommendation() {
                       <div className="space-y-1.5 text-xs text-ink-secondary">
                         <div className="flex justify-between">
                           <span>Standard Crop Demand:</span>
-                          <span className="font-semibold text-ink-primary">{rec.nutrientBalance.p.cropDemandKgHa} kg/ha</span>
+                          <span className="font-semibold text-ink-primary">
+                            {rec.nutrientBalance.p.cropDemandKgHa} kg/ha
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Soil Supply (Test Adjustment):</span>
-                          <span className="font-semibold text-ink-primary">-{rec.nutrientBalance.p.soilSupplyKgHa} kg/ha</span>
+                          <span className="font-semibold text-ink-primary">
+                            -{rec.nutrientBalance.p.soilSupplyKgHa} kg/ha
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Calculated Soil Deficit:</span>
-                          <span className="font-semibold text-ink-primary">{rec.nutrientBalance.p.deficitKgHa} kg/ha</span>
+                          <span>Calculated Deficit:</span>
+                          <span className="font-semibold text-ink-primary">
+                            {rec.nutrientBalance.p.deficitKgHa} kg/ha
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Use Efficiency:</span>
-                          <span className="font-semibold text-ink-primary">{(rec.nutrientBalance.p.useEfficiency * 100).toFixed(0)}%</span>
+                          <span className="font-semibold text-ink-primary">
+                            {(rec.nutrientBalance.p.useEfficiency * 100).toFixed(0)}%
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Recent Log Credit:</span>
-                          <span className="font-semibold text-ink-primary">-{rec.nutrientBalance.p.priorCreditKgHa} kg/ha</span>
+                          <span>Recent Application Credit:</span>
+                          <span className="font-semibold text-ink-primary">
+                            -{rec.nutrientBalance.p.priorCreditKgHa} kg/ha
+                          </span>
                         </div>
                       </div>
 
                       <div className="pt-2 border-t border-border-default text-[11px] text-ink-muted">
-                        Supplied primarily via DAP (18:46:0) placed at basal sowing.
+                        Method: {rec.nutrientBalance.p.methodUsed}
                       </div>
                     </div>
                   )}
@@ -978,28 +1101,38 @@ export default function Recommendation() {
                       <div className="space-y-1.5 text-xs text-ink-secondary">
                         <div className="flex justify-between">
                           <span>Standard Crop Demand:</span>
-                          <span className="font-semibold text-ink-primary">{rec.nutrientBalance.k.cropDemandKgHa} kg/ha</span>
+                          <span className="font-semibold text-ink-primary">
+                            {rec.nutrientBalance.k.cropDemandKgHa} kg/ha
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Soil Supply (Test Adjustment):</span>
-                          <span className="font-semibold text-ink-primary">-{rec.nutrientBalance.k.soilSupplyKgHa} kg/ha</span>
+                          <span className="font-semibold text-ink-primary">
+                            -{rec.nutrientBalance.k.soilSupplyKgHa} kg/ha
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Calculated Soil Deficit:</span>
-                          <span className="font-semibold text-ink-primary">{rec.nutrientBalance.k.deficitKgHa} kg/ha</span>
+                          <span>Calculated Deficit:</span>
+                          <span className="font-semibold text-ink-primary">
+                            {rec.nutrientBalance.k.deficitKgHa} kg/ha
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Use Efficiency:</span>
-                          <span className="font-semibold text-ink-primary">{(rec.nutrientBalance.k.useEfficiency * 100).toFixed(0)}%</span>
+                          <span className="font-semibold text-ink-primary">
+                            {(rec.nutrientBalance.k.useEfficiency * 100).toFixed(0)}%
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Recent Log Credit:</span>
-                          <span className="font-semibold text-ink-primary">-{rec.nutrientBalance.k.priorCreditKgHa} kg/ha</span>
+                          <span>Recent Application Credit:</span>
+                          <span className="font-semibold text-ink-primary">
+                            -{rec.nutrientBalance.k.priorCreditKgHa} kg/ha
+                          </span>
                         </div>
                       </div>
 
                       <div className="pt-2 border-t border-border-default text-[11px] text-ink-muted">
-                        Supplied via MOP (60% K₂O) or complex NPK for stalk strength.
+                        Method: {rec.nutrientBalance.k.methodUsed}
                       </div>
                     </div>
                   )}
@@ -1007,7 +1140,7 @@ export default function Recommendation() {
               )}
             </div>
 
-            {/* 5. Economics, Cost per Acre, Previous Cost & Saving per Acre */}
+            {/* 5. Economics & Cost per Acre, Previous Cost, Saving per Acre */}
             <div className="bg-bg-surface border border-border-default rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="space-y-0.5">
@@ -1027,7 +1160,7 @@ export default function Recommendation() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                {/* 1. Estimated Cost */}
+                {/* 1. Recommended Plan Cost */}
                 <div className="p-4 rounded-xl border border-border-default bg-bg-surface space-y-1">
                   <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider block">
                     Recommended Plan Cost
@@ -1044,7 +1177,7 @@ export default function Recommendation() {
                 {/* 2. Previous Practice Cost */}
                 <div className="p-4 rounded-xl border border-border-default bg-bg-surface space-y-1">
                   <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider block">
-                    Previous Practice
+                    Previous Practice Cost
                   </span>
                   <div className="text-xl sm:text-2xl font-bold text-ink-secondary">
                     {rec.cost?.previousCostPerAcre != null
@@ -1059,7 +1192,7 @@ export default function Recommendation() {
                   </span>
                 </div>
 
-                {/* 3. Net Saving / Outcome */}
+                {/* 3. Saving per Acre & Field Total */}
                 {/* CASE A: Saving is null -> Show prompt to log previous fertilizer */}
                 {rec.cost?.savingPerAcre == null && (
                   <div className="p-4 rounded-xl border-2 border-dashed border-primary-400/60 bg-primary-50/30 dark:bg-primary-950/20 flex flex-col justify-between space-y-2">
@@ -1104,35 +1237,46 @@ export default function Recommendation() {
                 {rec.cost?.savingPerAcre != null && rec.cost.savingPerAcre > 0 && (
                   <div className="p-4 rounded-xl border border-accent-green/40 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-1">
                     <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider block">
-                      Total Field Savings
+                      Saving per Acre
                     </span>
                     <div className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400">
-                      {rec.cost.savingTotal != null
-                        ? formatInr(rec.cost.savingTotal)
-                        : formatInr(rec.cost.savingPerAcre * fieldArea)}
+                      {formatInr(rec.cost.savingPerAcre)}{' '}
+                      <span className="text-xs font-normal text-emerald-800 dark:text-emerald-300">/ acre</span>
                     </div>
                     <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                      Calculated across {fieldArea} acres
+                      {formatInr(rec.cost.savingTotal || rec.cost.savingPerAcre * fieldArea)} total for {fieldArea} acres
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Explaining Negative Saving (When plan costs more than recent use) */}
+              {/* Explaining Negative Saving using topFactors */}
               {rec.cost?.savingPerAcre != null && rec.cost.savingPerAcre < 0 && (
-                <div className="p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs sm:text-sm text-amber-900 dark:text-amber-100 flex items-start gap-2.5">
-                  <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold block">Why this plan costs more than recent use:</span>
-                    <span>
-                      Your soil test indicates depleted nutrient reserves. This targeted investment of {formatInr(Math.abs(rec.cost.savingPerAcre))}/acre corrects severe nutrient starvation, preventing crop stunting and protecting harvest yields.
-                    </span>
+                <div className="p-4 rounded-xl bg-amber-50/90 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 text-xs sm:text-sm text-amber-950 dark:text-amber-100 flex items-start gap-3">
+                  <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1.5 flex-1">
+                    <span className="font-extrabold text-sm block">Why this plan costs more than recent use:</span>
+                    <p className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+                      This plan requires an additional investment of {formatInr(Math.abs(rec.cost.savingPerAcre))}/acre ({formatInr(Math.abs(rec.cost.savingPerAcre * fieldArea))} total for {fieldArea} acres) to correct critical soil nutrient starvation identified in your soil test.
+                    </p>
+                    {rec.topFactors && rec.topFactors.length > 0 && (
+                      <div className="pt-1 border-t border-amber-200/80 dark:border-amber-800/60">
+                        <span className="font-bold text-[11px] uppercase tracking-wider block text-amber-800 dark:text-amber-300 mb-1">
+                          Agronomic Drivers:
+                        </span>
+                        <ul className="list-disc list-inside space-y-0.5 text-xs text-amber-900 dark:text-amber-200">
+                          {rec.topFactors.slice(0, 2).map((factor, idx) => (
+                            <li key={idx}>{factor}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* 6. Top Agronomic Decision Factors */}
+            {/* 6. Top Agronomic Reasons (2 to 3 readable sentences) */}
             {rec.topFactors && rec.topFactors.length > 0 && (
               <div className="bg-bg-surface border border-border-default rounded-2xl p-5 sm:p-6 shadow-xs space-y-3">
                 <div className="space-y-0.5">
@@ -1141,7 +1285,7 @@ export default function Recommendation() {
                     Top Agronomic Reasons
                   </h3>
                   <p className="text-xs text-ink-secondary">
-                    Plain-language agronomy reasons explaining dosage for this field.
+                    Clear, plain-language agronomic explanations for this field&apos;s dosage and timing.
                   </p>
                 </div>
 
@@ -1166,10 +1310,10 @@ export default function Recommendation() {
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="font-semibold text-ink-secondary">Engine Model:</span>
                 <span className="font-mono text-[11px] bg-bg-surface px-2 py-0.5 rounded border border-border-default">
-                  {rec.modelVersion || 'fixture-0.0.0+rules-fixture'}
+                  {rec.modelVersion}
                 </span>
                 <span>•</span>
-                <span>Weather: Open-Meteo ({rec.weatherSource || weather.source || 'live'})</span>
+                <span>Weather: Open-Meteo ({weather.source})</span>
               </div>
               <div className="text-[11px] text-ink-muted">
                 Created: {formatDate(rec.createdAt)}

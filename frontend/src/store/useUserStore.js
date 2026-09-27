@@ -27,6 +27,16 @@ export const useUserStore = create((set, get) => ({
           isHydrated: true,
         })
         return
+      } else if (import.meta.env.VITE_USE_MOCK === 'true') {
+        const mockUser = { id: 'farmer-1', name: 'Ramesh Patel', email: 'farmer@khetgpt.in', role: 'farmer' }
+        set({
+          accessToken: 'mock-jwt-token',
+          refreshToken: 'mock-refresh-token',
+          user: mockUser,
+          isAuthenticated: true,
+          isHydrated: true,
+        })
+        return
       }
     } catch {
       try {
