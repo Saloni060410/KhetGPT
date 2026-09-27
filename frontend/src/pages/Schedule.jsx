@@ -28,6 +28,7 @@ import { useRecommendationStore } from '../store/useRecommendationStore.js'
 import { useFarmStore } from '../store/useFarmStore.js'
 import * as endpoints from '../services/endpoints.js'
 import { useT } from '../i18n/useT.js'
+import OfflineNotice from '../components/ui/OfflineNotice.jsx'
 
 const STAGE_TIMING_HINTS = {
   sowing: { en: 'At field preparation / seed drill placement', hi: 'खेत की तैयारी / बुवाई के समय' },
@@ -424,12 +425,10 @@ export default function Schedule() {
 
           {/* Offline Fallback Banner */}
           {isOfflineFallback && (
-            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
-              <Info className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>
-                <strong>Offline Notice:</strong> Displaying cached schedule from local storage ({formatDate(cachedTimestamp)}). You can still print or view without an active internet connection.
-              </span>
-            </div>
+            <OfflineNotice
+              timestamp={cachedTimestamp}
+              onRetry={loadScheduleData}
+            />
           )}
         </div>
 

@@ -133,18 +133,56 @@ export async function getFieldTrends(fieldId) {
   return api.get(`/fields/${fieldId}/trends`)
 }
 
-// 11. Reference Tables
+import { cacheReferenceList, getCachedReferenceList } from '../utils/offlineCache.js'
+
+// 11. Reference Tables with Offline-Friendly Cache (PRD Feature 15)
 export async function getReferenceCrops() {
-  if (isMock) return mockService.getReferenceCrops()
-  return api.get('/reference/crops')
+  if (isMock) {
+    const data = await mockService.getReferenceCrops()
+    cacheReferenceList('crops', data)
+    return data
+  }
+  try {
+    const res = await api.get('/reference/crops')
+    cacheReferenceList('crops', res.data || res)
+    return res.data || res
+  } catch (err) {
+    const cached = getCachedReferenceList('crops')
+    if (cached?.data) return cached.data
+    throw err
+  }
 }
 
 export async function getReferenceSoilRatings() {
-  if (isMock) return mockService.getReferenceSoilRatings()
-  return api.get('/reference/soil-ratings')
+  if (isMock) {
+    const data = await mockService.getReferenceSoilRatings()
+    cacheReferenceList('soilRatings', data)
+    return data
+  }
+  try {
+    const res = await api.get('/reference/soil-ratings')
+    cacheReferenceList('soilRatings', res.data || res)
+    return res.data || res
+  } catch (err) {
+    const cached = getCachedReferenceList('soilRatings')
+    if (cached?.data) return cached.data
+    throw err
+  }
 }
 
 export async function getReferenceFertilizers() {
-  if (isMock) return mockService.getReferenceFertilizers()
-  return api.get('/reference/fertilizers')
+  if (isMock) {
+    const data = await mockService.getReferenceFertilizers()
+    cacheReferenceList('fertilizers', data)
+    return data
+  }
+  try {
+    const res = await api.get('/reference/fertilizers')
+    cacheReferenceList('fertilizers', res.data || res)
+    return res.data || res
+  } catch (err) {
+    const cached = getCachedReferenceList('fertilizers')
+    if (cached?.data) return cached.data
+    throw err
+  }
 }

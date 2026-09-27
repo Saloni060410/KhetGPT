@@ -26,7 +26,6 @@ const NAV_ITEMS = [
   { to: '/fields/1/recommendation', key: 'nav.recommendation', icon: Sparkles, protected: true },
   { to: '/fields/1/schedule', key: 'nav.schedule', icon: Calendar, protected: true },
   { to: '/fields/1/history', key: 'nav.history', icon: HistoryIcon, protected: true },
-  { to: '/kit', key: 'nav.kit', icon: Layers, protected: false },
 ]
 
 export default function Navbar() {

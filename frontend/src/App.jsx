@@ -1,27 +1,34 @@
-import { useEffect } from 'react'
+import { useEffect, Suspense, lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Shell from './components/layout/Shell.jsx'
 import RequireAuth from './components/layout/RequireAuth.jsx'
 import RouteErrorBoundary from './components/layout/RouteErrorBoundary.jsx'
 import { useUserStore } from './store/useUserStore.js'
 
-// Current UI pages (Home & Optimizer)
+// Home page statically loaded for immediate initial delivery
 import HomePage from './pages/HomePage.jsx'
-import OptimizerPage from './pages/OptimizerPage.jsx'
 
-// Core KhetGPT application pages
-import Dashboard from './pages/Dashboard.jsx'
-import SoilInput from './pages/SoilInput.jsx'
-import Recommendation from './pages/Recommendation.jsx'
-import History from './pages/History.jsx'
-import Schedule from './pages/Schedule.jsx'
-import RiskCheck from './pages/RiskCheck.jsx'
-import FieldProfile from './pages/FieldProfile.jsx'
-import Login from './pages/Auth/Login.jsx'
-import Register from './pages/Auth/Register.jsx'
-import NotFound from './pages/NotFound.jsx'
+// Lazy-loaded pages to keep the initial JS bundle minimal and code-split
+const OptimizerPage = lazy(() => import('./pages/OptimizerPage.jsx'))
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
+const SoilInput = lazy(() => import('./pages/SoilInput.jsx'))
+const Recommendation = lazy(() => import('./pages/Recommendation.jsx'))
+const History = lazy(() => import('./pages/History.jsx'))
+const Schedule = lazy(() => import('./pages/Schedule.jsx'))
+const RiskCheck = lazy(() => import('./pages/RiskCheck.jsx'))
+const FieldProfile = lazy(() => import('./pages/FieldProfile.jsx'))
+const Login = lazy(() => import('./pages/Auth/Login.jsx'))
+const Register = lazy(() => import('./pages/Auth/Register.jsx'))
+const NotFound = lazy(() => import('./pages/NotFound.jsx'))
 import ServerError from './pages/ServerError.jsx'
-import Kit from './pages/Kit.jsx'
+
+function RouteFallback() {
+  return (
+    <div className="min-h-[50vh] flex items-center justify-center p-8">
+      <div className="w-8 h-8 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
+    </div>
+  )
+}
 
 export default function App() {
   const { hydrate } = useUserStore()
@@ -32,137 +39,131 @@ export default function App() {
 
   return (
     <RouteErrorBoundary>
-      <Routes>
-        {/* Current UI as the Home Page & Field Optimizer (Full-screen dark mode layouts) */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/optimizer" element={<OptimizerPage />} />
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          {/* Current UI as the Home Page & Field Optimizer */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/optimizer" element={<OptimizerPage />} />
 
-        {/* Core KhetGPT App Pages with standard Shell & Navigation */}
-        <Route
-          path="/login"
-          element={
-            <Shell>
-              <Login />
-            </Shell>
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            <Shell>
-              <Register />
-            </Shell>
-          }
-        />
-        <Route
-          path="/kit"
-          element={
-            <Shell>
-              <Kit />
-            </Shell>
-          }
-        />
+          {/* Core KhetGPT App Pages with standard Shell & Navigation */}
+          <Route
+            path="/login"
+            element={
+              <Shell>
+                <Login />
+              </Shell>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <Shell>
+                <Register />
+              </Shell>
+            }
+          />
 
-        {/* Protected App Routes */}
-        <Route
-          path="/dashboard"
-          element={
-            <RequireAuth>
-              <Shell>
-                <Dashboard />
-              </Shell>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/fields/:fieldId"
-          element={
-            <RequireAuth>
-              <Shell>
-                <FieldProfile />
-              </Shell>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/fields/:fieldId/soil"
-          element={
-            <RequireAuth>
-              <Shell>
-                <SoilInput />
-              </Shell>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/fields/:fieldId/recommendation"
-          element={
-            <RequireAuth>
-              <Shell>
-                <Recommendation />
-              </Shell>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/fields/:fieldId/schedule"
-          element={
-            <RequireAuth>
-              <Shell>
-                <Schedule />
-              </Shell>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/fields/:fieldId/risk-check"
-          element={
-            <RequireAuth>
-              <Shell>
-                <RiskCheck />
-              </Shell>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/fields/:fieldId/history"
-          element={
-            <RequireAuth>
-              <Shell>
-                <History />
-              </Shell>
-            </RequireAuth>
-          }
-        />
+          {/* Protected App Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <Shell>
+                  <Dashboard />
+                </Shell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/fields/:fieldId"
+            element={
+              <RequireAuth>
+                <Shell>
+                  <FieldProfile />
+                </Shell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/fields/:fieldId/soil"
+            element={
+              <RequireAuth>
+                <Shell>
+                  <SoilInput />
+                </Shell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/fields/:fieldId/recommendation"
+            element={
+              <RequireAuth>
+                <Shell>
+                  <Recommendation />
+                </Shell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/fields/:fieldId/schedule"
+            element={
+              <RequireAuth>
+                <Shell>
+                  <Schedule />
+                </Shell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/fields/:fieldId/risk-check"
+            element={
+              <RequireAuth>
+                <Shell>
+                  <RiskCheck />
+                </Shell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/fields/:fieldId/history"
+            element={
+              <RequireAuth>
+                <Shell>
+                  <History />
+                </Shell>
+              </RequireAuth>
+            }
+          />
 
-        {/* Error Pages */}
-        <Route
-          path="/404"
-          element={
-            <Shell>
-              <NotFound />
-            </Shell>
-          }
-        />
-        <Route
-          path="/500"
-          element={
-            <Shell>
-              <ServerError />
-            </Shell>
-          }
-        />
+          {/* Error Pages */}
+          <Route
+            path="/404"
+            element={
+              <Shell>
+                <NotFound />
+              </Shell>
+            }
+          />
+          <Route
+            path="/500"
+            element={
+              <Shell>
+                <ServerError />
+              </Shell>
+            }
+          />
 
-        {/* 404 Catch-All */}
-        <Route
-          path="*"
-          element={
-            <Shell>
-              <NotFound />
-            </Shell>
-          }
-        />
-      </Routes>
+          {/* 404 Catch-All */}
+          <Route
+            path="*"
+            element={
+              <Shell>
+                <NotFound />
+              </Shell>
+            }
+          />
+        </Routes>
+      </Suspense>
     </RouteErrorBoundary>
   )
 }

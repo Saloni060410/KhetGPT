@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import PlanRiskChecker from '../components/farms/PlanRiskChecker.jsx'
 import NutrientStrataSkeleton from '../components/three/NutrientStrataSkeleton.jsx'
+import OfflineNotice from '../components/ui/OfflineNotice.jsx'
+import { cacheRecommendation, getCachedRecommendation } from '../utils/offlineCache.js'
 
 const NutrientStrataContainer = lazy(() => import('../components/three/NutrientStrataContainer.jsx'))
 import {
@@ -199,16 +201,19 @@ export default function Recommendation() {
   const [weatherData, setWeatherData] = useState(null)
   const [soilRatings, setSoilRatings] = useState(null)
   const [soilTest, setSoilTest] = useState(null)
+  const [isOfflineFallback, setIsOfflineFallback] = useState(false)
+  const [cachedTimestamp, setCachedTimestamp] = useState(null)
 
   const [searchParams] = useSearchParams()
   const [viewMode, setViewMode] = useState(
     searchParams.get('tab') === 'check-plan' ? 'risk-check' : 'recommendation',
   )
 
-  // Fetch field, weather and recommendation
+  // Fetch field, weather and recommendation with offline fallback (PRD Feature 15)
   const loadRecommendation = useCallback(
     async (targetFieldId, forceRecalculate = false, simulate502 = false) => {
       setApiError(null)
+      setIsOfflineFallback(false)
       setLoading(true)
 
       // Only show full skeleton if we have no existing recommendation or switching fields
@@ -247,21 +252,37 @@ export default function Recommendation() {
           return
         }
 
+        let loadedRec = null
         if (forceRecalculate) {
-          await generateRecommendation(targetFieldId)
+          loadedRec = await generateRecommendation(targetFieldId)
         } else {
           const recs = await fetchRecommendations(targetFieldId)
           if (!recs || recs.length === 0) {
-            await generateRecommendation(targetFieldId)
+            loadedRec = await generateRecommendation(targetFieldId)
+          } else {
+            loadedRec = recs[0]
           }
         }
+
+        if (loadedRec) {
+          cacheRecommendation(targetFieldId, loadedRec)
+        }
       } catch (err) {
-        setApiError({
-          status: err.status || 500,
-          message:
-            err.message || 'An unexpected error occurred while generating the recommendation.',
-          details: err.details,
-        })
+        // Check offline cache for saved recommendation
+        const cached = getCachedRecommendation(targetFieldId)
+        if (cached?.data) {
+          setCurrentRecommendation(cached.data)
+          setIsOfflineFallback(true)
+          setCachedTimestamp(cached.timestamp)
+          setApiError(null)
+        } else {
+          setApiError({
+            status: err.status || 500,
+            message:
+              err.message || 'An unexpected error occurred while generating the recommendation.',
+            details: err.details,
+          })
+        }
       } finally {
         clearTimeout(spinnerTimeout)
         setLoading(false)
@@ -441,6 +462,14 @@ export default function Recommendation() {
             </button>
           </div>
         </div>
+
+        {/* Offline Fallback Banner (PRD Feature 15) */}
+        {isOfflineFallback && (
+          <OfflineNotice
+            timestamp={cachedTimestamp}
+            onRetry={() => loadRecommendation(currentFieldId, true)}
+          />
+        )}
 
         {/* Mode Switcher: Optimal Recommendation vs Check My Own Plan (PRD FR12) */}
         <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 rounded-2xl bg-bg-surface border border-border-default shadow-xs">

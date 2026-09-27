@@ -3,7 +3,6 @@ User-agent: *
 Allow: /
 Allow: /login
 Allow: /register
-Allow: /kit
 Allow: /404
 Allow: /500
 Disallow: /dashboard

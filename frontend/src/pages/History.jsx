@@ -1,4 +1,3 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   Clock,
@@ -27,13 +26,16 @@ import PageShell from '../components/ui/PageShell.jsx'
 import Button from '../components/ui/Button.jsx'
 import Badge from '../components/ui/Badge.jsx'
 import Card from '../components/ui/Card.jsx'
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react'
 import Skeleton from '../components/ui/Skeleton.jsx'
 import Modal from '../components/ui/Modal.jsx'
 import EmptyState from '../components/ui/EmptyState.jsx'
 import RiskBadge from '../components/ui/RiskBadge.jsx'
-import NutrientLevelsChart from '../components/charts/NutrientLevelsChart.jsx'
-import FertilizerAppliedVsRecommendedChart from '../components/charts/FertilizerAppliedVsRecommendedChart.jsx'
-import CostTrendsChart from '../components/charts/CostTrendsChart.jsx'
+
+// Lazy-loaded chart chunks to keep initial JS bundle minimal
+const NutrientLevelsChart = lazy(() => import('../components/charts/NutrientLevelsChart.jsx'))
+const FertilizerAppliedVsRecommendedChart = lazy(() => import('../components/charts/FertilizerAppliedVsRecommendedChart.jsx'))
+const CostTrendsChart = lazy(() => import('../components/charts/CostTrendsChart.jsx'))
 import { getNutrientRating, getOverallSoilRating } from '../utils/soilRating.js'
 import * as endpoints from '../services/endpoints.js'
 import { useFarmStore } from '../store/useFarmStore.js'
@@ -422,22 +424,24 @@ export default function History() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Chart 1: Soil Nutrient Trajectory (N, P, K over time) */}
-                      <NutrientLevelsChart soilTests={trends.soilTests} />
+                    <Suspense fallback={<Skeleton className="h-64 w-full rounded-2xl" />}>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Chart 1: Soil Nutrient Trajectory (N, P, K over time) */}
+                        <NutrientLevelsChart soilTests={trends.soilTests} />
 
-                      {/* Chart 2: Fertilizer Applied vs Recommended Target */}
-                      <FertilizerAppliedVsRecommendedChart
+                        {/* Chart 2: Fertilizer Applied vs Recommended Target */}
+                        <FertilizerAppliedVsRecommendedChart
+                          applied={trends.applied}
+                          recommendations={trends.recommendations}
+                        />
+                      </div>
+
+                      {/* Chart 3: Financial Trajectory & Savings */}
+                      <CostTrendsChart
                         applied={trends.applied}
                         recommendations={trends.recommendations}
                       />
-                    </div>
-
-                    {/* Chart 3: Financial Trajectory & Savings */}
-                    <CostTrendsChart
-                      applied={trends.applied}
-                      recommendations={trends.recommendations}
-                    />
+                    </Suspense>
                   </div>
                 )}
 
