@@ -56,16 +56,41 @@ Pack reference: `docs/prompt-packs/saloni.md`. Step ids below (S0, S1, ...) matc
 
 ## Done, but verification is still open
 
-- **S3 — product classifier.** Code is complete and tested (19 tests): seeding, config,
-  cross-validation, leakage smell test, versioned registry, run records.
-  **What's unverified:** it has only ever run on Richa's 48-row dev-fallback sample
-  (`data/processed/sample_train.csv`), because the real dataset needs the raw Kaggle file,
-  which is gitignored and has never been on this machine (see "Blocked on" below). On that
-  fallback data, XGBoost does **not** beat the baseline (macro-F1 mean-std 0.091 vs the
-  strongest baseline's mean+std 0.185) — expected at n=48, not yet a real result.
-  **To close this out:** get the raw file → `data/processed/train.csv` exists →
-  `python -m src.models.train --config configs/train.yaml` → re-check the comparison table →
-  once the model is trusted, `--final-test` once, and only once.
+- **S3 — product classifier.** Code is complete and tested. Now actually run on a real
+  `data/processed/train.csv` for the first time (2,800 rows, all synthetic — the real Kaggle
+  file is still absent, see "Blocked on" below), not just Richa's 48-row dev-fallback sample.
+  **Model comparison (16 candidates + 2 baselines, identical 5-fold CV, `sample_weight`
+  balanced or native `class_weight` throughout):**
+  - Round 1 (6): dummy majority/stratified, `logistic_regression`, 3 XGBoost variants.
+    XGBoost's original hyperparameters (3 estimators, depth 3 — sized for the old 48-row
+    fallback) underfit the new 2,800-row set; relaxing to 200 estimators / depth 5 /
+    `learning_rate 0.1` clearly helped (controlled before/after comparison, not a guess).
+  - Round 2 (10 more): `random_forest` (3 depth/tree-count variants), `extra_trees`,
+    `gradient_boosting`, `hist_gradient_boosting`, `knn`, `linear_svm`, `gaussian_nb`, plus a
+    stratified-dummy recheck.
+  - **Winner: `random_forest`**, 150 estimators, max_depth 6, `class_weight: balanced_subsample`
+    — beat every other candidate on macro-F1 and MCC, and did it without the sharp
+    accuracy-vs-fairness trade-off `logistic_regression`/`gaussian_nb`/`linear_svm` made trying
+    the same imbalance. Shallower/fewer trees beat deeper/more on every metric that matters
+    here — more capacity was not better at this dataset size. Locked in as `candidate` in
+    `configs/train.yaml` (`xgboost`'s config also carries the round-1 fix, kept as a documented
+    runner-up).
+  - Final numbers (5-fold CV, mean ± std): macro-F1 0.426 ± 0.039, balanced-accuracy
+    0.554 ± 0.048, MCC 0.326 ± 0.028, accuracy 0.548 ± 0.024. Registered as
+    `fertilizer-classifier-0.1.0` in the (gitignored) local model registry — not committed,
+    same reasoning as always: this is a real run, but not a real-world-validated one.
+  - Considered and rejected: using `data/processed/sample_train.csv` as a second, "independent"
+    validation set alongside `train.csv` — checked empirically (row-value join on both files)
+    and found 100% of `sample_train.csv`'s 200 rows are a subsample of the exact same synthetic
+    pool that feeds `train.csv`. Would have been silent leakage, not real held-out signal; the
+    existing 5-fold CV already does this job correctly.
+  **What's still unverified — the caveat that doesn't go away:** every row used above is
+  synthetic. The real Kaggle file is still absent from this machine, so there's still no
+  held-out real test/val split and no real-world number — this is a model-architecture-selection
+  result, not a validated one.
+  **To close this out:** get the raw file → `data/processed/train.csv` gets real rows →
+  rerun `python -m src.models.train --config configs/train.yaml` → re-check the comparison table
+  holds on real data too → once trusted, `--final-test` once, and only once.
 
 - **S4 — NPK dose calculator (partial block, not a code problem).** The calculator itself is
   correct and tested. But running it against the real fixture (`docs/contract-fixtures/`)

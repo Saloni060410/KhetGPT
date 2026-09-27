@@ -21,16 +21,30 @@ models:
     max_iter: 2000
   xgboost:
     kind: xgboost
-    # Heavily constrained per the same finding: a many-tree XGBoost overfits this dataset
-    # size. Few, shallow trees and strong L2, not sklearn/xgboost's defaults.
-    n_estimators: 30
-    max_depth: 2
+    # These were originally sized for a 48-row dev-fallback sample (few, shallow trees,
+    # strong L2, to avoid overfitting that tiny set). On the real 2800-row dataset they
+    # underfit -- relaxed after an actual comparison run, not by guessing (see
+    # ml/PROGRESS.md's model-comparison entry for the full before/after numbers).
+    n_estimators: 200
+    max_depth: 5
     learning_rate: 0.1
-    reg_lambda: 5.0
+    reg_lambda: 1.0
+  random_forest:
+    kind: random_forest
+    # Winner of a 16-candidate comparison across model families (dummy baselines, logistic
+    # regression, XGBoost variants, ExtraTrees, GradientBoosting, HistGradientBoosting, KNN,
+    # LinearSVM, GaussianNB -- see ml/PROGRESS.md). class_weight=balanced_subsample handles
+    # the severe class imbalance (urea 48% of rows, npk_17_17_17 under 1%) without the sharp
+    # accuracy-vs-fairness trade-off logistic_regression/GaussianNB/LinearSVM made trying the
+    # same thing. Shallower (150 trees, depth 6) clearly beat deeper (500 trees, uncapped) on
+    # every metric that matters here -- more capacity was not better on this dataset size.
+    n_estimators: 150
+    max_depth: 6
+    class_weight: balanced_subsample
 
 # The candidate to register if it beats the stronger baseline by more than the fold noise
 # (mean - std of the challenger above mean + std of the best baseline).
-candidate: xgboost
+candidate: random_forest
 
 leakage_smell_test:
   macro_f1_warn_above: 0.98
