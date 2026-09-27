@@ -440,8 +440,55 @@ failures (absent real Kaggle file), unrelated to any of this.
   2 new/extended tests (`test_train.py`): `env.json` gets `wall_clock_seconds`; `--final-test`'s
   registry entry gets `per_crop`. Full suite: 290 passed, same 6 pre-existing failures.
 
+## Merged `feature/richa-ml-data` into `feature/saloni-ml-core` (2026-09-28)
+
+Clean merge, no conflicts, 33 files changed. Verified rather than trusted: full suite green
+(321 passed, 2 properly-skipped, 0 failed) after the merge, and her adaptations of my own
+tests (barley, the P/K credit comment, MOP->SSP swap in cost tests) checked line-by-line, not
+just re-run. Confirmed the merge changes nothing about how `compute_balance()` behaves for
+existing crops: reproduced all three of her new `docs/demo-scenarios.md` scenarios by calling
+`recommendation_engine.recommend()` directly with each fixture's pinned `demo_today` -- exact
+match on `recommendation`/`risk.level` for `wheat_over_application`, `rice_low_n_rain_hold`,
+`maize_healthy`. Also ran all three through the live `/recommend` endpoint (real-clock date,
+2026-09-28, not the fixture's pinned date) per her explicit request -- all three return 200,
+validate against the `RecommendResponse` contract, and tell a sensible story (correct primary
+product, no unexpected errors/`data_notes`); exact quantities/risk levels differ from the
+fixture because a live call always uses today's real date while the fixture pins a specific
+one for reproducibility -- expected drift, not a regression, already confirmed via the
+pinned-date direct-engine check above.
+
+Gaps this closed, previously flagged as blocking in this file or the model card:
+- **MOP price resolved** (PIB Release ID 2237470, ₹34.21/kg, dated 2026-03-10) -- the
+  "MOP has no verified price" limitation is gone; `ssp`/`npk_14_35_14`/`npk_17_17_17`/
+  `np_20_20_0` remain unpriced.
+- **P/K nutrient efficiency sourced** (PIB Release ID 2237709, national NUE averages,
+  P=0.20/K=0.55) -- prior-credit crediting for P and K is no longer unavailable.
+- **Barley now ready** -- a `split_schedule.csv` row was added; `test_npk_calculator.py`'s
+  barley-specific "not ready" regression test was correctly split into a barley-specific "now
+  works" test plus a new crop-agnostic synthetic-table version so future readiness changes for
+  other crops won't make it go stale.
+- **`explainability.py`'s `explain()` is now real** (+195 lines), wired into
+  `test_explainability.py`.
+- **`docs/evaluation-report.md` (R12) now exists.** `ml/MODEL_CARD.md`'s "Limitations" section
+  updated from it directly -- the `TODO(richa-eval-report)` is gone.
+
+**Open decision, not yet made -- flagged by Richa's evaluation report, hers to raise but mine
+to decide:** the registered `fertilizer-classifier-0.1.0` was trained *before* this merge's
+data fixes. A fresh local reproduction on the post-merge dataset shows a 6th class
+(`npk_14_35_14`, 9 rows) that wasn't present when v0.1.0 was registered, and correspondingly
+different metrics (macro F1 0.341 vs the registered 0.469, on `docs/evaluation-report.md`
+§1.3). The reproduction is exact and repeatable across runs, so it's a real dataset change, not
+noise -- but whether it's specifically the barley/P-K fixes that introduced the new class, or
+something incidental to a local rebuild, hasn't been isolated yet. Not registering a new
+version yet; needs a decision on whether to re-train and re-register before the demo, or leave
+v0.1.0 as the frozen, judge-facing number with this noted as a known follow-up.
+
+Merge commit pushed to `origin/feature/saloni-ml-core`.
+
 ## Not started yet
 
 S11 (demo readiness) per the pack -- gated on Josh's compose changes from S9 (J10).
 S12 (learned quantity refinement) is a stretch goal conditional on Richa having found a
 dataset with real applied-quantity labels -- unknown status, hers to say.
+Whether to re-train/re-register the classifier over the merge's dataset change (see above) --
+open, needs a decision before the demo.
