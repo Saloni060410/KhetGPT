@@ -131,20 +131,28 @@ def _wheat_rec(**overrides):
 
 
 def test_formula_conformity_matches_hand_computed_reference_dose():
-    # wheat/generic/irrigated/Punjab: n=123.6, p2o5=61.8, k2o=0 (reference_doses.csv).
-    # k soil_rating "low" adds 29.7 (soil_adjustments.csv) -> expected k = 0 + 29.7 - 0 = 29.7.
-    rec = {
+    # wheat/k has a real (non-TODO) adjustment table: standard dose 0, soil_rating "low"
+    # adds 29.7 (soil_adjustments.csv) -> expected 0 + 29.7 - 0 = 29.7. wheat/n and wheat/p
+    # are excluded here because soil_adjustments.csv marks both as TODO(data) -- no adjustment
+    # source exists yet -- covered separately below. rice/p and rice/k (soil_rating=None,
+    # i.e. not deficient/no adjustment row) fall back to their flat standard dose (29.7 each).
+    rec_wheat_k = {
         "crop_id": "wheat", "variety_id": "generic", "irrigation": "irrigated", "region": "Punjab",
         "nutrient_balance": {
-            "n": {"method": "reference_dose", "soil_rating": None,
-                  "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 123.6},
-            "p": {"method": "reference_dose", "soil_rating": None,
-                  "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 61.8},
             "k": {"method": "reference_dose", "soil_rating": "low",
                   "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 29.7},
         },
     }
-    result = formula_conformity([rec], TABLES, tol=0.1)
+    rec_rice_pk = {
+        "crop_id": "rice", "variety_id": "generic", "irrigation": "irrigated", "region": "Punjab",
+        "nutrient_balance": {
+            "p": {"method": "reference_dose", "soil_rating": None,
+                  "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 29.7},
+            "k": {"method": "reference_dose", "soil_rating": None,
+                  "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 29.7},
+        },
+    }
+    result = formula_conformity([rec_wheat_k, rec_rice_pk], TABLES, tol=0.1)
     assert result["conformity_rate"] == 1.0
     assert result["n_checked"] == 3
     assert result["violators"] == []
@@ -154,7 +162,7 @@ def test_formula_conformity_flags_a_violator_outside_tolerance():
     rec = {
         "crop_id": "wheat", "variety_id": "generic", "irrigation": "irrigated", "region": "Punjab",
         "nutrient_balance": {
-            "n": {"method": "reference_dose", "soil_rating": None,
+            "k": {"method": "reference_dose", "soil_rating": "low",
                   "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 999.0},  # way off
         },
     }
@@ -162,8 +170,8 @@ def test_formula_conformity_flags_a_violator_outside_tolerance():
     assert result["conformity_rate"] == 0.0
     assert len(result["violators"]) == 1
     violator = result["violators"][0]
-    assert violator["nutrient"] == "n"
-    assert violator["expected"] == pytest.approx(123.6)
+    assert violator["nutrient"] == "k"
+    assert violator["expected"] == pytest.approx(29.7)
     assert violator["reason"] == "outside tolerance"
 
 
@@ -171,8 +179,8 @@ def test_formula_conformity_subtracts_prior_credit():
     rec = {
         "crop_id": "wheat", "variety_id": "generic", "irrigation": "irrigated", "region": "Punjab",
         "nutrient_balance": {
-            "n": {"method": "reference_dose", "soil_rating": None,
-                  "prior_credit_kg_ha": 20.0, "fertilizer_needed_kg_ha": 103.6},
+            "k": {"method": "reference_dose", "soil_rating": "low",
+                  "prior_credit_kg_ha": 20.0, "fertilizer_needed_kg_ha": 9.7},
         },
     }
     result = formula_conformity([rec], TABLES, tol=0.1)
@@ -216,6 +224,39 @@ def test_formula_conformity_stcr_missing_soil_test_value_is_a_violator():
     result = formula_conformity([rec], TABLES, tol=0.1)
     assert result["conformity_rate"] == 0.0
     assert "soil_test_value" in result["violators"][0]["reason"]
+
+
+def test_formula_conformity_flags_a_todo_adjustment_source_instead_of_masking_it_as_zero():
+    # soil_adjustments.csv has a row for wheat/n whose soil_rating column is literally
+    # "TODO(data)" (no PAU soil-test adjustment source exists yet for wheat N) -- that row
+    # never matches a real soil_rating, so a naive lookup would fall through to "no row
+    # found" and silently treat it as adjustment=0.0 (a confirmed no-op), masking a real,
+    # explicitly flagged data gap. This must be reported as a violator instead.
+    rec = {
+        "crop_id": "wheat", "variety_id": "generic", "irrigation": "irrigated", "region": "Punjab",
+        "nutrient_balance": {
+            "n": {"method": "reference_dose", "soil_rating": "low",
+                  "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 123.6},
+        },
+    }
+    result = formula_conformity([rec], TABLES, tol=0.1)
+    assert result["conformity_rate"] == 0.0
+    assert "TODO(data)" in result["violators"][0]["reason"]
+
+
+def test_formula_conformity_real_adjustment_table_still_works_when_no_todo_sentinel_exists():
+    # wheat/k has real low/very_low rows (no TODO sentinel row for wheat/k at all) -- the new
+    # TODO-sentinel check must not accidentally start rejecting a crop/nutrient that has a
+    # perfectly good adjustment table just because SOME other crop/nutrient combo has a TODO.
+    rec = {
+        "crop_id": "wheat", "variety_id": "generic", "irrigation": "irrigated", "region": "Punjab",
+        "nutrient_balance": {
+            "k": {"method": "reference_dose", "soil_rating": "low",
+                  "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 29.7},
+        },
+    }
+    result = formula_conformity([rec], TABLES, tol=0.1)
+    assert result["conformity_rate"] == 1.0
 
 
 def test_formula_conformity_empty_recs_is_full_conformity_by_convention():

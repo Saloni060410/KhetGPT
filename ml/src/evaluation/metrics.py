@@ -202,6 +202,15 @@ def _lookup_reference_dose(tables, crop_id, variety_id, irrigation, region, nutr
 
 
 def _lookup_soil_adjustment(tables, crop_id, nutrient, soil_rating):
+    # soil_adjustments.csv marks a crop/nutrient with no known adjustment source at all (e.g.
+    # wheat/n) with a row whose soil_rating column literally reads "TODO(data)" -- that never
+    # matches a real rating, so check for it explicitly rather than silently falling through
+    # to "no row found" (which would report 0.0, i.e. "no adjustment applies", masking a real
+    # data gap as a confirmed decision).
+    for row in tables.soil_adjustments:
+        if (row["crop_id"], row["nutrient"]) == (crop_id, nutrient) and str(row["soil_rating"]).startswith("TODO"):
+            return None, f"soil_adjustments.csv has no adjustment source at all for {crop_id}/{nutrient} (TODO(data))"
+
     if soil_rating is None:
         return 0.0, None  # no soil-test rating supplied -- no adjustment applies
     for row in tables.soil_adjustments:
