@@ -444,32 +444,82 @@ export const mockService = {
     )
   },
 
-  // Risk Check (User's own planned dose)
+  // Risk Check (User's own planned dose - PRD FR12)
   async checkRisk(fieldId, { plannedApplication }) {
     await delay(180)
-    const totalDose = (plannedApplication || []).reduce(
-      (sum, item) => sum + (Number(item.quantityKgPerAcre) || 0),
-      0,
-    )
+
+    // 409 Case: No soil test or crop yet (Field 4 simulation)
+    if (String(fieldId) === '4') {
+      const err = new Error('Field has no soil test recorded yet. Please record a soil test before checking risk.')
+      err.response = {
+        status: 409,
+        data: {
+          error: 'Field has no soil test recorded yet. Please record a soil test before checking risk.',
+          code: 'PREREQUISITE_MISSING',
+        },
+      }
+      throw err
+    }
+
+    // Convert kg/acre to kg/ha (1 acre = 0.4047 ha => 1 kg/acre = 2.471 kg/ha)
+    let appliedN = 0
+    let appliedP = 0
+    let appliedK = 0
+
+    const plans = plannedApplication || []
+    plans.forEach((item) => {
+      const qAcre = Number(item.quantityKgPerAcre) || 0
+      const qHa = qAcre * 2.471
+      const type = (item.fertilizerType || '').toLowerCase()
+
+      if (type.includes('urea')) {
+        appliedN += qHa * 0.46
+      } else if (type.includes('dap')) {
+        appliedN += qHa * 0.18
+        appliedP += qHa * 0.46
+      } else if (type.includes('mop')) {
+        appliedK += qHa * 0.60
+      } else if (type.includes('npk_10_26_26')) {
+        appliedN += qHa * 0.10
+        appliedP += qHa * 0.26
+        appliedK += qHa * 0.26
+      } else if (type.includes('ssp')) {
+        appliedP += qHa * 0.16
+      }
+    })
+
+    const recommendedN = 120
+    const recommendedP = 60
+    const recommendedK = 40
+
+    const ratioN = recommendedN > 0 ? appliedN / recommendedN : 1
+    const ratioP = recommendedP > 0 ? appliedP / recommendedP : 1
+    const ratioK = recommendedK > 0 ? appliedK / recommendedK : 1
 
     let level = 'low'
-    let reason = 'Planned dose is well aligned with crop demand.'
-    let soilHealthImpact = 'Minimal leaching or acidification detected.'
-    let yieldImpact = 'Optimal nutrient balance supported.'
+    let reason = 'Planned fertilizer doses are well-balanced and match crop nutrient uptake demand.'
+    let soilHealthImpact = 'Balanced replenishment maintains steady soil microbial activity without residual salt stress.'
+    let yieldImpact = 'Optimal nutrient availability supports sturdy vegetative growth and full ear development.'
     let overApplicationPct = null
 
-    if (totalDose > 100) {
+    if (ratioN > 1.35 || ratioP > 1.45) {
       level = 'high'
-      reason = 'Planned dose exceeds nitrogen capacity by 45%.'
-      soilHealthImpact = 'High leaching risk and soil acidification.'
-      yieldImpact = 'Severe risk of crop lodging and burnt tips.'
-      overApplicationPct = 45.0
-    } else if (totalDose > 60) {
+      overApplicationPct = Math.round((Math.max(ratioN, ratioP) - 1) * 100)
+      reason = `Planned dose exceeds recommended nutrient threshold by ${overApplicationPct}%.`
+      soilHealthImpact = 'Excessive soluble nitrogen acidifies topsoil and leaches nitrates into the groundwater.'
+      yieldImpact = 'Severe risk of crop lodging, succulent weak stems, and heavy susceptibility to leaf rust and pests.'
+    } else if (ratioN > 1.15 || ratioP > 1.2 || ratioN < 0.65) {
       level = 'medium'
-      reason = 'Dose exceeds recommended threshold for current stage.'
-      soilHealthImpact = 'Sub-optimal nutrient recovery in topsoil.'
-      yieldImpact = 'Diminishing return on extra fertilizer expenditure.'
-      overApplicationPct = 20.0
+      if (ratioN < 0.65) {
+        reason = `Planned dose delivers only ${Math.round(ratioN * 100)}% of crop demand, leaving a serious nitrogen deficit.`
+        soilHealthImpact = 'Continued under-fertilization mines native soil fertility and reduces organic matter turnover.'
+        yieldImpact = 'Crop will exhibit pale foliage, restricted tillering, and stunted biomass development.'
+      } else {
+        overApplicationPct = Math.round((ratioN - 1) * 100)
+        reason = `Planned nitrogen application is ${overApplicationPct}% above the agronomist target.`
+        soilHealthImpact = 'Sub-optimal nutrient recovery in topsoil with moderate leaching during heavy irrigation.'
+        yieldImpact = 'Extra fertilizer expenditure yields diminishing returns without measurable yield enhancement.'
+      }
     }
 
     return {
@@ -480,7 +530,23 @@ export const mockService = {
         yieldImpact,
         overApplicationPct,
       },
-      nutrientBalance: mockData.recommendations[0].nutrientBalance,
+      nutrientBalance: {
+        n: {
+          appliedKgHa: Math.round(appliedN * 10) / 10,
+          recommendedKgHa: recommendedN,
+          ratio: Math.round(ratioN * 100) / 100,
+        },
+        p: {
+          appliedKgHa: Math.round(appliedP * 10) / 10,
+          recommendedKgHa: recommendedP,
+          ratio: Math.round(ratioP * 100) / 100,
+        },
+        k: {
+          appliedKgHa: Math.round(appliedK * 10) / 10,
+          recommendedKgHa: recommendedK,
+          ratio: Math.round(ratioK * 100) / 100,
+        },
+      },
     }
   },
 

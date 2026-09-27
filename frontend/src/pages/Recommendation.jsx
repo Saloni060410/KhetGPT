@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
+import PlanRiskChecker from '../components/farms/PlanRiskChecker.jsx'
 import {
   Sparkles,
   Calendar,
@@ -231,6 +232,11 @@ export default function Recommendation() {
   const [apiError, setApiError] = useState(null)
   const [weatherData, setWeatherData] = useState(null)
 
+  const [searchParams] = useSearchParams()
+  const [viewMode, setViewMode] = useState(
+    searchParams.get('tab') === 'check-plan' ? 'risk-check' : 'recommendation',
+  )
+
   // Fetch field, weather and recommendation
   const loadRecommendation = useCallback(
     async (targetFieldId, forceRecalculate = false, simulate502 = false) => {
@@ -456,8 +462,56 @@ export default function Recommendation() {
           </div>
         </div>
 
-        {/* 409 Missing Prerequisite State (Soil Test or Crop Missing) */}
-        {apiError && apiError.status === 409 && (
+        {/* Mode Switcher: Optimal Recommendation vs Check My Own Plan (PRD FR12) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 rounded-2xl bg-bg-surface border border-border-default shadow-xs">
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-bg-subtle border border-border-default text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setViewMode('recommendation')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'recommendation'
+                  ? 'bg-bg-surface text-ink-primary shadow-xs font-black'
+                  : 'text-ink-secondary hover:text-ink-primary'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-primary-600" />
+              <span>Optimal Recommendation</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('risk-check')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                viewMode === 'risk-check'
+                  ? 'bg-primary-700 text-ink-inverse shadow-xs font-black'
+                  : 'text-ink-secondary hover:text-ink-primary'
+              }`}
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+              <span>Check My Own Plan (FR12)</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link to={`/fields/${currentFieldId}/schedule`}>
+              <Button variant="outline" size="sm" rightIcon={ArrowRight}>
+                View Schedule Sheet
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* If in Risk Check Mode, render PlanRiskChecker */}
+        {viewMode === 'risk-check' ? (
+          <PlanRiskChecker
+            fieldId={currentFieldId}
+            onBackToRecommended={() => setViewMode('recommendation')}
+            fieldArea={fieldArea}
+            cropType={rec?.cropType || field.cropType}
+          />
+        ) : (
+          <>
+            {/* 409 Missing Prerequisite State (Soil Test or Crop Missing) */}
+            {apiError && apiError.status === 409 && (
           <div
             role="alert"
             className="p-6 rounded-2xl border-2 border-accent-amber/50 bg-amber-50/60 dark:bg-amber-950/20 text-ink-primary space-y-4 shadow-sm animate-in fade-in"
@@ -628,6 +682,14 @@ export default function Recommendation() {
                     View Schedule (D8)
                   </Button>
                 </Link>
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => setViewMode('risk-check')}
+                  leftIcon={FlaskConical}
+                >
+                  Check Custom Dose
+                </Button>
                 <Button
                   variant="outline"
                   size="md"
@@ -1320,6 +1382,8 @@ export default function Recommendation() {
               </div>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
     </PageShell>

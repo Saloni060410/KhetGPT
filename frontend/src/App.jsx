@@ -15,6 +15,7 @@ import SoilInput from './pages/SoilInput.jsx'
 import Recommendation from './pages/Recommendation.jsx'
 import History from './pages/History.jsx'
 import Schedule from './pages/Schedule.jsx'
+import RiskCheck from './pages/RiskCheck.jsx'
 import FieldProfile from './pages/FieldProfile.jsx'
 import Login from './pages/Auth/Login.jsx'
 import Register from './pages/Auth/Register.jsx'
@@ -108,6 +109,16 @@ export default function App() {
             <RequireAuth>
               <Shell>
                 <Schedule />
+              </Shell>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/fields/:fieldId/risk-check"
+          element={
+            <RequireAuth>
+              <Shell>
+                <RiskCheck />
               </Shell>
             </RequireAuth>
           }
