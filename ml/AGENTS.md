@@ -17,7 +17,9 @@ notebooks/                        exploration only. Nothing in src/ imports from
 src/
 ├── api/             SALONI  main.py, schemas.py, endpoints/ (recommend, risk_score, health, reference)
 ├── engine/          SALONI  npk_calculator.py (standard dose + soil adjustment), recommendation_engine.py (schedule, cost, blend)
-├── models/          SALONI  train.py, fertilizer_model.py, predict.py, model_registry/
+├── models/          SALONI  train.py, fertilizer_model.py, model_registry/ (model loading and
+│                            inference live in engine/recommendation_engine.py, not a separate
+│                            predict.py -- there was one early on, deleted, nothing imported it)
 ├── degradation/     RICHA   risk_analyzer.py (over/under-application risk and impact text)
 ├── data_pipeline/   RICHA   ingest.py, clean.py, feature_engineering.py, soil_data_loader.py
 ├── weather/         RICHA   weather_client.py (Open-Meteo)
