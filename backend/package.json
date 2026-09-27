@@ -12,6 +12,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "db:seed": "node prisma/seed.js",
+    "db:seed:demo": "node prisma/seed.js --demo",
+    "demo:reset": "node prisma/seed.js --demo --reset",
     "db:reset": "prisma migrate reset --force"
   },
   "prisma": {

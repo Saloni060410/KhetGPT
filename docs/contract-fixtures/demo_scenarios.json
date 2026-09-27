@@ -189,8 +189,8 @@
       "id": "maize_healthy",
       "title": "Healthy maize field",
       "expected_outcome": {
-        "risk_level": "low",
-        "risk_reason_kind": "healthy -- applied/needed close across all nutrients",
+        "risk_level": "high",
+        "risk_reason_kind": "over-use (nitrogen) -- corrected 2026-09-28, was wrongly 'low' due to a risk_analyzer date bug (see docs/demo-scenarios.md §3)",
         "recommended_products": ["dap", "mop", "urea"],
         "note_on_p_and_k": "P and K now DO get prior-usage credit -- nutrient_efficiency.csv's default P (0.20) and K (0.55) rows were sourced (PIB Release ID 2237709, 10 Mar 2026) after this scenario was first written, so the DAP already applied genuinely credits against the new P dose now. This is a real behavior change from the scenario's original version, not a rerun with the same story.",
         "mop_priced_note": "MOP now has a real verified price (PIB Release ID 2237470, 10 Mar 2026) and is included in the cost breakdown like any other product -- it used to be excluded with a data_notes caveat. data_notes is now empty for this scenario.",

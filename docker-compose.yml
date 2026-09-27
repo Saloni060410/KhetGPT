@@ -49,6 +49,14 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
     ports:
       - "4000:4000"
+    volumes:
+      # Mounted at the container's root, mirroring docs/ being a sibling of backend/ on the
+      # host: prisma/seed.js's own relative path (__dirname/../../docs/...) then resolves the
+      # same way whether it's run from the host or docker compose exec'd inside this container.
+      # Read-only, docs-only content, not application code -- the backend image's own build
+      # context is ./backend and never sees a repo-root docs/ sibling otherwise (the same class
+      # of gap S9/S11 already found and fixed for the ml service's own docs/ dependency).
+      - ./docs:/docs:ro
     depends_on:
       postgres:
         condition: service_healthy
