@@ -41,11 +41,18 @@ def test_estimate_cost_is_the_sum_of_quantity_times_price():
     assert estimate_cost(WHEAT_SCHEDULE, PRODUCTS) == pytest.approx(expected, rel=1e-6)
 
 
-def test_estimate_cost_raises_for_an_unpriced_product():
-    # MOP's price is genuinely TODO(data) in the real, merged fertilizer_products.csv.
-    schedule = [{"stage": "sowing", "fertilizer_type": "mop", "quantity_kg_per_acre": 20.0, "apply_by": "2026-11-05", "timing_note": None}]
-    with pytest.raises(ReferenceDataIncomplete, match="mop"):
-        estimate_cost(schedule, PRODUCTS)
+def test_estimate_cost_skips_an_unpriced_product_rather_than_raising():
+    # MOP's price is genuinely TODO(data) in the real, merged fertilizer_products.csv (Richa
+    # re-checked 2026-09-27). Per the current product decision, an unpriced product no longer
+    # blocks the whole recommendation -- it contributes 0 here, and cost_breakdown (below)
+    # excludes its line rather than inventing a price for it.
+    schedule = [
+        {"stage": "sowing", "fertilizer_type": "mop", "quantity_kg_per_acre": 20.0, "apply_by": "2026-11-05", "timing_note": None},
+        WHEAT_SCHEDULE[0],  # dap -- priced, so the total isn't just 0
+    ]
+    assert estimate_cost(schedule, PRODUCTS) == pytest.approx(
+        WHEAT_SCHEDULE[0]["quantity_kg_per_acre"] * float(dap_price()["price_inr_per_kg"]), rel=1e-6
+    )
 
 
 def test_estimate_cost_raises_for_an_unknown_product():
@@ -67,6 +74,25 @@ def test_cost_breakdown_combines_quantities_by_product_and_sums_to_the_estimate(
 
 def test_prices_as_of_is_the_oldest_price_date_used():
     assert prices_as_of(WHEAT_SCHEDULE, PRODUCTS) == date(2025, 1, 1)
+
+
+def test_cost_breakdown_omits_an_unpriced_product_but_keeps_the_priced_ones():
+    schedule = [
+        *WHEAT_SCHEDULE,
+        {"stage": "sowing", "fertilizer_type": "mop", "quantity_kg_per_acre": 20.0, "apply_by": "2026-11-05", "timing_note": None},
+    ]
+    breakdown = cost_breakdown(schedule, PRODUCTS)
+    assert {line["fertilizer_type"] for line in breakdown} == {"dap", "urea"}  # mop excluded, not zero-priced
+
+
+def test_prices_as_of_ignores_an_unpriced_product_in_the_schedule():
+    # mop has no price_date either (it's never been priced) -- if prices_as_of looked at it,
+    # this would wrongly return None even though dap/urea both have a real price_date.
+    schedule = [
+        *WHEAT_SCHEDULE,
+        {"stage": "sowing", "fertilizer_type": "mop", "quantity_kg_per_acre": 20.0, "apply_by": "2026-11-05", "timing_note": None},
+    ]
+    assert prices_as_of(schedule, PRODUCTS) == date(2025, 1, 1)
 
 
 # ---------- compare_to_history: case 1, no logged history -> nulls ----------

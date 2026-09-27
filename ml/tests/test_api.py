@@ -53,19 +53,25 @@ def test_fixtures_match_the_schemas():
     RiskScoreResponse.model_validate(load("risk_score_response.json"))
 
 
-def test_recommend_in_real_mode_is_implemented_and_surfaces_the_real_mop_price_gap(use_settings):
+def test_recommend_in_real_mode_is_implemented_and_still_recommends_the_unpriced_mop(use_settings):
     # S6: real mode is implemented now. The fixture's soil.k=90 genuinely needs potash, and
-    # MOP has no price yet in the merged fertilizer_products.csv (see ml/PROGRESS.md) -- the
-    # engine correctly refuses with 503 rather than a silent wrong answer.
+    # MOP has no verified price yet in the merged fertilizer_products.csv (Richa re-checked
+    # 2026-09-27: IFFCO's own price list doesn't carry it, market listings too inconsistent to
+    # cite). Per the current product decision, that no longer blocks the recommendation: MOP
+    # is still recommended with a real quantity, just excluded from the cost breakdown and
+    # flagged in data_notes instead of the whole request failing.
     use_settings(predict_mode="real")
     response = client.post("/recommend", json=load("recommend_request.json"))
-    assert response.status_code == 503
-    assert "mop" in response.json()["detail"]
+    assert response.status_code == 200
+    body = response.json()
+    assert "mop" in {item["fertilizer_type"] for item in body["recommendation"]["schedule"]}
+    assert "mop" not in {line["fertilizer_type"] for line in body["cost"]["breakdown"]}
+    assert any("mop" in note.lower() for note in body["explanation"]["data_notes"])
 
 
 def test_risk_score_in_real_mode_is_implemented(use_settings):
     # S6: real mode is implemented now. /risk-score never calls to_products(), so it isn't
-    # affected by the MOP-price gap that blocks /recommend for this same field.
+    # affected by MOP's pricing gap that data_notes flags for /recommend on this same field.
     use_settings(predict_mode="real")
     response = client.post("/risk-score", json=load("risk_score_request.json"))
     assert response.status_code == 200

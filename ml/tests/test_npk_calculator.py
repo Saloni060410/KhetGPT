@@ -1,6 +1,7 @@
 """Golden tests for the S4 NPK dose calculator. Small, hand-computed cases plus tests against
 Richa's real merged reference tables where a case naturally occurs there."""
 
+import dataclasses
 from datetime import date
 
 import pytest
@@ -200,14 +201,30 @@ def test_an_unknown_growth_stage_raises_unknown_stage_error():
 # ---------- to_products ----------
 
 
-def test_an_unpriced_product_is_never_selected():
-    # MOP's price is genuinely TODO(data) in the real, merged fertilizer_products.csv.
-    # A wheat field with low soil K needs potash, and there is no priced product to supply
-    # it -- this must be a clear error, never a silently-dropped schedule line.
+def test_an_unpriced_product_is_still_selected_and_dosed():
+    # MOP's price is genuinely TODO(data) in the real, merged fertilizer_products.csv (Richa
+    # re-checked 2026-09-27: IFFCO's own list doesn't carry it, market listings too
+    # inconsistent to cite). A wheat field with low soil K needs potash -- per the current
+    # product decision, MOP is still selected with a real quantity; pricing it (or not) is
+    # cost.py's job, not this function's (see its module docstring and test_cost.py).
     result, _ = balance("wheat", soil={**FIXTURE_SOIL, "k": 90.0})
     assert result["k"]["fertilizer_needed_kg_ha"] > 0
+    schedule = to_products(result, "wheat", "sowing", date(2026, 11, 5), {"rainfall_mm_forecast": 0}, TABLES, TODAY)
+    mop_line = next(i for i in schedule if i["fertilizer_type"] == "mop")
+    assert mop_line["quantity_kg_per_acre"] > 0
+
+
+def test_a_product_with_no_row_at_all_still_raises_reference_data_incomplete():
+    # Genuinely different from an unpriced-but-known product (above): if fertilizer_products.csv
+    # has no row for the product at all, quantity itself can't be computed (n_pct/p2o5_pct/
+    # k2o_pct come from that row) -- this is still a hard, structural gap.
+    broken_products = [row for row in TABLES.fertilizer_products if row["product_id"] != "mop"]
+    broken_tables = dataclasses.replace(TABLES, fertilizer_products=broken_products)
+    result, _ = balance("wheat", soil={**FIXTURE_SOIL, "k": 90.0})
     with pytest.raises(ReferenceDataIncomplete, match="mop"):
-        to_products(result, "wheat", "sowing", date(2026, 11, 5), {"rainfall_mm_forecast": 0}, TABLES, TODAY)
+        to_products(
+            result, "wheat", "sowing", date(2026, 11, 5), {"rainfall_mm_forecast": 0}, broken_tables, TODAY
+        )
 
 
 def test_a_full_wheat_plan_when_potash_is_not_needed():

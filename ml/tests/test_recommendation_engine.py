@@ -3,8 +3,9 @@
 Covers the pack's stated done-when: the fixture validates against RecommendResponse in real
 mode, identical input gives identical output, /risk-score works and a 2x dose scores higher
 risk than 1x. Also covers the deliberate design deviation (see recommendation_engine.py's
-module docstring): a missing classifier degrades health but never blocks /recommend, and the
-MOP-unpriced gap correctly surfaces as a 503, not a wrong number.
+module docstring): a missing classifier degrades health but never blocks /recommend, and an
+unpriced-but-needed product (MOP) is still recommended -- excluded from the cost breakdown
+and flagged in data_notes, never a wrong number and never a whole-request failure.
 """
 
 import json
@@ -58,8 +59,10 @@ def client_without_classifier(monkeypatch, tmp_path):
 
 @pytest.fixture
 def no_potash_request():
+    # k=300 means no potash is needed at all, so these tests exercise the common dap/urea-only
+    # path without also depending on MOP's pricing gap (covered on its own below).
     payload = load("recommend_request.json")
-    payload["soil"] = {**payload["soil"], "k": 300.0}  # avoid the real, genuine MOP-unpriced gap
+    payload["soil"] = {**payload["soil"], "k": 300.0}
     return payload
 
 
@@ -120,11 +123,15 @@ def test_recommend_maps_an_unknown_growth_stage_to_422(client, no_potash_request
     assert response.status_code == 422
 
 
-def test_recommend_maps_the_unpriced_mop_gap_to_503(client):
+def test_recommend_still_recommends_the_unpriced_mop_but_excludes_its_cost(client):
     payload = load("recommend_request.json")  # real soil.k=90 -- genuinely needs potash
     response = client.post("/recommend", json=payload)
-    assert response.status_code == 503
-    assert "mop" in response.json()["detail"]
+    assert response.status_code == 200
+    body = response.json()
+    mop_line = next(item for item in body["recommendation"]["schedule"] if item["fertilizer_type"] == "mop")
+    assert mop_line["quantity_kg_per_acre"] > 0
+    assert "mop" not in {line["fertilizer_type"] for line in body["cost"]["breakdown"]}
+    assert any("mop" in note.lower() for note in body["explanation"]["data_notes"])
 
 
 def test_recommend_maps_missing_reference_tables_to_503(client, no_potash_request, tmp_path, monkeypatch):
