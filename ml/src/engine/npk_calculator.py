@@ -361,10 +361,20 @@ def to_products(
     (split_schedule.csv), dates each stage from growth_stages.csv das_start counted from
     sowing_date (or an effective one derived from today and the current stage's midpoint --
     contract C1), and maps nutrients to products: DAP for P (crediting its N against the
-    first nitrogen-bearing stage), MOP for K, remaining N from urea. Only priced products are
-    selectable (contract C1's missing-data policy); a needed nutrient with no priced product
-    raises ReferenceDataIncomplete rather than silently omitting it. Nitrogen top-dressing
-    (urea) is delayed by rain_hold_days when rainfall_mm_forecast is at or above rain_hold_mm."""
+    first nitrogen-bearing stage), MOP for K, remaining N from urea.
+
+    A needed product is selected and dosed even if it has no verified price yet (Richa
+    re-checked MOP specifically: IFFCO's own price list doesn't carry it and market listings
+    were too inconsistent to cite responsibly -- 2026-09-27). Pricing is cost.py's job, not
+    this function's: an unpriced product still gets a real quantity_kg_per_acre and schedule
+    entry here, and cost.py excludes it from cost.breakdown rather than failing the whole
+    recommendation (see cost.py's module docstring and recommendation_engine.py's data_notes).
+    A needed product with no ROW AT ALL in fertilizer_products.csv (so not even its nutrient
+    percentages are known, meaning quantity itself can't be computed) still raises
+    ReferenceDataIncomplete -- that gap is structural, not a pricing gap.
+
+    Nitrogen top-dressing (urea) is delayed by rain_hold_days when rainfall_mm_forecast is at
+    or above rain_hold_mm."""
     rain_hold_mm = 20.0 if rain_hold_mm is None else rain_hold_mm
     rain_hold_days = 2 if rain_hold_days is None else rain_hold_days
     products = _fertilizer_products(tables)
@@ -373,12 +383,13 @@ def to_products(
     lines = _schedule_lines(tables, crop_id, current_order)
     effective_sowing = sowing_date or _effective_sowing_date(tables, crop_id, growth_stage, today)
 
-    def priced(product_id: str, nutrient: str) -> dict:
+    def product_row(product_id: str, nutrient: str) -> dict:
+        # No longer requires a price (see this function's docstring) -- only that the row
+        # exists at all, since n_pct/p2o5_pct/k2o_pct (used below to convert kg/ha to a
+        # product quantity) come from this row, not from price_inr_per_kg.
         product = products.get(product_id)
-        if product is None or _parse_float(product["price_inr_per_kg"]) is None:
-            raise ReferenceDataIncomplete(
-                crop_id, nutrient, f"fertilizer_products.csv: {product_id}.price_inr_per_kg is missing"
-            )
+        if product is None:
+            raise ReferenceDataIncomplete(crop_id, nutrient, f"fertilizer_products.csv: no row for {product_id!r}")
         return product
 
     schedule: list[dict] = []
@@ -392,7 +403,7 @@ def to_products(
 
     if p_lines and nutrient_balance["p"]["fertilizer_needed_kg_ha"] > 0:
         line = p_lines[0]
-        product = priced("dap", "p")
+        product = product_row("dap", "p")
         p_needed = nutrient_balance["p"]["fertilizer_needed_kg_ha"] * line.fraction
         quantity = round(p_needed / ACRES_PER_HECTARE / (float(product["p2o5_pct"]) / 100), 3)
         n_credit_remaining += quantity * float(product["n_pct"]) / 100 * ACRES_PER_HECTARE
@@ -401,7 +412,7 @@ def to_products(
 
     if k_lines and nutrient_balance["k"]["fertilizer_needed_kg_ha"] > 0:
         line = k_lines[0]
-        product = priced("mop", "k")
+        product = product_row("mop", "k")
         k_needed = nutrient_balance["k"]["fertilizer_needed_kg_ha"] * line.fraction
         quantity = round(k_needed / ACRES_PER_HECTARE / (float(product["k2o_pct"]) / 100), 3)
         apply_by, note = _stage_apply_by(tables, crop_id, line.stage, effective_sowing) if effective_sowing else (None, "At " + line.stage.replace("_", " "))
@@ -417,7 +428,7 @@ def to_products(
             n_needed -= credited
             if n_needed <= 0:
                 continue
-            urea_product = urea_product or priced("urea", "n")
+            urea_product = urea_product or product_row("urea", "n")
             quantity = round(n_needed / ACRES_PER_HECTARE / (float(urea_product["n_pct"]) / 100), 3)
             apply_by, note = _stage_apply_by(tables, crop_id, line.stage, effective_sowing) if effective_sowing else (None, "At " + line.stage.replace("_", " "))
             if weather.get("rainfall_mm_forecast") is not None and weather["rainfall_mm_forecast"] >= rain_hold_mm:

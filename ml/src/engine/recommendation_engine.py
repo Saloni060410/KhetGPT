@@ -197,6 +197,19 @@ def _fallback_top_factors(rule_trace: list[dict]) -> list[str]:
     return factors
 
 
+def _unpriced_product_notes(schedule: list[dict], cost_breakdown_lines: list[dict]) -> list[str]:
+    """A product cost.py excluded from cost.breakdown because it has no verified price yet
+    (npk_calculator.to_products()'s docstring, cost.py's module docstring) is still in the
+    schedule with a real quantity -- this is the one place that gap surfaces to the caller,
+    since cost.breakdown's own omission is silent by itself."""
+    priced_ids = {line["fertilizer_type"] for line in cost_breakdown_lines}
+    scheduled_ids = {line["fertilizer_type"] for line in schedule}
+    return [
+        f"{product_id}'s cost is unavailable (no verified price yet); it is not included in the cost breakdown."
+        for product_id in sorted(scheduled_ids - priced_ids)
+    ]
+
+
 def _data_notes(rule_trace: list[dict], weather_source: str) -> list[str]:
     notes = []
     for entry in rule_trace:
@@ -250,7 +263,8 @@ def recommend(request: RecommendRequest, engine: Engine, today: date | None = No
         today,
         rain_hold_mm=engine.rules["rain_hold_mm"],
         rain_hold_days=engine.rules["rain_hold_days"],
-    )  # raises ReferenceDataIncomplete -> 503 (e.g. a needed nutrient's only product is unpriced)
+    )  # raises ReferenceDataIncomplete -> 503 only if a needed product has no ROW at all;
+    # an unpriced-but-known product (e.g. MOP, see cost.py) is still scheduled here.
 
     primary_product, primary_quantity = _primary_product(schedule)
     classifier_opinion = _classifier_opinion(engine, features)
@@ -275,12 +289,13 @@ def recommend(request: RecommendRequest, engine: Engine, today: date | None = No
 
     products_table = engine.tables.fertilizer_products
     history = compare_to_history(schedule, previous_usage, products_table, today, engine.tables, request.crop_type)
+    breakdown_lines = cost_breakdown(schedule, products_table)
     cost = Cost(
         estimated_cost_inr_per_acre=estimate_cost(schedule, products_table),
         previous_cost_inr_per_acre=history["previous_cost_inr_per_acre"],
         saving_inr_per_acre=history["saving_inr_per_acre"],
         prices_as_of=prices_as_of(schedule, products_table),
-        breakdown=cost_breakdown(schedule, products_table),
+        breakdown=breakdown_lines,
     )
 
     risk = assess_recommendation(
@@ -299,7 +314,8 @@ def recommend(request: RecommendRequest, engine: Engine, today: date | None = No
             top_factors=top_factors,
             nutrient_balance=NutrientBalance(**balance),
             formula=FORMULA,
-            data_notes=_data_notes(rule_trace, payload["weather"]["source"]),
+            data_notes=_data_notes(rule_trace, payload["weather"]["source"])
+            + _unpriced_product_notes(schedule, breakdown_lines),
         ),
         cost=cost,
         impact={"over_application_reduction_pct": history["over_application_reduction_pct"]},

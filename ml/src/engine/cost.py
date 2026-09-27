@@ -3,6 +3,15 @@
 Both figures are priced at today's fertilizer_products.csv rates, never a historical price
 the farmer may actually have paid (we don't have that), so the comparison is apples to
 apples: what this plan costs today, versus what already-applied fertilizer would cost today.
+
+A product with no verified price (MOP, as of 2026-09-27 -- Richa re-checked: IFFCO's own
+price list doesn't carry it, market listings were too inconsistent to cite) is never invented
+a price, but no longer blocks the whole recommendation either (that was the pre-2026-09-27
+behavior). It is simply excluded from cost.breakdown/estimated_cost_inr_per_acre -- its
+quantity and schedule still come back from npk_calculator.to_products() as normal, and
+recommendation_engine.py's data_notes says its cost is unavailable, once, per response.
+A product with no ROW AT ALL in fertilizer_products.csv is a different, still-fatal problem
+(estimate_cost still raises for that) -- an unknown product, not merely an unpriced one.
 """
 
 from __future__ import annotations
@@ -21,13 +30,10 @@ def _products_by_id(products_table: list[dict]) -> dict[str, dict]:
     return {row["product_id"]: row for row in products_table}
 
 
-def _price(product: dict, fertilizer_type: str) -> float:
-    price = _parse_float(product["price_inr_per_kg"])
-    if price is None:
-        raise ReferenceDataIncomplete(
-            "cost", fertilizer_type, f"fertilizer_products.csv: {fertilizer_type}.price_inr_per_kg is missing"
-        )
-    return price
+def _price_or_none(product: dict) -> float | None:
+    """None, not a raise: an unpriced product (see module docstring) is skipped by every
+    caller below, not treated as a fatal gap the way an unknown product id still is."""
+    return _parse_float(product["price_inr_per_kg"])
 
 
 def _season_window_days(tables: ReferenceTables, crop_id: str) -> int:
@@ -55,10 +61,11 @@ def _season_window_days(tables: ReferenceTables, crop_id: str) -> int:
 
 
 def estimate_cost(schedule: list[dict], products_table: list[dict]) -> float:
-    """INR per acre: sum of quantity_kg_per_acre x price_inr_per_kg over the schedule.
-    Raises ReferenceDataIncomplete for an unknown or unpriced product -- to_products()
-    (npk_calculator) never puts one in a real schedule, so this only fires on malformed
-    input, but it must never silently cost a plan at a wrong (e.g. zero) price."""
+    """INR per acre: sum of quantity_kg_per_acre x price_inr_per_kg over the priced items in
+    the schedule. An unpriced product (module docstring) contributes 0, not a raise -- it's
+    simply not counted, the same way cost_breakdown excludes its line. Still raises
+    ReferenceDataIncomplete for an unknown product id (no row at all), a different and still
+    fatal problem."""
     products = _products_by_id(products_table)
     total = 0.0
     for item in schedule:
@@ -67,35 +74,48 @@ def estimate_cost(schedule: list[dict], products_table: list[dict]) -> float:
             raise ReferenceDataIncomplete(
                 "cost", item["fertilizer_type"], f"fertilizer_products.csv: no row for {item['fertilizer_type']!r}"
             )
-        total += item["quantity_kg_per_acre"] * _price(product, item["fertilizer_type"])
+        price = _price_or_none(product)
+        if price is not None:
+            total += item["quantity_kg_per_acre"] * price
     return round(total, 3)
 
 
 def cost_breakdown(schedule: list[dict], products_table: list[dict]) -> list[dict]:
-    """Supports contract C1's cost.breakdown: one line per product actually used, quantities
-    combined across stages. Not asked for by name in the S5 prompt, but the contract needs it
-    and it is assembled from exactly the same priced totals as estimate_cost."""
+    """Supports contract C1's cost.breakdown: one line per priced product actually used,
+    quantities combined across stages. An unpriced product (module docstring) is left out of
+    this list entirely -- its quantity/schedule still appear in recommendation.schedule, and
+    recommendation_engine.py's data_notes says why its cost is missing here."""
     products = _products_by_id(products_table)
     totals: dict[str, float] = {}
     for item in schedule:
         totals[item["fertilizer_type"]] = totals.get(item["fertilizer_type"], 0.0) + item["quantity_kg_per_acre"]
-    return [
-        {
-            "fertilizer_type": fertilizer_type,
-            "quantity_kg_per_acre": round(quantity, 3),
-            "cost_inr_per_acre": round(quantity * _price(products[fertilizer_type], fertilizer_type), 3),
-        }
-        for fertilizer_type, quantity in totals.items()
-    ]
+    lines = []
+    for fertilizer_type, quantity in totals.items():
+        price = _price_or_none(products[fertilizer_type])
+        if price is None:
+            continue
+        lines.append(
+            {
+                "fertilizer_type": fertilizer_type,
+                "quantity_kg_per_acre": round(quantity, 3),
+                "cost_inr_per_acre": round(quantity * price, 3),
+            }
+        )
+    return lines
 
 
 def prices_as_of(schedule: list[dict], products_table: list[dict]) -> date | None:
-    """Contract C1's cost.prices_as_of: the oldest price_date among the products used, so the
-    UI can say how old the prices are. None if a used product has no price_date at all."""
+    """Contract C1's cost.prices_as_of: the oldest price_date among the *priced* products
+    used (an unpriced product, module docstring, never contributed a cost figure, so its
+    price_date -- if it even has one -- isn't relevant here). None if a priced product used
+    has no price_date at all, or if nothing in the schedule was priced."""
     products = _products_by_id(products_table)
     dates = []
     for item in {line["fertilizer_type"] for line in schedule}:
-        text = _todo_or_none(products[item].get("price_date"))
+        product = products[item]
+        if _price_or_none(product) is None:
+            continue
+        text = _todo_or_none(product.get("price_date"))
         if text is None:
             return None
         dates.append(date.fromisoformat(text))
@@ -161,10 +181,16 @@ def compare_to_history(
     if not usable:
         return {"previous_cost_inr_per_acre": None, "saving_inr_per_acre": None, "over_application_reduction_pct": None}
 
+    # Same treatment as estimate_cost: a usable prior-usage entry for an unpriced product
+    # (module docstring) contributes 0 to previous_cost rather than crashing the comparison --
+    # its nutrients are still counted below via _nutrient_total_kg_per_acre, which needs no
+    # price at all.
+    products = _products_by_id(products_table)
     previous_cost = round(
         sum(
-            usage["quantity_kg_per_acre"] * _price(_products_by_id(products_table)[usage["type"]], usage["type"])
+            usage["quantity_kg_per_acre"] * price
             for usage in usable
+            if (price := _price_or_none(products[usage["type"]])) is not None
         ),
         3,
     )
