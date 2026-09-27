@@ -189,19 +189,28 @@ def _count_by(rows: list[dict], key: str) -> dict:
 
 
 def _load_raw() -> pd.DataFrame:
-    """Real Kaggle rows plus the synthetic supplement (generate_synthetic_data.py), if it
-    exists, concatenated with an explicit data_source tag so no downstream consumer of
-    clean.csv/train.csv can mistake a synthetic row for a real observation. The synthetic
-    file is optional -- clean.py must keep working (real rows only) for anyone who hasn't
-    run the generator."""
-    real = pd.read_csv(RAW_PATH)
-    real["data_source"] = "real"
+    """Real Kaggle rows plus the synthetic supplement (generate_synthetic_data.py), concatenated
+    with an explicit data_source tag so no downstream consumer of clean.csv/train.csv can
+    mistake a synthetic row for a real observation. Both files are optional individually --
+    dataset_manifest.json marks the real file "committed": false (fetched separately, may not
+    be present on a given machine) -- but at least one of the two must exist, or there is
+    nothing to clean."""
+    frames = []
+    if RAW_PATH.exists():
+        real = pd.read_csv(RAW_PATH)
+        real["data_source"] = "real"
+        frames.append(real)
 
     if SYNTHETIC_RAW_PATH.exists():
         synthetic = pd.read_csv(SYNTHETIC_RAW_PATH)
         synthetic["data_source"] = "synthetic"
-        return pd.concat([real, synthetic], ignore_index=True)
-    return real
+        frames.append(synthetic)
+
+    if not frames:
+        raise CleaningError(
+            f"No raw dataset found: neither {RAW_PATH} nor {SYNTHETIC_RAW_PATH} exists."
+        )
+    return pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
 
 
 def run() -> dict:

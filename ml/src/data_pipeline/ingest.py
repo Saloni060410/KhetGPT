@@ -36,8 +36,15 @@ def load_manifest() -> dict:
 
 
 def verify_dataset(entry: dict) -> None:
+    """Raises if a file that should exist is missing or drifted. An entry marked
+    "committed": false (a raw/external dataset meant to be fetched separately, per its own
+    manifest note) is verified only if it happens to be present -- that flag is precisely
+    what distinguishes "must be here" from "fetch it yourself, and we'll check it if you
+    have". A "committed": true entry (checked into git) is always required."""
     path = ML_ROOT / entry["path"]
     if not path.exists():
+        if entry.get("committed") is False:
+            return
         raise IngestError(
             f"{entry['id']}: expected file not found at {path}. "
             f"Fetch it per ml/data/README.md (source: {entry['url']})."
@@ -67,12 +74,17 @@ def verify_dataset(entry: dict) -> None:
 
 
 def verify_all() -> list[str]:
-    """Verify every dataset in the manifest. Returns the list of verified ids."""
+    """Verify every dataset in the manifest that is present, and every "committed": true
+    dataset regardless (those must always be there). Returns the list of ids actually
+    verified -- an optional, not-yet-fetched dataset is silently absent from this list, not
+    an error; see verify_dataset()'s docstring."""
     manifest = load_manifest()
     verified = []
     for entry in manifest["datasets"]:
+        path = ML_ROOT / entry["path"]
         verify_dataset(entry)
-        verified.append(entry["id"])
+        if path.exists():
+            verified.append(entry["id"])
     return verified
 
 

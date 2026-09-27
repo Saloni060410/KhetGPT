@@ -51,7 +51,7 @@
         "chickpea",
         "barley"
       ],
-      "sha256": "ee0e67bf2e51faeef33147d2e740495181860e58cd33d964d8dd64d04ef32f1a",
+      "sha256": "6a9a2d910d52afcab2a1661a62672a59429bf56e898055c436943d8394b96916",
       "rows": 2800,
       "columns": [
         "Temparature",
@@ -84,7 +84,7 @@
       "license": "CC BY 3.0",
       "retrieved": "2026-09-26",
       "retrieval_method": "Direct download of the public ISRIC SOTWIS_IGP-IN.zip archive; attribute table extracted from GIS/SOTWIS/SOTWIS_0-20cm_parametersestimates/IGP-IN_SOTWISv1_t1s1d1.dbf with dbfread. Geometry/shapefile discarded -- only the tabular soil-property attributes were kept.",
-      "sha256": "7b14c66d072fb1ad190b1cb90e61bf60750bd01b83f83102f8383a6017574519",
+      "sha256": "56fe8d32ba89f08860b5d848256df7502040c3599d1b7903e6ed6e55c66d795d",
       "rows": 497,
       "columns": [
         "soter_unit_id",
@@ -157,11 +157,9 @@
       "test": 0.15
     },
     "split_sizes": {
-      "train": 2839,
-      "test": 10,
-      "val": 8
+      "train": 2800
     },
-    "content_hash": "4363017229d6a28e",
+    "content_hash": "ac48ceafd308a53c",
     "feature_schema_hash": "70655708beb3033f",
     "feature_columns": [
       "crop_id",
