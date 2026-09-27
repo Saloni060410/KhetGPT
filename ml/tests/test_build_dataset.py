@@ -10,8 +10,17 @@ from src.data_pipeline.build_dataset import (
     _stratified_split,
     run,
 )
+from src.data_pipeline.clean import RAW_PATH
 
 TEST_IDS_PATH = EXTERNAL_DIR / "test_ids.json"
+
+# RAW_PATH (the real, gitignored Kaggle file) requires a manual, logged-in download -- genuinely
+# absent on a fresh clone (see ml/data/README.md). npk_10_26_26's "exactly 3 real rows" is only
+# true when that file is present -- caught by actually running a fresh-clone reproducibility
+# check, not a hypothetical.
+requires_real_kaggle_file = pytest.mark.skipif(
+    not RAW_PATH.exists(), reason="real Kaggle file not fetched on this machine -- see ml/data/README.md"
+)
 
 
 @pytest.fixture
@@ -66,6 +75,7 @@ def test_a_class_smaller_than_the_split_threshold_never_gets_split():
     assert len(rare_splits) == 1, f"a class below the threshold got split across {rare_splits}"
 
 
+@requires_real_kaggle_file
 def test_a_class_at_the_split_threshold_can_be_split_across_all_three(fresh_test_ids):
     """The other side of the same boundary: a class with exactly
     MIN_ROWS_TO_SPLIT_ACROSS_ALL_THREE rows is allowed to appear in all three splits -- this
