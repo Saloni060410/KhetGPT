@@ -235,12 +235,60 @@ entry above.
     assuming it belongs in the contract's error taxonomy or that his `mlService.js` already
     tolerates an unrecognized status code.
 
+## Done, and not blocked (S8)
+
+- **S8 — formula sanity gate.** `tests/test_formula_sanity.py` (57 tests): for every ready
+  crop (`ready_crops()` -- barley excluded, `no split_schedule rows`, listed explicitly) and
+  every variety (`crop_varieties.csv`'s `rice/pr_132`, `chickpea/kabuli`, plus `wheat/wh_542`
+  added manually -- it's a real, sourced STCR variety but isn't in `crop_varieties.csv` yet,
+  **flagged for Richa**), at low/medium/high soil, an independent recomputation via Richa's
+  `evaluation.metrics.formula_conformity` (reading `reference_doses.csv`/`soil_adjustments.csv`/
+  `stcr_equations.csv` directly -- `compute_balance()` is called exactly once per case, only to
+  produce the recommendation this test then checks, never to recompute the formula a second
+  time) matches within `agronomy_rules.yaml`'s `formula_tolerance_pct`. Also asserts no
+  negative quantities anywhere, that schedule quantities sum to the primary product's
+  top-level total, and that a credit larger than the dose clamps to zero (wheat N, the one
+  nutrient where crediting is actually sourced -- P/K's `nutrient_efficiency.csv` default rows
+  are both `TODO(data)`, which skips crediting entirely, so that clamp can't be exercised via
+  credit for those two yet).
+  **One real finding, not a bug:** `formula_conformity` correctly reports wheat/n, wheat/p and
+  rice/n as violators for a *different* reason than a numeric mismatch -- `soil_adjustments.csv`
+  has no adjustment source at all for those three (its own `TODO(data)`-in-`soil_rating` rows,
+  already documented in that file). Allowlisted explicitly in the test (by exact
+  crop/nutrient, not broadly) so a genuinely new gap wouldn't silently pass as "expected" too.
+  **`docs/demo-scenarios.md` doesn't exist yet** -- checked the working tree and every branch
+  (`main`, `feature/richa-ml-data`, `feature/josh-backend`, `feature/darsh-frontend`,
+  `docs/contract-v1`, `docs/richa-c5-v1`), genuinely absent everywhere, not something I should
+  invent content for. Not a blocker: "every crop and variety in crops.csv, low/medium/high
+  soil" is itself a fully specified, exhaustive test matrix without it -- but whoever owns that
+  file should know it's referenced by the pack and doesn't exist yet.
+
+- **S8 — final test-split evaluation, enriched with confidence intervals.** The frozen test
+  split was already evaluated once (`--final-test`, this conversation, registered as
+  `fertilizer-classifier-0.1.0`). Re-running `python -m src.models.train --final-test` was
+  **not** done again: `_next_version()` auto-increments on every call, so it would have silently
+  registered a new `0.1.1` and genuinely touched the frozen test split a second time -- not a
+  re-run of the same evaluation, a second one. Instead: loaded the already-registered artifact
+  and predicted once, purely as inference, on the same already-frozen test rows; verified the
+  resulting point estimates matched the already-recorded ones exactly (macro-F1 0.4686,
+  balanced-accuracy 0.6007, MCC 0.3665, accuracy 0.5819, n=421) as proof this is the same
+  evaluation, not a new one; then ran Richa's `evaluate_classifier` on those exact predictions
+  for the enrichment (bootstrap 95% CI, per-class precision/recall/F1, confusion matrix) and
+  wrote it into the registry entry in place. **95% CIs: macro-F1 [0.370, 0.548], balanced-accuracy
+  [0.458, 0.691], accuracy [0.534, 0.627]** -- wide, at n=421 with one class (`npk_17_17_17`,
+  support 3) this thin, expected and reported plainly rather than hidden. Per-class recall is
+  uneven: `dap` 1.00, `urea` 0.72, `np_28_28_0` 0.45, `np_20_20_0` 0.17 -- worth knowing before
+  calling this "done," not just the headline numbers. The enrichment script is archived at
+  `models_artifacts/runs/20260927T132419Z/enrich_test_metrics.py` for audit; both `registry.json`
+  and that run's `metrics.json` are gitignored/untracked as always. **The test split must not be
+  evaluated again for this model version -- this is final.**
+
 ## Not started yet
 
-S8 (formula sanity gate, final test evaluation) onward per the pack. S3, S4, S5, S6 and S7 are
-all done, unblocked and re-verified end to end as of 2026-09-27: a real classifier is
-registered (`fertilizer-classifier-0.1.0`), `/health` reports `ok` with its version, the
-fixture demo in real mode validates against the contract for both the potash and no-potash
-paths, `/risk-score` works, p95 latency over 50 calls is 64.9ms (well inside NFR1's 3s), and
-the API is hardened with contract tests, a request-size limit, structured logging and a global
+S9 onward per the pack. S3 through S8 are all done, unblocked and re-verified end to end as of
+2026-09-27: a real classifier is registered (`fertilizer-classifier-0.1.0`) with a genuine,
+CI-enriched frozen-test-split result, `/health` reports `ok` with its version, the fixture demo
+in real mode validates against the contract for both the potash and no-potash paths,
+`/risk-score` works, p95 latency over 50 calls is 64.9ms (well inside NFR1's 3s), the API is
+hardened with contract tests, a request-size limit, structured logging and a global
 error-shape handler. No open gaps left in my area right now.
