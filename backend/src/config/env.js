@@ -19,3 +19,10 @@ const schema = z.object({
 })
 
 export const env = schema.parse(process.env)
+
+// A real allowlist, not just a single trusted origin: CORS_ORIGIN may be one origin (every
+// existing .env.example/docker-compose.yml/CI value) or a comma-separated list, for a
+// multi-origin deployment (e.g. a deployed frontend plus a local dev server) without a schema
+// change. Used by app.js's cors() origin callback, not by any test/doc that reads
+// env.CORS_ORIGIN directly (unaffected -- still the raw string).
+export const CORS_ORIGINS = env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
