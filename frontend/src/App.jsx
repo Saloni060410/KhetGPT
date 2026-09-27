@@ -1,5 +1,5 @@
 import { useEffect, Suspense, lazy } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, Navigate } from 'react-router-dom'
 import Shell from './components/layout/Shell.jsx'
 import RequireAuth from './components/layout/RequireAuth.jsx'
 import RouteErrorBoundary from './components/layout/RouteErrorBoundary.jsx'
@@ -44,6 +44,8 @@ export default function App() {
           {/* Current UI as the Home Page & Field Optimizer */}
           <Route path="/" element={<HomePage />} />
           <Route path="/optimizer" element={<OptimizerPage />} />
+          <Route path="/recommendation" element={<Navigate to="/fields/1/recommendation" replace />} />
+          <Route path="/prescription" element={<Navigate to="/fields/1/recommendation" replace />} />
 
           {/* Core KhetGPT App Pages with standard Shell & Navigation */}
           <Route
