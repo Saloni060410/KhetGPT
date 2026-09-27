@@ -1,6 +1,12 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { runInFreshProcess } from './helpers/runInFreshProcess.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const servicePath = path.join(__dirname, '../src/services/geocodeService.js')
 
 let server
 
@@ -31,24 +37,26 @@ before(async () => {
 
 after(() => server.close())
 
-test('geocodePlace() returns normalized place results', async () => {
+test('geocode() returns normalized place results', async () => {
   const port = server.address().port
 
-  process.env.GEOCODING_API_URL = `http://localhost:${port}/v1`
+  const output = await runInFreshProcess({
+    env: { GEOCODE_SERVICE_URL: `http://localhost:${port}/v1` },
+    servicePath,
+    script: 'async (mod) => mod.geocode("Mumbai")',
+  })
 
-  const { geocodePlace } = await import(
-    '../src/services/geocodeService.js?test=' + Date.now()
-  )
-
-  const results = await geocodePlace('Mumbai')
-
-  assert.deepEqual(results, [
+  assert.equal(output.ok, true, output.message)
+  // geocode()'s real shape (src/services/geocodeService.js): {name, admin, latitude,
+  // longitude} -- no `country` field. The previous version of this test asserted a shape
+  // that never matched the implementation at all (name mismatch masked it: geocodePlace()
+  // didn't exist, so this assertion was never reached either).
+  assert.deepEqual(output.result, [
     {
       name: 'Mumbai',
+      admin: 'Maharashtra',
       latitude: 19.076,
       longitude: 72.8777,
-      country: 'India',
-      admin1: 'Maharashtra',
     },
   ])
 })

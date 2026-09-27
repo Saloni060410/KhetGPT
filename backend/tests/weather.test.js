@@ -1,6 +1,12 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { runInFreshProcess } from './helpers/runInFreshProcess.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const servicePath = path.join(__dirname, '../src/services/weatherService.js')
 
 let server
 
@@ -29,33 +35,28 @@ before(async () => {
 
 after(() => server.close())
 
-test('getWeather() returns live weather data', async () => {
+test('getWeatherForField() returns live weather data', async () => {
   const port = server.address().port
 
-  process.env.WEATHER_API_URL = `http://localhost:${port}/v1`
-
-  const { getWeather } = await import(
-    '../src/services/weatherService.js?test=' + Date.now()
-  )
-
-  const result = await getWeather({
-    latitude: 19.076,
-    longitude: 72.8777,
+  const output = await runInFreshProcess({
+    env: { WEATHER_SERVICE_URL: `http://localhost:${port}/v1` },
+    servicePath,
+    script: 'async (mod) => mod.getWeatherForField({ id: "test-field", latitude: 19.076, longitude: 72.8777 })',
   })
 
-  assert.equal(result.temperature_c, 28)
-  assert.equal(result.humidity_pct, 70)
-  assert.equal(result.rainfall_mm_forecast, 10)
-  assert.equal(result.source, 'live')
+  assert.equal(output.ok, true, output.message)
+  assert.equal(output.result.temperature_c, 28)
+  assert.equal(output.result.humidity_pct, 70)
+  assert.equal(output.result.rainfall_mm_forecast, 10)
+  assert.equal(output.result.source, 'live')
 })
 
-test('getWeather() rejects missing coordinates', async () => {
-  const { getWeather, WeatherUnavailableError } = await import(
-    '../src/services/weatherService.js?missing=' + Date.now()
-  )
+test('getWeatherForField() rejects missing coordinates', async () => {
+  const output = await runInFreshProcess({
+    servicePath,
+    script: 'async (mod) => mod.getWeatherForField({ id: "test-field", latitude: null, longitude: null })',
+  })
 
-  await assert.rejects(
-    () => getWeather({ latitude: null, longitude: null }),
-    WeatherUnavailableError
-  )
+  assert.equal(output.ok, false)
+  assert.equal(output.name, 'WeatherUnavailableError')
 })

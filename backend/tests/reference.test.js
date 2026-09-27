@@ -1,6 +1,12 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { runInFreshProcess } from './helpers/runInFreshProcess.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const servicePath = path.join(__dirname, '../src/services/referenceService.js')
 
 let server
 let hits
@@ -80,16 +86,19 @@ test('serves a stale copy while ML is down, then 503 once past 24h', async () =>
 })
 
 test('ML_MODE=offline serves backend/config/reference.dev.json without calling ML', async () => {
-  const originalMode = process.env.ML_MODE
+  // A genuine fresh process, not a mid-process process.env mutation + cache-busted
+  // re-import: src/config/env.js parses process.env exactly once, into a frozen `env`
+  // object, the moment anything first imports it -- which the two tests above already did
+  // (with ML_MODE='online'), so mutating process.env.ML_MODE here and re-importing
+  // referenceService.js with a `?offline=` query string does NOT work: that cache-busted
+  // copy still resolves the *same*, already-cached env.js, still reporting 'online'. See
+  // tests/helpers/runInFreshProcess.js.
+  const output = await runInFreshProcess({
+    env: { ML_MODE: 'offline' },
+    servicePath,
+    script: 'async (mod) => mod.getFertilizers()',
+  })
 
-  process.env.ML_MODE = 'offline'
-
-  const mod =
-    await import('../src/services/referenceService.js?offline=' + Date.now())
-
-  const fertilizers = await mod.getFertilizers()
-
-  assert.ok(fertilizers.some((f) => f.id === 'urea'))
-
-  process.env.ML_MODE = originalMode
+  assert.equal(output.ok, true, output.message)
+  assert.ok(output.result.some((f) => f.id === 'urea'))
 })
