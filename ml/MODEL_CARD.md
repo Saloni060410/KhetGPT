@@ -1,11 +1,17 @@
-# Model card: `fertilizer-classifier-0.1.0`
+# Model card: `fertilizer-classifier-0.1.1`
 
 Every number below is pulled from `ml/src/models/model_registry/registry.json`'s
-`fertilizer-classifier`/`0.1.0` entry, from `ml/PROGRESS.md`'s dated entries for the same
+`fertilizer-classifier`/`0.1.1` entry, from `ml/PROGRESS.md`'s dated entries for the same
 run, or (Limitations section) from Richa's `docs/evaluation-report.md`, unless marked
 `TODO(metric)`. Nothing here is estimated or rounded from memory. Written for S10
 (`docs/prompt-packs/saloni.md`); the ML standards this follows are
 `~/claude-plugins/ml-ds-standards/CLAUDE.md` section 5.
+
+`0.1.1` (2026-09-27) is a retrain of `0.1.0` after the `feature/richa-ml-data` merge, run to
+resolve an open question flagged in `docs/evaluation-report.md` §1.3 (see "Ownership and
+retraining plan" below for what that retrain found). Every CV/test metric in this card is
+unchanged from `0.1.0` -- only the reproducibility block's provenance fields (git commit,
+config hash, run id) reflect the new version.
 
 ## Intended use
 
@@ -255,12 +261,18 @@ failure-mode analysis; summarized here, not duplicated in full:
   wheat/N, wheat/P, rice/N), not a formula bug.
 - **MOP's price is now resolved** (2026-09-27, PIB Release ID 2237470, ₹34.21/kg) --
   `ssp`, `npk_14_35_14`, `npk_17_17_17` and `np_20_20_0` remain unpriced (see "Risk and cost").
-- **The registered v0.1.0 model predates this merge's data fixes** (barley's
-  `split_schedule.csv` row, sourced P/K nutrient efficiency). A fresh local reproduction on the
-  current dataset shows a 6th class (`npk_14_35_14`, 9 rows) not present when v0.1.0 was
-  registered, and correspondingly different metrics (macro F1 0.341 vs the registered 0.469).
-  The reproduction is exact and repeatable (not a fluke), but whether to register a new model
-  version over this is an open decision, not yet made -- see `ml/PROGRESS.md`.
+- **Retrained as `0.1.1` (2026-09-27) to check whether the merge's data fixes changed the
+  classifier.** They didn't: rebuilding `data/processed/train.csv` from the current raw
+  synthetic data and reference tables and retraining reproduces `0.1.0`'s CV and test metrics
+  identically -- same 5 fertilizer labels (`raw/fertilizer_prediction_synthetic.csv` has no 6th
+  class), same class counts, same macro F1/balanced accuracy/MCC to the last digit, and the
+  same file-level `dataset_hash` (`9eb97903`) `0.1.0` was trained on. This makes sense in
+  hindsight: barley's `split_schedule.csv` row and the sourced P/K nutrient efficiency only feed
+  `npk_calculator.py`'s dose formula (see "Decision policy" above) -- neither the classifier's
+  `FEATURE_COLUMNS` nor its target label ever reads either table. `0.1.1` is registered anyway,
+  as the current git commit's own build, and is the actively served version
+  (`recommendation_engine.py` always loads the registry's last entry). See `ml/PROGRESS.md` for
+  the full before/after.
 
 ## Fairness and regional caveats
 
@@ -282,20 +294,20 @@ failure-mode analysis; summarized here, not duplicated in full:
 
 | Field | Value |
 |---|---|
-| Model name / version | `fertilizer-classifier` / `0.1.0` |
-| Git commit (produced this artifact) | `f234d21` |
-| Config hash (`configs/train.yaml` at training time) | `626c8a31` |
-| Dataset hash (`data/processed/train.csv` at training time) | `9eb97903` |
-| Rules hash (reference-table state at serving time, computed fresh each startup, separate from config hash above) | `f22bca59` (as of this writing -- changes if any `data/external/` table changes) |
-| Served `model_version` string | `fertilizer-classifier-0.1.0+rules-f22bca59` |
+| Model name / version | `fertilizer-classifier` / `0.1.1` |
+| Git commit (produced this artifact) | `1194584` |
+| Config hash (`configs/train.yaml` at training time) | `1851d573` |
+| Dataset hash (`data/processed/train.csv` at training time) | `9eb97903` (identical to `0.1.0`'s -- see "Ownership and retraining plan") |
+| Rules hash (reference-table state at serving time, computed fresh each startup, separate from config hash above) | changes if any `data/external/` table changes since this was written; check `/health`'s `model_version` field for the live value |
+| Served `model_version` string | `fertilizer-classifier-0.1.1+rules-<current>` |
 | Python | 3.11.9 |
 | scikit-learn | 1.9.1 |
 | xgboost | 3.2.0 |
 | pandas | 3.0.6 |
 | numpy | 2.4.6 |
 | Train command | `python -m src.models.train --config configs/train.yaml --final-test` |
-| Compute time | 10.7s wall clock (printed at run time; not persisted in this run's own record -- a later fix now writes `wall_clock_seconds` into every future run's `env.json`, see `ml/PROGRESS.md`) |
-| Run record | `models_artifacts/runs/20260927T132419Z/` (gitignored/untracked, like all run artifacts) |
+| Compute time | 188.7s wall clock (persisted in `env.json`; `0.1.0`'s own 10.7s was printed-only, before that fix landed) |
+| Run record | `models_artifacts/runs/20260927T200512Z/` (gitignored/untracked, like all run artifacts) |
 | Registry entry | `ml/src/models/model_registry/registry.json` (committed, metadata-only -- the `.joblib` itself stays gitignored; see `ml/PROGRESS.md`'s registry-commit entry) |
 
 To reproduce from a clean checkout: `pip install -r requirements.txt`, then

@@ -472,23 +472,37 @@ Gaps this closed, previously flagged as blocking in this file or the model card:
 - **`docs/evaluation-report.md` (R12) now exists.** `ml/MODEL_CARD.md`'s "Limitations" section
   updated from it directly -- the `TODO(richa-eval-report)` is gone.
 
-**Open decision, not yet made -- flagged by Richa's evaluation report, hers to raise but mine
-to decide:** the registered `fertilizer-classifier-0.1.0` was trained *before* this merge's
-data fixes. A fresh local reproduction on the post-merge dataset shows a 6th class
-(`npk_14_35_14`, 9 rows) that wasn't present when v0.1.0 was registered, and correspondingly
-different metrics (macro F1 0.341 vs the registered 0.469, on `docs/evaluation-report.md`
-§1.3). The reproduction is exact and repeatable across runs, so it's a real dataset change, not
-noise -- but whether it's specifically the barley/P-K fixes that introduced the new class, or
-something incidental to a local rebuild, hasn't been isolated yet. Not registering a new
-version yet; needs a decision on whether to re-train and re-register before the demo, or leave
-v0.1.0 as the frozen, judge-facing number with this noted as a known follow-up.
+**Retrained (2026-09-28) to resolve the open decision Richa's evaluation report flagged:** the
+registered `fertilizer-classifier-0.1.0` was trained *before* this merge's data fixes, and her
+report's fresh local reproduction showed a 6th class (`npk_14_35_14`, 9 rows) with different
+metrics (macro F1 0.341 vs the registered 0.469, `docs/evaluation-report.md` §1.3). Ran the real
+pipeline on this checkout to settle it: `python -m src.data_pipeline.build_dataset --config
+configs/data.yaml` (deterministic, reproduces the same `content_hash` a second local rebuild
+already showed) then `python -m src.models.train --config configs/train.yaml --final-test`.
+**Result: no 6th class, and every CV/test metric reproduces `0.1.0` identically** -- same 5
+labels (verified directly against `data/raw/fertilizer_prediction_synthetic.csv`'s own
+`Fertilizer Name` value counts: Urea 1339, 28-28 1013, 20-20 279, DAP 151, 17-17-17 18, nothing
+else), same class counts after the train+val split, same macro F1/balanced accuracy/MCC to the
+last digit, and the *same* file-level `dataset_hash` (`9eb97903`) `0.1.0` was registered
+against -- i.e. `train.csv`'s actual byte content never changed. This is expected in hindsight:
+the classifier's `FEATURE_COLUMNS` (crop/variety/n/p/k/weather) and its target label never read
+`split_schedule.csv` or `nutrient_efficiency.csv` -- those two tables only feed
+`npk_calculator.py`'s dose formula. Richa's "fresh reproduction" showing a 6th class must
+reflect some local state on her machine (an uncommitted regeneration of the raw synthetic file,
+most likely) rather than anything in the merged repo -- flagged back to her, not something to
+chase further here since this checkout's own numbers are the ones that matter for what's
+actually registered.
 
-Merge commit pushed to `origin/feature/saloni-ml-core`.
+Registered `fertilizer-classifier-0.1.1` anyway (current git commit's own build,
+`models_artifacts/runs/20260927T200512Z/`) -- it's the actively served version now
+(`recommendation_engine.py` always loads the registry's last entry). Full suite re-run after
+registering: 321 passed, 2 properly-skipped, unchanged. `ml/MODEL_CARD.md` updated throughout
+(title, reproducibility block, Limitations) to `0.1.1`'s real values, not `0.1.0`'s.
+
+Merge commit and the retrain both pushed to `origin/feature/saloni-ml-core`.
 
 ## Not started yet
 
 S11 (demo readiness) per the pack -- gated on Josh's compose changes from S9 (J10).
 S12 (learned quantity refinement) is a stretch goal conditional on Richa having found a
 dataset with real applied-quantity labels -- unknown status, hers to say.
-Whether to re-train/re-register the classifier over the merge's dataset change (see above) --
-open, needs a decision before the demo.
