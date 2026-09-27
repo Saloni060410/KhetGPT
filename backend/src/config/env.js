@@ -13,6 +13,7 @@ const schema = z.object({
   JWT_REFRESH_TTL: z.string().default('7d'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   ML_SERVICE_URL: z.string().url().default('http://localhost:8001'),
+  ML_MODE: z.enum(['online', 'offline']).default('online'),
 })
 
 export const env = schema.parse(process.env)

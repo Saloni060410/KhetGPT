@@ -25,6 +25,8 @@ export const refreshSchema = z.object({
 })
 
 function sanitizeUser(user) {
+  // passwordHash is intentionally removed from the response
+  // eslint-disable-next-line no-unused-vars
   const { passwordHash, ...rest } = user
   return rest
 }
