@@ -300,7 +300,7 @@ def recommend(request: RecommendRequest, engine: Engine, today: date | None = No
 
     risk = assess_recommendation(
         request.crop_type, balance, schedule, payload["soil"], payload["weather"], previous_usage,
-        engine.rules, engine.tables,
+        engine.rules, engine.tables, today=today,
     )
 
     return RecommendResponse(

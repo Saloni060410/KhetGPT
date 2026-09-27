@@ -130,7 +130,7 @@ def _compute_risk(applied_kg_ha: dict[str, float], nutrient_balance: dict, soil:
 
 def assess_recommendation(crop_id: str, nutrient_balance: dict, schedule: list[dict], soil: dict,
                            weather: dict, prior_usage: list[dict], rules: dict,
-                           tables: ReferenceTables | None = None) -> dict:
+                           tables: ReferenceTables | None = None, today: date | None = None) -> dict:
     """Risk for the field, based on the farmer's own SAME-SEASON application history versus
     what the crop actually needs -- not a judgement of the new recommendation, which by
     construction meets need.
@@ -148,7 +148,18 @@ def assess_recommendation(crop_id: str, nutrient_balance: dict, schedule: list[d
     function falls back to credit_window_days EXPLICITLY (logged as a warning, not a
     silent substitution) rather than inventing a number or pretending the two concepts are
     interchangeable. Whoever adds a maturity stage for another crop's growth_stages.csv
-    automatically gets a real season window here with no code change needed."""
+    automatically gets a real season window here with no code change needed.
+
+    `today` is the SAME reference date `recommend()` used for the rest of the response
+    (compute_balance/to_products/compare_to_history all take it explicitly) -- passed through
+    to `_applied_kg_ha`'s window check so "is this application still within the window" is
+    judged against the request's own notion of "now", not the server's real wall-clock time.
+    Bug found and fixed 2026-09-28 (S11 demo readiness): this parameter didn't exist before,
+    so every caller silently got `_applied_kg_ha`'s own `datetime.now(tz=UTC)` default instead
+    -- correct for real traffic (where "today" and wall-clock time are the same thing), but it
+    made a demo/test run's risk verdict non-reproducible under a pinned `today`, since the dose
+    math (which does thread `today` through) and the risk verdict (which didn't) could silently
+    disagree about what day it is. See ml/PROGRESS.md for how this was found."""
     from src.data_pipeline.feature_engineering import season_length_days
 
     tables = tables or load_reference_tables()
@@ -166,7 +177,7 @@ def assess_recommendation(crop_id: str, nutrient_balance: dict, schedule: list[d
         )
 
     applied = {
-        nutrient: _applied_kg_ha(prior_usage, nutrient, tables, within_days=within_days)
+        nutrient: _applied_kg_ha(prior_usage, nutrient, tables, within_days=within_days, reference_date=today)
         for nutrient in ("n", "p", "k")
     }
     return _compute_risk(applied, nutrient_balance, soil, weather, rules, tables)

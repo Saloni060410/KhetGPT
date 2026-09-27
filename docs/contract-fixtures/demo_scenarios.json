@@ -249,11 +249,11 @@
           ]
         },
         "risk": {
-          "level": "low",
-          "reason": "Applied and needed amounts are close across all nutrients, with no soil-health or runoff concerns flagged.",
-          "soil_health_impact": "This application pattern is not expected to degrade soil health.",
-          "yield_impact": "This dose is expected to support the crop's yield potential without wasted input.",
-          "over_application_pct": null
+          "level": "high",
+          "reason": "Applied N is 135.9 kg/ha, 207% of the 65.7 kg/ha the crop needs.",
+          "soil_health_impact": "Nitrogen applied well beyond crop need can acidify the soil over time and leach into groundwater rather than being taken up by the plant.",
+          "yield_impact": "Extra fertilizer beyond what the crop can use adds cost without adding yield -- money spent for no extra grain.",
+          "over_application_pct": 106.9
         },
         "explanation": {
           "top_factors": [
