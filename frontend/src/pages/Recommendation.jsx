@@ -33,9 +33,22 @@ export default function Recommendation() {
 
   const [activeNutrientStream, setActiveNutrientStream] = useState(null);
   const [uptakeToast, setUptakeToast] = useState(null);
-  const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('khetgpt_view_mode') || '3d';
+    } catch {
+      return '3d';
+    }
+  });
 
-  // Modals
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('khetgpt_view_mode', mode);
+    } catch {
+      // ignore storage error
+    }
+  };
   const [showDealerSlip, setShowDealerSlip] = useState(false);
   const [showDatesModal, setShowDatesModal] = useState(false);
   const [showSpecsModal, setShowSpecsModal] = useState(false);
@@ -166,12 +179,12 @@ export default function Recommendation() {
   };
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-[#100d0a] text-slate-100 select-none">
+    <div className={`relative w-full ${viewMode === '2d' ? 'min-h-screen overflow-y-auto' : 'h-screen overflow-hidden'} bg-[#100d0a] text-slate-100 select-none`}>
       
       {/* ========================================================
           1. FULLSCREEN 3D WEBGL SOIL DIORAMA CANVAS (Whole Page 3D)
          ======================================================== */}
-      <div className={`fixed inset-0 w-full h-full transition-opacity duration-300 ${viewMode === '3d' ? 'z-0 opacity-100 pointer-events-auto' : 'z-0 opacity-30 pointer-events-none'}`}>
+      <div className={`fixed inset-0 w-full h-full transition-opacity duration-300 ${viewMode === '3d' ? 'z-0 opacity-100 pointer-events-auto' : 'z-0 opacity-0 pointer-events-none'}`}>
         <HomeCanvas
           sceneRefs={sceneRefs}
           currentStage={1}
@@ -190,13 +203,49 @@ export default function Recommendation() {
       <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* ========================================================
-          2. 2D PRECISION GIS FULLSCREEN VIEW (When Toggled)
+          2. 2D PRECISION GIS FULL ALTERNATIVE VIEW (For Farmers)
          ======================================================== */}
       {viewMode === '2d' && (
-        <div className="absolute inset-0 z-10 p-4 sm:p-8 pt-24 sm:pt-28 bg-[#0a0f16] flex items-center justify-center animate-in fade-in duration-300">
-          <div className="w-full max-w-5xl h-[82vh] bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-700/80 p-2">
-            <Field2DMap activeCrop={activeCrop} />
+        <div className="relative z-10 min-h-screen pt-28 sm:pt-32 pb-24 px-3 sm:px-6 max-w-6xl mx-auto flex flex-col gap-4 animate-in fade-in duration-200">
+          
+          {/* Helpful 2D Accessibility Banner for Farmers */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-4 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 shadow-xl">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+              <div>
+                <h2 className="text-sm font-bold text-white font-serif flex items-center gap-2">
+                  <span>ਸੌਖਾ 2D ਨਕਸ਼ਾ (2D Precision Soil GIS)</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono">
+                    Farmer Accessibility Mode
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-300">
+                  ਸੌਖੇ ਤਰੀਕੇ ਨਾਲ ਆਪਣੇ 8.5 ਏਕੜ ਖੇਤ ਦੇ ਜ਼ੋਨ ਦੇਖੋ ਅਤੇ ਬਿਨਾਂ 3D ਘੁਮਾਏ ਖਾਦ ਦੀ ਸਹੀ ਮਾਤਰਾ ਜਾਣੋ।
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleSetViewMode('3d')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-mono font-medium transition-all cursor-pointer shadow-xs border border-slate-700 active:scale-95"
+            >
+              <Compass className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Try 3D Diorama</span>
+            </button>
           </div>
+
+          {/* 2D Precision Map Component with all Props */}
+          <Field2DMap
+            activeCrop={activeCrop}
+            crops={crops}
+            onSelectCrop={(cId) => setSelectedCropId(cId)}
+            onOpenDocket={() => setIsDocketOpen(true)}
+            onOpenDealerSlip={() => setShowDealerSlip(true)}
+            onOpenDates={() => setShowDatesModal(true)}
+            onOpenAgronomist={() => setShowAskAgronomist(true)}
+            onSwitchTo3D={() => handleSetViewMode('3d')}
+            isStandalone={true}
+          />
         </div>
       )}
 
@@ -238,31 +287,35 @@ export default function Recommendation() {
           </div>
         </div>
 
-        {/* Right: Quick Tools (2D Map, Slip, Dates) */}
-        <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
-          {/* 3D vs 2D Toggle */}
-          <button
-            onClick={() => setViewMode(viewMode === '3d' ? '2d' : '3d')}
-            className={`px-2.5 py-1.5 rounded-xl border text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 shadow-xs ${
-              viewMode === '2d'
-                ? 'bg-cyan-500 text-slate-950 border-cyan-400 font-bold shadow-cyan-500/25'
-                : 'backdrop-blur-md bg-slate-950/80 hover:bg-slate-900 border-slate-800 text-cyan-300'
-            }`}
-            title="Toggle between 3D Farm Diorama and 2D GIS Soil Map"
-          >
-            {viewMode === '2d' ? (
-              <>
-                <Compass className="w-3.5 h-3.5" />
-                <span>Switch to 3D Farm</span>
-              </>
-            ) : (
-              <>
-                <MapPin className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">2D Soil GIS Map</span>
-                <span className="sm:hidden">2D Map</span>
-              </>
-            )}
-          </button>
+        {/* Right: Quick Tools (Segmented 3D/2D Switcher, Slip, Dates) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto flex-wrap">
+          {/* Segmented 3D vs 2D Switcher */}
+          <div className="flex items-center bg-slate-950/90 backdrop-blur-xl border border-slate-800 rounded-xl p-0.5 shadow-lg">
+            <button
+              onClick={() => handleSetViewMode('3d')}
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === '3d'
+                  ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Switch to 3D Farm Diorama"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>3D Farm</span>
+            </button>
+            <button
+              onClick={() => handleSetViewMode('2d')}
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === '2d'
+                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Switch to 2D Simple Map (ਸੌਖਾ ਨਕਸ਼ਾ)"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>2D Map (ਸੌਖਾ ਨਕਸ਼ਾ)</span>
+            </button>
+          </div>
 
           {/* Print Dealer Slip */}
           <button
@@ -305,45 +358,47 @@ export default function Recommendation() {
       </div>
 
       {/* ========================================================
-          4. FLOATING 7-CROP SELECTOR BAR
+          4. FLOATING 7-CROP SELECTOR BAR (In 3D Mode)
          ======================================================== */}
-      <div className="absolute top-28 sm:top-32 left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-[95vw] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-2 py-1">
-        <div className="backdrop-blur-xl bg-slate-950/85 border border-slate-800/90 rounded-full px-3 py-1.5 shadow-2xl shadow-black/50 flex items-center gap-1.5">
-          <span className="text-[11px] font-mono text-slate-400 pl-1 pr-1.5 flex items-center gap-1 flex-shrink-0">
-            <span>Select Crop:</span>
-          </span>
+      {viewMode === '3d' && (
+        <div className="absolute top-28 sm:top-32 left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-[95vw] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-2 py-1">
+          <div className="backdrop-blur-xl bg-slate-950/85 border border-slate-800/90 rounded-full px-3 py-1.5 shadow-2xl shadow-black/50 flex items-center gap-1.5">
+            <span className="text-[11px] font-mono text-slate-400 pl-1 pr-1.5 flex items-center gap-1 flex-shrink-0">
+              <span>Select Crop:</span>
+            </span>
 
-          {crops.map((c) => {
-            const isSelected = selectedCropId === c.id;
-            return (
-              <button
-                key={c.id}
-                onClick={() => {
-                  setSelectedCropId(c.id);
-                  setIsDocketOpen(true);
-                  if (sceneRefs.current?.focusCrop) sceneRefs.current.focusCrop(c.id);
-                }}
-                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
-                  isSelected && isDocketOpen
-                    ? 'bg-[#1D4D2C] text-white border border-emerald-400/60 shadow-lg shadow-emerald-950/60 font-semibold scale-105'
-                    : 'bg-slate-900/70 text-slate-300 hover:text-white border border-slate-800 hover:bg-slate-800'
-                }`}
-              >
-                <span
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: c.color || '#10b981' }}
-                />
-                <span>{c.displayLabel || `${c.name} (${c.punjabiName})`}</span>
-              </button>
-            );
-          })}
+            {crops.map((c) => {
+              const isSelected = selectedCropId === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => {
+                    setSelectedCropId(c.id);
+                    setIsDocketOpen(true);
+                    if (sceneRefs.current?.focusCrop) sceneRefs.current.focusCrop(c.id);
+                  }}
+                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                    isSelected && isDocketOpen
+                      ? 'bg-[#1D4D2C] text-white border border-emerald-400/60 shadow-lg shadow-emerald-950/60 font-semibold scale-105'
+                      : 'bg-slate-900/70 text-slate-300 hover:text-white border border-slate-800 hover:bg-slate-800'
+                  }`}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: c.color || '#10b981' }}
+                  />
+                  <span>{c.displayLabel || `${c.name} (${c.punjabiName})`}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ========================================================
-          5. MINIMALIST CENTER PROMPT (When Docket is Closed)
+          5. MINIMALIST CENTER PROMPT (When Docket is Closed in 3D Mode)
          ======================================================== */}
-      {!isDocketOpen && (
+      {!isDocketOpen && viewMode === '3d' && (
         <div className="absolute top-44 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center gap-3 backdrop-blur-xl bg-slate-950/85 border border-slate-800/90 px-5 py-2.5 rounded-full text-xs text-slate-200 shadow-2xl">
           <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
           <span className="hidden sm:inline">Click any 3D crop on the soil diorama or select a crop to view prescription docket</span>
@@ -357,6 +412,34 @@ export default function Recommendation() {
           >
             View Docket
           </button>
+        </div>
+      )}
+
+      {/* ========================================================
+          FARMER 3D ASSISTANCE FLOATING GUIDE (In 3D Mode)
+         ======================================================== */}
+      {viewMode === '3d' && (
+        <div className="absolute bottom-4 left-4 z-30 pointer-events-auto max-w-xs sm:max-w-sm">
+          <div className="backdrop-blur-xl bg-slate-950/90 border border-slate-800 hover:border-cyan-500/50 p-2.5 sm:p-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs text-slate-200 transition-all">
+            <div className="w-8 h-8 rounded-xl bg-cyan-950/80 border border-cyan-500/40 flex items-center justify-center shrink-0">
+              <MapPin className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-slate-100 flex items-center gap-1.5 text-[11px] sm:text-xs">
+                <span>3D ਚਲਾਉਣ ਵਿੱਚ ਦਿੱਕਤ?</span>
+                <span className="text-[10px] text-cyan-400 font-mono">Trouble in 3D?</span>
+              </div>
+              <div className="text-[10px] text-slate-400 truncate">
+                Switch to 2D Easy Map with touch buttons
+              </div>
+            </div>
+            <button
+              onClick={() => handleSetViewMode('2d')}
+              className="px-2.5 py-1 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shrink-0 cursor-pointer shadow-xs transition-all active:scale-95"
+            >
+              2D Map
+            </button>
+          </div>
         </div>
       )}
 

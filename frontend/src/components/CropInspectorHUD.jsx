@@ -195,7 +195,12 @@ export default function CropInspectorHUD({
          ======================================================== */}
       {hudTab === 'map2d' ? (
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 overscroll-contain [scrollbar-width:thin] [scrollbar-color:#334155_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-700/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-          <Field2DMap activeCrop={docketCrop} />
+          <Field2DMap
+            activeCrop={docketCrop}
+            onOpenDealerSlip={onOpenDealerSlip}
+            onOpenDates={onOpenDates}
+            isStandalone={false}
+          />
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain text-slate-100 [scrollbar-width:thin] [scrollbar-color:#334155_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-700/60 [&::-webkit-scrollbar-thumb]:rounded-full">
