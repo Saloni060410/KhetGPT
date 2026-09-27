@@ -42,12 +42,17 @@ export const useRecommendationStore = create((set, get) => ({
     try {
       const res = await endpoints.getRecommendations(fieldId, params)
       const items = res?.items || (Array.isArray(res) ? res : [])
+      const pagination = {
+        page: res?.page || 1,
+        limit: res?.limit || items.length,
+        total: res?.total != null ? res.total : items.length,
+      }
       set({
         recommendations: items,
         currentRecommendation: items[0] || get().currentRecommendation,
         isLoading: false,
       })
-      return items
+      return { items, ...pagination }
     } catch (err) {
       set({ isLoading: false, error: err.message || 'Failed to fetch recommendations' })
       throw err

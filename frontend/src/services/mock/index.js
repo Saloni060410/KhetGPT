@@ -420,14 +420,19 @@ export const mockService = {
     return newRec
   },
 
-  async getRecommendations(fieldId, { page = 1, limit = 20 } = {}) {
+  async getRecommendations(fieldId, { page = 1, limit = 5 } = {}) {
     await delay()
-    const items = mockData.recommendations.filter((r) => String(r.fieldId) === String(fieldId))
+    const all = mockData.recommendations.filter((r) => String(r.fieldId) === String(fieldId))
+    const sorted = [...all].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    const p = Math.max(1, Number(page) || 1)
+    const l = Math.max(1, Number(limit) || 5)
+    const startIndex = (p - 1) * l
+    const items = sorted.slice(startIndex, startIndex + l)
     return {
       items,
-      page,
-      limit,
-      total: items.length,
+      page: p,
+      limit: l,
+      total: sorted.length,
     }
   },
 
@@ -482,7 +487,7 @@ export const mockService = {
   // Trends
   async getFieldTrends(fieldId) {
     await delay()
-    return mockData.trends[fieldId] || mockData.trends['1']
+    return mockData.trends[fieldId] || { soilTests: [], applied: [], recommendations: [] }
   },
 
   // Reference Tables

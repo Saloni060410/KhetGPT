@@ -26,6 +26,7 @@ import Toast from '../components/ui/Toast.jsx'
 import useDocumentTitle from '../hooks/useDocumentTitle.js'
 import * as endpoints from '../services/endpoints.js'
 import EditFieldModal from '../components/farms/EditFieldModal.jsx'
+import { getNutrientRating, getPhRating, getOrganicCarbonRating, getOverallSoilRating } from '../utils/soilRating.js'
 
 export default function FieldProfile() {
   const { fieldId } = useParams()
@@ -111,6 +112,7 @@ export default function FieldProfile() {
 
   const das = field?.sowingDate ? computeDAS(field.sowingDate) : null
   const hasCoords = field?.latitude != null && field?.longitude != null
+  const overallSoilRating = field?.latestSoilTest ? getOverallSoilRating(field.latestSoilTest) : null
 
   return (
     <div className="space-y-6 py-2 max-w-7xl mx-auto">
@@ -126,8 +128,8 @@ export default function FieldProfile() {
         </div>
       )}
 
-      {/* 1. Breadcrumb Navigation */}
-      <div className="flex items-center justify-between">
+      {/* 1. Breadcrumb Navigation & Demo Scenario Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           to="/dashboard"
           className="inline-flex items-center text-xs font-semibold text-ink-muted hover:text-primary-700 transition-colors"
@@ -135,6 +137,53 @@ export default function FieldProfile() {
           <ChevronLeft className="w-4 h-4 mr-1" />
           <span>Back to My Farms & Fields</span>
         </Link>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-ink-muted uppercase tracking-wider flex items-center gap-1">
+            <Layers className="w-3.5 h-3.5 text-primary-600" />
+            Field Demo:
+          </span>
+          <Link
+            to="/fields/1"
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all min-h-touch inline-flex items-center ${
+              String(fieldId) === '1'
+                ? 'bg-primary-700 text-ink-inverse shadow-xs'
+                : 'bg-bg-surface border border-border-default text-ink-secondary hover:text-ink-primary'
+            }`}
+          >
+            1. North Khet (Wheat)
+          </Link>
+          <Link
+            to="/fields/2"
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all min-h-touch inline-flex items-center ${
+              String(fieldId) === '2'
+                ? 'bg-primary-700 text-ink-inverse shadow-xs'
+                : 'bg-bg-surface border border-border-default text-ink-secondary hover:text-ink-primary'
+            }`}
+          >
+            2. East Paddy (Rice)
+          </Link>
+          <Link
+            to="/fields/3"
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all min-h-touch inline-flex items-center ${
+              String(fieldId) === '3'
+                ? 'bg-primary-700 text-ink-inverse shadow-xs'
+                : 'bg-bg-surface border border-border-default text-ink-secondary hover:text-ink-primary'
+            }`}
+          >
+            3. South Block (Maize)
+          </Link>
+          <Link
+            to="/fields/4"
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all min-h-touch inline-flex items-center ${
+              String(fieldId) === '4'
+                ? 'bg-primary-700 text-ink-inverse shadow-xs'
+                : 'bg-bg-surface border border-border-default text-ink-secondary hover:text-ink-primary'
+            }`}
+          >
+            4. West Plot (Empty)
+          </Link>
+        </div>
       </div>
 
       {/* 2. Loading State Skeleton */}
@@ -504,64 +553,99 @@ export default function FieldProfile() {
                     <Badge variant="subtle">Fixed 6 Parameters</Badge>
                   </div>
 
-                  {/* N-P-K & pH Grid */}
+                  {/* Overall Soil Health Rating Banner */}
+                  {overallSoilRating && (
+                    <div className="p-3 rounded-xl border border-border-default bg-bg-subtle flex items-center justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] uppercase font-bold text-ink-muted block tracking-wider">
+                          ICAR Soil Health Rating
+                        </span>
+                        <div className="text-xs font-bold text-ink-primary">
+                          {overallSoilRating.summary}
+                        </div>
+                      </div>
+                      <Badge variant={overallSoilRating.badgeVariant || 'neutral'} size="sm">
+                        {overallSoilRating.title}
+                      </Badge>
+                    </div>
+                  )}
+
+                  {/* N-P-K & pH Grid with ICAR Ratings */}
                   <div className="grid grid-cols-3 gap-2.5 text-center">
-                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface">
+                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface space-y-1">
                       <span className="text-[10px] font-bold uppercase text-ink-muted block">
                         Nitrogen (N)
                       </span>
-                      <span className="text-sm font-black text-ink-primary">
+                      <span className="text-sm font-black text-ink-primary block">
                         {field.latestSoilTest.n}{' '}
                         <span className="text-[10px] font-normal text-ink-muted">kg/ha</span>
                       </span>
+                      <Badge variant={getNutrientRating('n', field.latestSoilTest.n).badgeVariant} size="sm">
+                        {getNutrientRating('n', field.latestSoilTest.n).shortLabel}
+                      </Badge>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface">
+                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface space-y-1">
                       <span className="text-[10px] font-bold uppercase text-ink-muted block">
                         Phosphorus (P)
                       </span>
-                      <span className="text-sm font-black text-ink-primary">
+                      <span className="text-sm font-black text-ink-primary block">
                         {field.latestSoilTest.p}{' '}
                         <span className="text-[10px] font-normal text-ink-muted">kg/ha</span>
                       </span>
+                      <Badge variant={getNutrientRating('p', field.latestSoilTest.p).badgeVariant} size="sm">
+                        {getNutrientRating('p', field.latestSoilTest.p).shortLabel}
+                      </Badge>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface">
+                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface space-y-1">
                       <span className="text-[10px] font-bold uppercase text-ink-muted block">
                         Potassium (K)
                       </span>
-                      <span className="text-sm font-black text-ink-primary">
+                      <span className="text-sm font-black text-ink-primary block">
                         {field.latestSoilTest.k}{' '}
                         <span className="text-[10px] font-normal text-ink-muted">kg/ha</span>
                       </span>
+                      <Badge variant={getNutrientRating('k', field.latestSoilTest.k).badgeVariant} size="sm">
+                        {getNutrientRating('k', field.latestSoilTest.k).shortLabel}
+                      </Badge>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2.5 text-center">
-                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface">
+                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface space-y-1">
                       <span className="text-[10px] font-bold uppercase text-ink-muted block">
                         Soil pH
                       </span>
-                      <span className="text-sm font-black text-ink-primary">
+                      <span className="text-sm font-black text-ink-primary block">
                         {field.latestSoilTest.ph}
+                      </span>
+                      <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 block">
+                        {getPhRating(field.latestSoilTest.ph).label}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface">
+                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface space-y-1">
                       <span className="text-[10px] font-bold uppercase text-ink-muted block">
                         Org. Carbon
                       </span>
-                      <span className="text-sm font-black text-ink-primary">
+                      <span className="text-sm font-black text-ink-primary block">
                         {field.latestSoilTest.organicCarbon}%
+                      </span>
+                      <span className="text-[10px] font-semibold text-ink-secondary block">
+                        {getOrganicCarbonRating(field.latestSoilTest.organicCarbon).label}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface">
+                    <div className="p-2.5 rounded-lg border border-border-default bg-bg-surface space-y-1">
                       <span className="text-[10px] font-bold uppercase text-ink-muted block">
                         Moisture
                       </span>
-                      <span className="text-sm font-black text-ink-primary">
+                      <span className="text-sm font-black text-ink-primary block">
                         {field.latestSoilTest.moisture}%
+                      </span>
+                      <span className="text-[10px] text-ink-muted block">
+                        Field Capacity
                       </span>
                     </div>
                   </div>
