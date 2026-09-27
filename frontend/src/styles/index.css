@@ -1,9 +1,71 @@
+/* Self-hosted English font via Fontsource (woff2, font-display: swap) */
+/* Devanagari font is loaded dynamically on demand when Hindi is selected (PRD Feature 11) */
+@import '@fontsource/plus-jakarta-sans/400.css';
+@import '@fontsource/plus-jakarta-sans/500.css';
+@import '@fontsource/plus-jakarta-sans/600.css';
+@import '@fontsource/plus-jakarta-sans/700.css';
+
+@import './tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    max-width: 100%;
+    overflow-x: clip;
+    scroll-behavior: smooth;
+  }
+  html[lang="hi"] {
+    font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
   body {
-    @apply bg-paper text-ink font-sans antialiased;
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    max-width: 100%;
+    overflow-x: clip;
+    overflow-wrap: break-word;
+    text-rendering: optimizeLegibility;
   }
 }
+
+@layer utilities {
+  @keyframes revealUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-reveal {
+    animation: revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .delay-1 { animation-delay: 80ms; }
+  .delay-2 { animation-delay: 160ms; }
+  .delay-3 { animation-delay: 240ms; }
+  .delay-4 { animation-delay: 320ms; }
+  .delay-5 { animation-delay: 400ms; }
+
+  .bg-soil-atmosphere {
+    background-color: #F8F5EE;
+    background-image: 
+      radial-gradient(circle at 12% 15%, rgba(184, 121, 30, 0.05) 0%, transparent 45%),
+      radial-gradient(circle at 88% 85%, rgba(45, 84, 48, 0.06) 0%, transparent 50%),
+      radial-gradient(#D5CBB9 0.75px, transparent 0.75px);
+    background-size: 100% 100%, 100% 100%, 28px 28px;
+  }
+
+  .ledger-border {
+    border: 1px solid rgba(216, 206, 188, 0.75);
+  }
+}
+
