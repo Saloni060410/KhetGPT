@@ -38,7 +38,7 @@
       "path": "data/raw/fertilizer_prediction_synthetic.csv",
       "committed": true,
       "real": false,
-      "generation_method": "ml/src/data_pipeline/generate_synthetic_data.py -- every value is grounded in an already-sourced table in this repo (seasonal_weather.csv's real Open-Meteo monthly Punjab averages for temperature/humidity, soil_test_ratings.csv's ICAR-IISS bands for N/P/K, reference_doses.csv + soil_adjustments.csv for the fertilizer LABEL, computed per-row from that row's own generated soil values, never assigned independently). moisture_pct's band is a documented team assumption -- no per-month real moisture source exists in this repo, unlike temperature/humidity.",
+      "generation_method": "ml/src/data_pipeline/generate_synthetic_data.py -- every value is grounded in an already-sourced table in this repo (seasonal_weather.csv's real Open-Meteo monthly Punjab averages for temperature/humidity, soil_test_ratings.csv's ICAR-IISS bands for N/P/K, reference_doses.csv + soil_adjustments.csv for the fertilizer LABEL, computed per-row from that row's own generated soil values, never assigned independently). moisture_pct's band is a documented team assumption -- no per-month real moisture source exists in this repo, unlike temperature/humidity. Product sampling applies a flat bonus to priced products' similarity score (fertilizer_products.csv's price_inr_per_kg not TODO) per Saloni's DATA_REQUIREMENTS.md, so the label distribution leans toward products that can actually produce a usable cost/schedule end-to-end, without ever overriding a genuinely much better-matching unpriced grade.",
       "generated_on": "2026-09-27",
       "seed": 42,
       "rows_per_crop": 400,
@@ -51,7 +51,7 @@
         "chickpea",
         "barley"
       ],
-      "sha256": "1bdfc4ebb9825a63ebc730410318f231e8885ff662131e82f69f34d7bebcad1b",
+      "sha256": "ee0e67bf2e51faeef33147d2e740495181860e58cd33d964d8dd64d04ef32f1a",
       "rows": 2800,
       "columns": [
         "Temparature",
@@ -161,7 +161,7 @@
       "test": 10,
       "val": 8
     },
-    "content_hash": "af63118ec0f602bf",
+    "content_hash": "21a2da2db1d22e74",
     "feature_schema_hash": "e5382c70e374f4e6",
     "feature_columns": [
       "crop_id",

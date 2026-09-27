@@ -83,7 +83,11 @@ README explains *what* each one is and *why* it was chosen.
     to that need (cosine similarity, weighted toward the closest match but not forced to a
     single deterministic pick -- PAU's own tables repeatedly note nutrients "can also be
     supplied from other fertilizers available in the market", a real, sourced substitutability,
-    not an invented one). MOP and SSP never appear as the chosen label for any of our 7 crops --
+    not an invented one), with a flat bonus applied to priced products (Saloni's
+    `DATA_REQUIREMENTS.md`: "weight the synthetic classes toward those 4 [priced products] if
+    you want the classifier's output to actually be usable end-to-end") -- big enough to win
+    close calls, never big enough to override a genuinely much better-matching unpriced grade.
+    MOP and SSP never appear as the chosen label for any of our 7 crops --
     consistent with the real data too, and consistent with PAU's own dose tables, where none of
     these 7 crops has a K- or P-dominant enough baseline need for a pure-K or pure-P product to
     be the closest match.

@@ -10,6 +10,17 @@ data at all. Including any of those would make "serving can never produce differ
 than training" false by construction, not just risky. temperature_c/humidity_pct/moisture_pct
 were assessed in R4 as a plausible (if unconfirmed) direct match and are the only numeric
 features carried over.
+
+generate_synthetic_data.py's supplement generates its own Nitrogen/Potassium/Phosphorous as
+confirmed real kg/ha (Soil Health Card basis) -- unlike the real Kaggle rows, whose units are
+still unconfirmed. That does NOT make it safe to add n/p/k to FEATURE_COLUMNS yet: the
+combined training table (clean.csv/train.csv) has both data_source values in the same
+columns, so a naive add would silently train on a column meaning "confirmed kg/ha" for
+some rows and "unconfirmed, possibly a different unit" for others -- the same "false by
+construction" problem this docstring already warns about, just introduced from the other
+direction. Adding real n/p/k features is only safe once the real rows' unit is independently
+reconciled too (R4's original open item), or once training is restricted to data_source ==
+"synthetic" rows specifically for that purpose.
 """
 
 from pathlib import Path

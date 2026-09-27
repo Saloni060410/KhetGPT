@@ -8,6 +8,17 @@ credit_window_days: 60
   # team assumption -- placeholder. Number of days a previous fertilizer application is
   # still credited against (subtracted from) the current recommendation's nutrient need.
   # credit_kg_ha = prior_application_kg_ha * nutrient_efficiency.csv's fertilizer_use_efficiency.
+  # NOT the same thing as a crop's growing-season length (a real season is often much
+  # longer than 60 days -- wheat: 148-158 days; barley: 137-146 days) -- do not reuse this
+  # key as a same-season proxy. For "is this application in the current crop cycle",
+  # ml/src/data_pipeline/feature_engineering.py's season_length_days(tables, crop_id) gives
+  # a real, sourced season length from growth_stages.csv's maturity/harvest stage where one
+  # exists (only wheat and barley have one so far), falling back to this credit_window_days
+  # value ONLY when no sourced season length exists yet, and only with an explicit warning
+  # (see risk_analyzer.assess_recommendation, which already does this) -- never silently.
+  # Saloni's compare_to_history (ml/src/engine/cost.py, not yet written) needs the same
+  # same-season vs credit-window distinction; reuse season_length_days() rather than
+  # re-deriving it or reusing credit_window_days as a season proxy there too.
 
 rain_hold_mm: 20
   # team assumption -- placeholder. Forecast rainfall (mm) above which nitrogen top-dressing

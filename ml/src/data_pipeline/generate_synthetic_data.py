@@ -124,9 +124,27 @@ def _dose_for(crop_id: str, nutrient: str, soil_rating: str, tables) -> float:
     return max(0.0, standard + adjustment)
 
 
+_PRICED_BONUS = 0.15
+# DATA_REQUIREMENTS.md: "since only 4 products are priced right now, weight the synthetic
+# classes toward those 4 if you want the classifier's output to actually be usable
+# end-to-end (an unpriced product picked by the classifier still blocks the schedule)."
+# Applied as a flat bonus to a priced product's cosine score before ranking/sampling --
+# enough to win close calls against an equally-plausible unpriced grade, not enough to
+# override a genuinely much better-matching unpriced one (never forces an agronomically
+# wrong product just because it happens to be priced). "Priced" is read from
+# fertilizer_products.csv itself (price_inr_per_kg not TODO(data)), not a hardcoded id
+# list, so this automatically includes whatever gets priced later (e.g. if MOP's
+# long-standing TODO gets resolved).
+
+
+def _is_priced(product: dict) -> bool:
+    return not str(product["price_inr_per_kg"]).startswith("TODO")
+
+
 def _matching_products(need: dict[str, float], products: list[dict]) -> list[tuple[dict, float]]:
     """Cosine similarity between the row's real computed need (N, P2O5, K2O) and each real
-    product's guaranteed grade. Returns every (product, score) pair, sorted best first."""
+    product's guaranteed grade, with _PRICED_BONUS applied to priced products. Returns every
+    (product, score) pair, sorted best first."""
     need_vec = np.array([need["n"], need["p"], need["k"]], dtype=float)
     if need_vec.sum() == 0:
         need_vec = np.array([1.0, 0.0, 0.0])  # no computable need (e.g. missing dose row) -> default to N-only
@@ -137,6 +155,8 @@ def _matching_products(need: dict[str, float], products: list[dict]) -> list[tup
         if grade_vec.sum() == 0:
             continue
         score = float(np.dot(need_vec, grade_vec) / (np.linalg.norm(need_vec) * np.linalg.norm(grade_vec)))
+        if _is_priced(product):
+            score += _PRICED_BONUS
         scored.append((product, score))
     return sorted(scored, key=lambda pair: pair[1], reverse=True)
 
