@@ -274,6 +274,19 @@ def run(config_path: Path, final_test: bool) -> int:
     else:
         X, y = train_frame.features, train_frame.target
 
+    # A class with fewer than 2 rows can never appear in both the train and test side of any
+    # stratified fold -- structurally uncrossvalidatable, not a config choice like
+    # excluded_classes (which is for a deliberate "hand this to the rules engine instead"
+    # decision, e.g. npk_10_26_26). Drop it automatically and say so, rather than crash: a
+    # regenerated sample_train.csv or dataset rebuild can reshuffle which classes are this
+    # thin, and the config's static list would otherwise go stale again.
+    counts = y.value_counts()
+    unlearnable = counts[counts < 2].index.tolist()
+    if unlearnable:
+        print(f"Dropping class(es) with fewer than 2 rows, cannot be cross-validated: {unlearnable}")
+        keep = ~y.isin(unlearnable)
+        X, y = X[keep].reset_index(drop=True), y[keep].reset_index(drop=True)
+
     print(f"Data source: {train_frame.source} ({len(X)} rows, {y.nunique()} classes after exclusions)")
     print(f"Class counts:\n{y.value_counts().to_string()}\n")
 

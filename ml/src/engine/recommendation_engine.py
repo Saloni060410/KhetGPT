@@ -274,7 +274,7 @@ def recommend(request: RecommendRequest, engine: Engine, today: date | None = No
         top_factors = _fallback_top_factors(rule_trace)
 
     products_table = engine.tables.fertilizer_products
-    history = compare_to_history(schedule, previous_usage, products_table, today)
+    history = compare_to_history(schedule, previous_usage, products_table, today, engine.tables, request.crop_type)
     cost = Cost(
         estimated_cost_inr_per_acre=estimate_cost(schedule, products_table),
         previous_cost_inr_per_acre=history["previous_cost_inr_per_acre"],
@@ -284,7 +284,8 @@ def recommend(request: RecommendRequest, engine: Engine, today: date | None = No
     )
 
     risk = assess_recommendation(
-        balance, schedule, payload["soil"], payload["weather"], previous_usage, engine.rules, engine.tables
+        request.crop_type, balance, schedule, payload["soil"], payload["weather"], previous_usage,
+        engine.rules, engine.tables,
     )
 
     return RecommendResponse(

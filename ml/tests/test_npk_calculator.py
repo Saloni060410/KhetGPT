@@ -86,7 +86,8 @@ def _stcr_tables(a=5.0, b=1.0, target=40.0):
         stcr_equations=[
             {
                 "crop_id": "wheat", "variety_id": "generic", "region": "Test", "applies_to": "irrigated",
-                "nutrient": "n", "a": str(a), "b": str(b), "target_yield_default_q_ha": str(target),
+                "nutrient": "n", "a": str(a), "b": str(b),
+                "target_yield_default_q_ha": "TODO(data)" if target is None else str(target),
                 "source": "test", "notes": "",
             }
         ],
@@ -107,10 +108,20 @@ def test_stcr_formula_matches_the_hand_computed_example():
 
 
 def test_stcr_is_skipped_when_the_target_yield_is_not_filled():
-    # The real, merged stcr_equations.csv has exactly this: a row exists, but
-    # target_yield_default_q_ha is TODO(data), so method 2 (reference_dose) must be used instead.
-    result, _ = balance("wheat", variety="wh_542")
-    assert result["n"]["method"] == "reference_dose"  # falls back since wh_542 has no reference_doses.csv row either... 
+    # Synthetic stcr_equations row with an unfilled target, isolated from the real table's
+    # current state (real wheat/wh_542 now has a sourced target_yield_default_q_ha -- see the
+    # positive test right below -- so this must not depend on that staying unsourced forever).
+    tables = _stcr_tables(a=5.0, b=1.0, target=None)
+    result, _ = compute_balance("wheat", None, "irrigated", "sowing", FIXTURE_SOIL, [], tables, TODAY)
+    assert result["n"]["method"] == "reference_dose"
+
+
+def test_stcr_fires_for_real_wheat_wh_542_now_that_a_target_yield_is_sourced():
+    # Richa sourced a real target_yield_default_q_ha (50 q/ha) for wheat/wh_542. A request for
+    # that exact variety now genuinely uses STCR, not the flat reference dose.
+    result, trace = balance("wheat", variety="wh_542")
+    assert result["n"]["method"] == "stcr"
+    assert any(entry["rule_id"] == "dose_stcr" for entry in trace)
 
 
 def test_stcr_row_with_unfilled_target_falls_back_to_reference_dose_generic():
@@ -165,8 +176,20 @@ def test_kg_per_acre_to_kg_per_hectare_conversion_is_correct_to_three_decimals()
 
 
 def test_a_crop_with_no_reference_dose_row_at_all_raises_reference_data_incomplete():
+    # Synthetic, isolated tables (not "whichever real crop happens to lack a dose today" --
+    # that list keeps shrinking as Richa sources more crops, most recently maize/cotton/
+    # sugarcane/barley, which previously made this exact test's premise go stale once already).
+    from dataclasses import replace
+
+    bare_tables = replace(
+        TABLES,
+        crops=[{"crop_id": "flax", "name_en": "Flax", "name_hi": "", "dataset_label": "", "season": "rabi", "source": "test"}],
+        growth_stages=[{"crop_id": "flax", "stage_id": "sowing", "name_en": "Sowing", "name_hi": "", "order": "1", "das_start": "0", "das_end": "0", "source": "test"}],
+        reference_doses=[],
+        stcr_equations=[],
+    )
     with pytest.raises(ReferenceDataIncomplete):
-        balance("maize")  # crops.csv lists maize; reference_doses.csv has no row for it yet
+        compute_balance("flax", None, "irrigated", "sowing", FIXTURE_SOIL, [], bare_tables, TODAY)
 
 
 def test_an_unknown_growth_stage_raises_unknown_stage_error():

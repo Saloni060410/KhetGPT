@@ -73,7 +73,7 @@ def test_prices_as_of_is_the_oldest_price_date_used():
 
 
 def test_no_prior_usage_gives_nulls_never_an_invented_baseline():
-    result = compare_to_history(WHEAT_SCHEDULE, [], PRODUCTS, TODAY)
+    result = compare_to_history(WHEAT_SCHEDULE, [], PRODUCTS, TODAY, TABLES, "wheat")
     assert result == {
         "previous_cost_inr_per_acre": None,
         "saving_inr_per_acre": None,
@@ -83,13 +83,13 @@ def test_no_prior_usage_gives_nulls_never_an_invented_baseline():
 
 def test_prior_usage_entirely_outside_the_season_window_also_gives_nulls():
     old_usage = [{"type": "urea", "quantity_kg_per_acre": 200.0, "applied_on": "2025-01-01"}]  # far outside credit_window_days
-    result = compare_to_history(WHEAT_SCHEDULE, old_usage, PRODUCTS, TODAY)
+    result = compare_to_history(WHEAT_SCHEDULE, old_usage, PRODUCTS, TODAY, TABLES, "wheat")
     assert result["previous_cost_inr_per_acre"] is None
 
 
 def test_prior_usage_of_only_unknown_products_also_gives_nulls():
     usage = [{"type": "some-unlisted-product", "quantity_kg_per_acre": 100.0, "applied_on": "2026-11-10"}]
-    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY)
+    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY, TABLES, "wheat")
     assert result["previous_cost_inr_per_acre"] is None
 
 
@@ -100,7 +100,7 @@ def test_over_application_reduction_pct_matches_the_hand_computed_formula():
     # Previous: 200 kg/acre urea (46% N) = 92 kg N/acre total nutrient.
     # Recommended (WHEAT_SCHEDULE): dap 54.368*(18+46)/100 + urea (33.093+54.368)*46/100
     usage = [{"type": "urea", "quantity_kg_per_acre": 200.0, "applied_on": "2026-11-10"}]
-    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY)
+    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY, TABLES, "wheat")
     previous_n = 200.0 * 0.46
     recommended = 54.368 * 0.64 + (33.093 + 54.368) * 0.46
     expected = max(0.0, (previous_n - recommended) / previous_n * 100)
@@ -109,7 +109,7 @@ def test_over_application_reduction_pct_matches_the_hand_computed_formula():
 
 def test_over_application_reduction_pct_clamps_to_zero_when_the_plan_recommends_more():
     usage = [{"type": "urea", "quantity_kg_per_acre": 5.0, "applied_on": "2026-11-10"}]  # far less than the plan needs
-    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY)
+    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY, TABLES, "wheat")
     assert result["over_application_reduction_pct"] == 0.0
 
 
@@ -118,7 +118,7 @@ def test_over_application_reduction_pct_clamps_to_zero_when_the_plan_recommends_
 
 def test_saving_is_negative_when_the_plan_costs_more_than_the_farmer_used():
     usage = [{"type": "urea", "quantity_kg_per_acre": 5.0, "applied_on": "2026-11-10"}]
-    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY)
+    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY, TABLES, "wheat")
     assert result["saving_inr_per_acre"] < 0
     assert result["saving_inr_per_acre"] == pytest.approx(
         5.0 * float(urea_price()["price_inr_per_kg"]) - estimate_cost(WHEAT_SCHEDULE, PRODUCTS), rel=1e-6
@@ -130,7 +130,7 @@ def test_saving_is_positive_when_the_farmer_used_much_more_than_the_plan():
         {"type": "urea", "quantity_kg_per_acre": 200.0, "applied_on": "2026-11-01"},
         {"type": "dap", "quantity_kg_per_acre": 80.0, "applied_on": "2026-11-01"},
     ]
-    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY)
+    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY, TABLES, "wheat")
     assert result["saving_inr_per_acre"] > 0
 
 
@@ -139,7 +139,7 @@ def test_saving_is_positive_when_the_farmer_used_much_more_than_the_plan():
 
 def test_previous_cost_uses_the_same_current_prices_as_the_recommendation_not_a_historical_price():
     usage = [{"type": "urea", "quantity_kg_per_acre": 100.0, "applied_on": "2026-11-10"}]
-    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY)
+    result = compare_to_history(WHEAT_SCHEDULE, usage, PRODUCTS, TODAY, TABLES, "wheat")
     assert result["previous_cost_inr_per_acre"] == pytest.approx(100.0 * float(urea_price()["price_inr_per_kg"]), rel=1e-6)
     # The price used is traceable back to a dated source (prices_as_of), same one the recommendation uses.
     assert prices_as_of(WHEAT_SCHEDULE, PRODUCTS) is not None

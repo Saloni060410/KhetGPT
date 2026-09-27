@@ -7,11 +7,13 @@ apples: what this plan costs today, versus what already-applied fertilizer would
 
 from __future__ import annotations
 
+import warnings
 from datetime import date
 
 import yaml
 
-from src.data_pipeline.soil_data_loader import EXTERNAL_DIR
+from src.data_pipeline.feature_engineering import season_length_days
+from src.data_pipeline.soil_data_loader import EXTERNAL_DIR, ReferenceTables
 from src.engine.npk_calculator import PCT_FIELD, ReferenceDataIncomplete, _parse_float
 
 
@@ -28,16 +30,28 @@ def _price(product: dict, fertilizer_type: str) -> float:
     return price
 
 
-def _season_window_days() -> int:
-    """The window for 'the same crop season' in compare_to_history. agronomy_rules.yaml has
-    no dedicated key for this yet -- credit_window_days is the only window concept it defines
-    today, already in the same "team assumption -- placeholder" family as this one, so it is
-    reused here rather than a new number invented in code. Flagged in ml/PROGRESS.md: a
-    season (100-150+ days) is longer than a 60-day recent-application credit window, so this
-    reuse likely undercounts early-season applications until Richa adds a dedicated key."""
+def _season_window_days(tables: ReferenceTables, crop_id: str) -> int:
+    """The window for 'the same crop season' in compare_to_history. Uses
+    feature_engineering.season_length_days() (a real, sourced season length from
+    growth_stages.csv's maturity/harvest stage) where one exists for crop_id. Falls back to
+    agronomy_rules.yaml's credit_window_days explicitly, with a warning, when it doesn't --
+    the same fallback risk_analyzer.assess_recommendation() uses, and the same reasoning:
+    a season (100-150+ days) is longer than the 60-day credit window, so this fallback likely
+    undercounts early-season applications until a sourced season length exists for the crop."""
+    season_days = season_length_days(tables, crop_id)
+    if season_days is not None:
+        return season_days
     with (EXTERNAL_DIR / "agronomy_rules.yaml").open(encoding="utf-8") as handle:
         rules = yaml.safe_load(handle)
-    return int(rules["credit_window_days"])
+    window_days = int(rules["credit_window_days"])
+    warnings.warn(
+        f"compare_to_history: no sourced season length for crop_id={crop_id!r} "
+        f"(growth_stages.csv has no maturity/harvest row) -- falling back to "
+        f"credit_window_days ({window_days}) as a same-season proxy, which is NOT "
+        "the same concept and may undercount early-season applications.",
+        stacklevel=2,
+    )
+    return window_days
 
 
 def estimate_cost(schedule: list[dict], products_table: list[dict]) -> float:
@@ -93,13 +107,15 @@ def _todo_or_none(value: str | None) -> str | None:
     return None if not text or text.startswith("TODO") else text
 
 
-def _usable_usage(prior_usage: list[dict], products_table: list[dict], today: date) -> list[dict]:
+def _usable_usage(
+    prior_usage: list[dict], products_table: list[dict], today: date, tables: ReferenceTables, crop_id: str
+) -> list[dict]:
     """Prior usage entries within the season window (contract: 'the same crop season') whose
     product is recognized. An entry for an unknown product is ignored here exactly as it is
     for credit in npk_calculator -- we cannot cost or nutrient-compare a product we don't
     recognize."""
     products = _products_by_id(products_table)
-    window_days = _season_window_days()
+    window_days = _season_window_days(tables, crop_id)
     usable = []
     for usage in prior_usage:
         applied_on = usage["applied_on"]
@@ -126,13 +142,22 @@ def _nutrient_total_kg_per_acre(items: list[dict], products_table: list[dict], q
     return total
 
 
-def compare_to_history(schedule: list[dict], prior_usage: list[dict], products_table: list[dict], today: date) -> dict:
+def compare_to_history(
+    schedule: list[dict],
+    prior_usage: list[dict],
+    products_table: list[dict],
+    today: date,
+    tables: ReferenceTables,
+    crop_id: str,
+) -> dict:
     """{ previous_cost_inr_per_acre, saving_inr_per_acre, over_application_reduction_pct },
     all None if there is no usable logged history in the same-season window -- never an
-    invented baseline. today is required (not in the prompt's literal 3-name signature) so the
-    season window is deterministic and testable, matching every other engine function in this
-    codebase (compute_balance, to_products) rather than reading the system clock."""
-    usable = _usable_usage(prior_usage, products_table, today)
+    invented baseline. today, tables and crop_id are required (not in the prompt's literal
+    3-name signature): today so the season window is deterministic and testable, matching
+    every other engine function in this codebase, and tables/crop_id so the window can be a
+    real, sourced season length (season_length_days()) rather than always reusing
+    credit_window_days as a same-season proxy."""
+    usable = _usable_usage(prior_usage, products_table, today, tables, crop_id)
     if not usable:
         return {"previous_cost_inr_per_acre": None, "saving_inr_per_acre": None, "over_application_reduction_pct": None}
 

@@ -8,6 +8,7 @@ computing them once outside the fold loop is not a leakage risk.
 """
 
 from sklearn.dummy import DummyClassifier
+from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -21,8 +22,14 @@ def build_pipeline(kind: str, seed: int, params: dict) -> Pipeline:
         return Pipeline([("clf", DummyClassifier(random_state=seed, **params))])
 
     if kind == "logistic_regression":
+        # n/p/k are NaN for real training rows by design (feature_engineering.py: the real
+        # dataset's N/P/K aren't confirmed kg/ha, only synthetic rows and live requests are).
+        # XGBoost handles NaN natively; plain sklearn estimators don't, so this pipeline needs
+        # an imputer first. Median is a defensible, non-invented default for a placeholder
+        # value on a feature that's missing for a real reason, not a guess at the true value.
         return Pipeline(
             [
+                ("impute", SimpleImputer(strategy="median")),
                 ("scaler", StandardScaler()),
                 ("clf", LogisticRegression(random_state=seed, penalty="l2", **params)),
             ]
