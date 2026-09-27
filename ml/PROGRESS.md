@@ -501,8 +501,90 @@ registering: 321 passed, 2 properly-skipped, unchanged. `ml/MODEL_CARD.md` updat
 
 Merge commit and the retrain both pushed to `origin/feature/saloni-ml-core`.
 
+## S11 -- demo readiness (2026-09-28, night before the demo)
+
+**Done when:** `ml/DEMO_NOTES.md` exists, the three scenarios return sensible output through
+the full compose stack, and the model version is tagged demo. All three met -- but two real
+bugs were found and fixed doing it, not just a checklist run.
+
+**1. Cold start, timed.** `docker compose up --build` from a clean state (no images, no
+containers; base image layers already pulled locally): 55s to `ml`'s `/health` responding.
+Images already built: 9s. Postgres's healthcheck gates backend startup correctly.
+
+**2. `docker-compose.yml` had no volume mount for `ml/models_artifacts/` -- a real,
+demo-blocking gap, not something S9 or J10 finished.** The S9 Dockerfile deliberately never
+bakes the gitignored `.joblib` into the image ("the model artifact is bind-mounted read-only so
+it never needs to be in the image" -- its own comment). Without the mount, `/health` came back
+`"degraded"` (`model_version: "unloaded+rules-..."`) through the full compose stack. This is
+root infra, not backend application code, and it was blocking my own service's model from
+loading with the actual acceptance test failing, so fixed directly: added a `volumes:` entry to
+the `ml` service in `docker-compose.yml`. Verified: `/health` → `"ok"`,
+`fertilizer-classifier-0.1.1+rules-4b2ba173`.
+
+**3. Real bug found while checking "outputs read sensibly": `assess_recommendation()` never
+received `today`.** `recommend()` threads `today` through `compute_balance`/`to_products`/
+`compare_to_history` correctly, but its call to `assess_recommendation()`
+(`recommendation_engine.py`) never passed it at all -- `risk_analyzer.py`'s `_applied_kg_ha()`
+silently defaulted its window check to real wall-clock `datetime.now()` instead. Consequence:
+the dose/cost/schedule numbers in any response are always correct and reproducible for whatever
+`today` was used; the **risk verdict was not** -- it silently depended on the actual calendar
+day the server happened to be running on, regardless of what date the rest of the request used.
+
+Found this via `maize_healthy`: reproducing the documented dose/cost numbers exactly (byte-
+identical `nutrient_balance` to the fixture) still gave **high** risk instead of the documented
+**low**. Traced it to the fixture's own "low risk, healthy field" verdict being a false
+negative -- whenever it was generated, real wall-clock time put the June application ~103 days
+before the *actual* generation date, outside any window, so risk saw "nothing applied recently"
+and defaulted to low. It was never a genuine "well-managed field" finding.
+
+**Fixed properly, not patched around**: `assess_recommendation()` gained a `today: date | None`
+parameter, threaded to `_applied_kg_ha(..., reference_date=today)`; `recommend()` now passes
+`today=today` at its call site. `score_planned`/`score_planned_risk` (the `/risk-score` path)
+were unaffected -- planned applications carry no date, so `_applied_kg_ha` there never took
+`within_days` in the first place. Full suite re-run after the fix: 321 passed, 2 skipped,
+unchanged -- no test relied on the old (buggy) behaviour.
+
+**Corrected the demo content, not just the code**: `docs/contract-fixtures/demo_scenarios.json`'s
+`maize_healthy.recommend_response.risk` updated to the honest **high** verdict (surgical,
+5-line diff -- not a full reformat, which a first attempt at this accidentally did and was
+reverted); `docs/demo-scenarios.md` §3 rewritten from "healthy field, low risk" to "recently
+over-applied nitrogen, high risk" with the bug explained inline. This is Richa's R11 content --
+flagged clearly in both files and here, not silently rewritten. Worth a look from her when she's
+back, but it had to be right for tomorrow morning regardless.
+
+**4. `scripts/demo_requests.py` (new).** The fixture's dates are fixed calendar dates; the live
+endpoint always uses the real server clock, so POSTing the fixture's payloads as-is only
+reproduces the documented numbers on the one day they happen to line up with
+`agronomy_rules.yaml`'s 60-day credit window -- confirmed directly (every `prior_credit_kg_ha`
+came back 0 through the live compose stack on unshifted dates). This script re-anchors every
+date by the same day-offset that already existed between it and that scenario's own
+`demo_today`, preserving the exact relative timing regardless of what day it's actually run.
+Verified: all three scenarios reproduce the documented outcome exactly through the live,
+rebuilt compose stack, on this day and (by construction) on any later day. Also generates
+scenario 1's over-application `/risk-score` payload (the same field, its 150 kg/acre urea
+reframed as a *planned* dose rather than logged history) -- verified sensible: medium risk,
+138% of the full standard N need (no prior credit in that call, since none was logged),
+correctly distinct from `/recommend`'s "high" verdict for the same field's actual applied
+history (335% of the much smaller post-credit remaining need) -- both internally consistent
+with what they're each comparing against.
+
+**5. `PREDICT_MODE=mock` reconfirmed working** in a throwaway container: `/health` → `"ok"`,
+`mock-0.0.0+rules-mock`; `/recommend` returns clearly-labeled sample output. No internet or
+model artifact needed -- a real offline fallback, not just a config flag that's never been run.
+
+**6. `registry.json` gained a top-level `demo_model` key** (`{model_name, version: "0.1.1",
+marked_on, note}`) -- doesn't change which model is actually served (that's always
+`models[-1]`, unaffected), just states once, explicitly, which version is the demo's, rather
+than leaving it as "whatever happens to be last in the list."
+
+**7. `ml/DEMO_NOTES.md` written** -- model version, cold-start timing, all three scenarios'
+verified live output, the scenario-1 risk-score check, the mock-mode fallback, a
+judge-facing answer to "isn't this just a tabular model" (dose is formula-driven and
+published-table-sourced; the classifier only ever refines which product name is shown, and
+only when it agrees with the rule-based choice), and known limitations stated up front rather
+than waiting to be asked.
+
 ## Not started yet
 
-S11 (demo readiness) per the pack -- gated on Josh's compose changes from S9 (J10).
 S12 (learned quantity refinement) is a stretch goal conditional on Richa having found a
 dataset with real applied-quantity labels -- unknown status, hers to say.

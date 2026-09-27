@@ -20,6 +20,11 @@ services:
     env_file:
       - path: ./ml/.env
         required: false
+    volumes:
+      # models_artifacts/ is gitignored (the .joblib artifact + run records) -- the S9
+      # Dockerfile deliberately doesn't COPY it into the image, so it has to reach the
+      # container this way or the classifier never loads (health stays "degraded").
+      - ./ml/models_artifacts:/app/models_artifacts:ro
     ports:
       - "8001:8001"
 

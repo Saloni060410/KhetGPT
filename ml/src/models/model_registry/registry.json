@@ -1,4 +1,10 @@
 {
+  "demo_model": {
+    "model_name": "fertilizer-classifier",
+    "version": "0.1.1",
+    "marked_on": "2026-09-28",
+    "note": "S11 demo readiness -- points at the run_id below in this file's own models[] list, not a separate record. recommendation_engine.py doesn't read this key; it always serves models[-1] (train.py appends, never overwrites), which is also 0.1.1 right now. This field exists so 'what's being demoed' is stated once, explicitly, rather than left as 'whatever happens to be last in the list'."
+  },
   "models": [
     {
       "model_name": "fertilizer-classifier",
