@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import axios from 'axios'
+import { env } from '../config/env.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEV_FALLBACK_PATH = path.join(__dirname, '../../config/reference.dev.json')
@@ -9,7 +10,7 @@ const DEV_FALLBACK_PATH = path.join(__dirname, '../../config/reference.dev.json'
 const FRESH_MS = 60 * 60_000       // 1 hour
 const STALE_MS = 24 * 60 * 60_000  // 24 hours
 
-const client = axios.create({ baseURL: process.env.ML_SERVICE_URL, timeout: 5000 })
+const client = axios.create({ baseURL: env.ML_SERVICE_URL, timeout: 5000 })
 const cache = new Map() // key -> { data, fetchedAt }
 
 export class ReferenceUnavailableError extends Error {
@@ -56,7 +57,7 @@ async function getCached(key, mlPath) {
 }
 
 export function getCrops() {
-  if (process.env.ML_MODE === 'offline') {
+  if (env.ML_MODE === 'offline') {
     return loadDevFallback().crops
   }
 
@@ -64,7 +65,7 @@ export function getCrops() {
 }
 
 export function getSoilRatings() {
-  if (process.env.ML_MODE === 'offline') {
+  if (env.ML_MODE === 'offline') {
     return loadDevFallback().soilRatings
   }
 
@@ -72,7 +73,7 @@ export function getSoilRatings() {
 }
 
 export function getFertilizers() {
-  if (process.env.ML_MODE === 'offline') {
+  if (env.ML_MODE === 'offline') {
     return loadDevFallback().fertilizers
   }
 
@@ -81,7 +82,7 @@ export function getFertilizers() {
 
 // Used internally by J7's weather fallback chain — not exposed as its own route.
 export async function seasonalWeather(lat, lng, month) {
-  if (process.env.ML_MODE === 'offline') {
+  if (env.ML_MODE === 'offline') {
     return loadDevFallback().seasonalWeather[String(month)]
   }
 

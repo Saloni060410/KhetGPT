@@ -1,25 +1,26 @@
 import axios from 'axios'
+import { env } from '../config/env.js'
 
-const client = axios.create({
-  baseURL: process.env.GEOCODING_API_URL ?? 'https://geocoding-api.open-meteo.com/v1',
-  timeout: 5000,
-})
+const client = axios.create({ baseURL: env.GEOCODE_SERVICE_URL, timeout: 5000 })
+const CACHE_MS = 24 * 60 * 60_000
+const cache = new Map()
 
-export async function geocodePlace(place) {
-  const { data } = await client.get('/search', {
-    params: {
-      name: place,
-      count: 5,
-      language: 'en',
-      format: 'json',
-    },
-  })
+export async function geocode(query) {
+  const key = query.trim().toLowerCase()
+  const entry = cache.get(key)
+  const now = Date.now()
 
-  return (data.results ?? []).map((result) => ({
-    name: result.name,
-    latitude: result.latitude,
-    longitude: result.longitude,
-    country: result.country,
-    admin1: result.admin1,
+  if (entry && now - entry.fetchedAt < CACHE_MS) return entry.data
+
+  const { data } = await client.get('/search', { params: { name: query, count: 5, country: 'IN' } })
+
+  const results = (data.results ?? []).map((r) => ({
+    name: r.name,
+    admin: r.admin1 ?? null,
+    latitude: r.latitude,
+    longitude: r.longitude,
   }))
+
+  cache.set(key, { data: results, fetchedAt: now })
+  return results
 }

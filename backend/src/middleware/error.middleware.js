@@ -4,7 +4,7 @@ export function notFound(req, res) {
   })
 }
 
-export function errorHandler(err, req, res, next) {
+export function errorHandler(err, req, res) {
   const status = err.status ?? 500
 
   if (status >= 500) {

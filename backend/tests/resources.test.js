@@ -118,7 +118,8 @@ test('invalid soil test body returns 422 with details', async () => {
   })
   const data = await res.json()
   assert.equal(res.status, 422)
-  assert.ok(Array.isArray(data.details))
+  assert.ok(data.details && typeof data.details === 'object')
+  assert.ok(data.details.fieldErrors.ph)
 })
 
 test('fertilizer log with a future date returns 422', async () => {

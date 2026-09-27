@@ -71,14 +71,12 @@ export async function createField(req, res, next) {
     const { cropType, cropVariety, growthStage } = req.body
 
     if (cropType || cropVariety !== undefined || growthStage) {
-      const check = await validateCropFields({
-        cropType,
-        cropVariety,
-        growthStage,
-      })
-
-      if (!check.ok) {
-        return res.status(400).json({ error: check.error })
+      try {
+        const check = await validateCropFields({ cropType, cropVariety, growthStage })
+        if (!check.ok) return res.status(400).json({ error: check.error })
+      } catch (err) {
+        if (err.name !== 'ReferenceUnavailableError') throw err
+        // Reference data is down — don't block field creation on it.
       }
     }
 
@@ -103,12 +101,13 @@ export async function patchField(req, res, next) {
   try {
     const { cropType, cropVariety, growthStage } = req.body
     if (cropType || cropVariety !== undefined || growthStage) {
-      const check = await validateCropFields({
-        cropType: cropType ?? req.field.cropType,
-        cropVariety: cropVariety === undefined ? req.field.cropVariety : cropVariety,
-        growthStage: growthStage ?? req.field.growthStage,
-      })
-      if (!check.ok) return res.status(400).json({ error: check.error })
+      try {
+        const check = await validateCropFields({ cropType, cropVariety, growthStage })
+        if (!check.ok) return res.status(400).json({ error: check.error })
+      } catch (err) {
+        if (err.name !== 'ReferenceUnavailableError') throw err
+        // Reference data is down — don't block field creation on it.
+      }
     }
 
     const updated = await prisma.field.update({ where: { id: req.field.id }, data: req.body })

@@ -9,7 +9,14 @@ import {
   createFertilizerLog,
   listFertilizerLogs,
 } from '../controllers/fertilizerLog.controller.js'
-import { createRecommendation } from '../controllers/recommendation.controller.js'
+import {
+  createRecommendationSchema,
+  createRecommendation,
+  listRecommendationsForField,
+} from '../controllers/recommendation.controller.js'
+import { getFieldWeather } from '../controllers/weather.controller.js'
+import { riskCheckSchema, checkRisk } from '../controllers/risk.controller.js'
+import { getFieldTrends } from '../controllers/trends.controller.js'
 
 const router = Router()
 
@@ -24,6 +31,12 @@ router.get('/:id/soil-tests', assertFieldOwner(), listSoilTests)
 router.post('/:id/fertilizer-logs', assertFieldOwner(), validate(createFertilizerLogSchema), createFertilizerLog)
 router.get('/:id/fertilizer-logs', assertFieldOwner(), listFertilizerLogs)
 
-router.post('/:id/recommendations', assertFieldOwner(), createRecommendation)
+router.post('/:id/recommendations', assertFieldOwner(), validate(createRecommendationSchema), createRecommendation)
+router.get('/:id/recommendations', assertFieldOwner(), listRecommendationsForField)
+
+router.get('/:id/weather', assertFieldOwner(), getFieldWeather)
+
+router.post('/:id/risk-check', assertFieldOwner(), validate(riskCheckSchema), checkRisk)
+router.get('/:id/trends', assertFieldOwner(), getFieldTrends)
 
 export default router

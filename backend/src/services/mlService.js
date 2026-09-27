@@ -5,10 +5,19 @@ import { env } from '../config/env.js'
 const client = axios.create({ baseURL: env.ML_SERVICE_URL, timeout: 5000 })
 
 export class MlUnavailableError extends Error {
-  constructor(message = 'ML service is unavailable') {
+  constructor(message = 'Recommendation service is unavailable, try again') {
     super(message)
     this.name = 'MlUnavailableError'
     this.status = 502
+  }
+}
+
+export class MlPayloadError extends Error {
+  constructor(detail, message = 'Invalid recommendation request') {
+    super(message)
+    this.name = 'MlPayloadError'
+    this.status = 400
+    this.detail = detail
   }
 }
 
@@ -69,6 +78,28 @@ const recommendResponseSchema = z.object({
   model_version: z.string(),
 })
 
+const nutrientAppliedSchema = z.object({
+  applied_kg_ha: z.number(),
+  recommended_kg_ha: z.number(),
+  ratio: z.number(),
+})
+
+const riskScoreResponseSchema = z.object({
+  risk: z.object({
+    level: z.enum(['low', 'medium', 'high']),
+    reason: z.string(),
+    soil_health_impact: z.string(),
+    yield_impact: z.string(),
+    over_application_pct: z.number().nullable(),
+  }),
+  nutrient_balance: z.object({
+    n: nutrientAppliedSchema,
+    p: nutrientAppliedSchema,
+    k: nutrientAppliedSchema,
+  }),
+  model_version: z.string(),
+})
+
 function isRetryable(err) {
   return !err.response || err.response.status >= 500
 }
@@ -77,10 +108,12 @@ async function postWithRetry(path, payload) {
   try {
     return await client.post(path, payload)
   } catch (err) {
+    if (err.response?.status === 422) throw new MlPayloadError(err.response.data?.detail)
     if (!isRetryable(err)) throw new MlUnavailableError(err.message)
     try {
       return await client.post(path, payload)
     } catch (retryErr) {
+      if (retryErr.response?.status === 422) throw new MlPayloadError(retryErr.response.data?.detail)
       throw new MlUnavailableError(retryErr.message)
     }
   }
@@ -94,9 +127,10 @@ export async function recommend(payload) {
 }
 
 export async function riskScore(payload) {
-  // Full response schema for this arrives with J9.
   const { data } = await postWithRetry('/risk-score', payload)
-  return data
+  const parsed = riskScoreResponseSchema.safeParse(data)
+  if (!parsed.success) throw new MlInvalidResponseError(parsed.error.message)
+  return parsed.data
 }
 
 export async function health() {

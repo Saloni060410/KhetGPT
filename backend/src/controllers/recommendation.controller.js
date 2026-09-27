@@ -1,14 +1,33 @@
+import { isDeepStrictEqual } from 'node:util'
+import { z } from 'zod'
 import { prisma } from '../config/db.js'
-import { getWeather } from '../services/weatherService.js'
-import { recommend } from '../services/mlService.js'
+import { getWeatherForField } from '../services/weatherService.js'
+import { recommend, MlPayloadError } from '../services/mlService.js'
+import { parsePagination, paginatedResponse } from '../utils/pagination.js'
 
 const RISK_LEVEL_MAP = { low: 'LOW', medium: 'MEDIUM', high: 'HIGH' }
+const IDEMPOTENCY_WINDOW_MS = 30_000
 const isoDate = (date) => date.toISOString().slice(0, 10)
 
-function toApiRecommendation(row) {
+export const createRecommendationSchema = z
+  .object({
+    soilTestId: z.string().uuid().optional(),
+    cropType: z.string().min(1).optional(),
+    cropVariety: z.string().min(1).nullable().optional(),
+    growthStage: z.string().min(1).optional(),
+  })
+  .optional()
+  .transform((v) => v ?? {})
+
+function toApiRecommendation(row, { areaAcres } = {}) {
+  const weatherStale = row.weatherSource != null && row.weatherSource !== 'live'
+  const savingTotal =
+    row.estimatedSaving != null && areaAcres != null ? row.estimatedSaving * areaAcres : null
+
   return {
     id: row.id,
     fieldId: row.fieldId,
+    soilTestId: row.soilTestId,
     cropType: row.cropType,
     cropVariety: row.cropVariety,
     growthStage: row.growthStage,
@@ -24,8 +43,10 @@ function toApiRecommendation(row) {
     topFactors: row.topFactors,
     explanation: row.explanation,
     weatherSource: row.weatherSource,
+    weatherStale,
     estimatedCost: row.estimatedCost,
     estimatedSaving: row.estimatedSaving,
+    savingTotal,
     modelVersion: row.modelVersion,
     createdAt: row.createdAt,
   }
@@ -33,22 +54,26 @@ function toApiRecommendation(row) {
 
 export async function createRecommendation(req, res, next) {
   try {
-    const field = req.field // set by assertFieldOwner
+    const field = req.field
+    const { soilTestId, cropType: bodyCropType, cropVariety: bodyCropVariety, growthStage: bodyGrowthStage } = req.body
 
-    if (!field.cropType) {
-      return res.status(409).json({ error: 'Field has no crop type set' })
-    }
-    if (!field.growthStage) {
-      return res.status(409).json({ error: 'Field has no growth stage set' })
-    }
+    const cropType = bodyCropType ?? field.cropType
+    const cropVariety = bodyCropVariety !== undefined ? bodyCropVariety : field.cropVariety
+    const growthStage = bodyGrowthStage ?? field.growthStage
 
-    const soilTest = await prisma.soilTest.findFirst({
-      where: { fieldId: field.id },
-      orderBy: { testedOn: 'desc' },
-    })
-    if (!soilTest) {
-      return res.status(409).json({ error: 'Field has no soil test' })
+    if (!cropType) return res.status(409).json({ error: 'Field has no crop type set' })
+    if (!growthStage) return res.status(409).json({ error: 'Field has no growth stage set' })
+
+    let soilTest
+    if (soilTestId) {
+      soilTest = await prisma.soilTest.findUnique({ where: { id: soilTestId } })
+      if (!soilTest || soilTest.fieldId !== field.id) {
+        return res.status(404).json({ error: 'Soil test not found for this field' })
+      }
+    } else {
+      soilTest = await prisma.soilTest.findFirst({ where: { fieldId: field.id }, orderBy: { testedOn: 'desc' } })
     }
+    if (!soilTest) return res.status(409).json({ error: 'Field has no soil test' })
 
     const twelveMonthsAgo = new Date()
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
@@ -57,14 +82,14 @@ export async function createRecommendation(req, res, next) {
       orderBy: { appliedOn: 'asc' },
     })
 
-    const weather = await getWeather({ latitude: field.latitude, longitude: field.longitude })
+    const weather = await getWeatherForField({ id: field.id, latitude: field.latitude, longitude: field.longitude })
 
     const payload = {
       field_id: field.id,
-      crop_type: field.cropType,
-      variety: field.cropVariety ?? null,
+      crop_type: cropType,
+      variety: cropVariety ?? null,
       irrigation: field.irrigation ?? 'irrigated',
-      growth_stage: field.growthStage,
+      growth_stage: growthStage,
       sowing_date: field.sowingDate ? isoDate(field.sowingDate) : null,
       soil: {
         n: soilTest.n,
@@ -87,15 +112,31 @@ export async function createRecommendation(req, res, next) {
       })),
     }
 
-    const mlResult = await recommend(payload)
+    const recent = await prisma.recommendation.findFirst({
+      where: { fieldId: field.id, createdAt: { gte: new Date(Date.now() - IDEMPOTENCY_WINDOW_MS) } },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (recent && isDeepStrictEqual(recent.inputSnapshot, payload)) {
+      return res.status(200).json(toApiRecommendation(recent, { areaAcres: field.areaAcres }))
+    }
+
+    let mlResult
+    try {
+      mlResult = await recommend(payload)
+    } catch (err) {
+      if (err instanceof MlPayloadError) {
+        return res.status(400).json({ error: err.message, detail: err.detail })
+      }
+      throw err
+    }
 
     const created = await prisma.recommendation.create({
       data: {
         fieldId: field.id,
         soilTestId: soilTest.id,
-        cropType: field.cropType,
-        cropVariety: field.cropVariety ?? null,
-        growthStage: field.growthStage,
+        cropType,
+        cropVariety: cropVariety ?? null,
+        growthStage,
         fertilizerType: mlResult.recommendation.fertilizer_type,
         quantityKgPerAcre: mlResult.recommendation.quantity_kg_per_acre,
         schedule: mlResult.recommendation.schedule,
@@ -113,7 +154,42 @@ export async function createRecommendation(req, res, next) {
       },
     })
 
-    res.status(201).json(toApiRecommendation(created))
+    res.status(201).json(toApiRecommendation(created, { areaAcres: field.areaAcres }))
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function listRecommendationsForField(req, res, next) {
+  try {
+    const { page, limit, skip } = parsePagination(req.query)
+    const [items, total] = await Promise.all([
+      prisma.recommendation.findMany({ where: { fieldId: req.field.id }, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      prisma.recommendation.count({ where: { fieldId: req.field.id } }),
+    ])
+    res.json(
+      paginatedResponse({
+        items: items.map((row) => toApiRecommendation(row, { areaAcres: req.field.areaAcres })),
+        page,
+        limit,
+        total,
+      })
+    )
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getRecommendationById(req, res, next) {
+  try {
+    const recommendation = await prisma.recommendation.findUnique({
+      where: { id: req.params.id },
+      include: { field: { include: { farm: true } } },
+    })
+    if (!recommendation || recommendation.field.farm.ownerId !== req.user.id) {
+      return res.status(404).json({ error: 'Not found' })
+    }
+    res.json(toApiRecommendation(recommendation, { areaAcres: recommendation.field.areaAcres }))
   } catch (err) {
     next(err)
   }

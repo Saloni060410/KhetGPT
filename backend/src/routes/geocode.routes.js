@@ -1,24 +1,11 @@
 import { Router } from 'express'
-import { z } from 'zod'
+import rateLimit from 'express-rate-limit'
 import { requireAuth } from '../middleware/auth.middleware.js'
-import { validate } from '../middleware/validate.middleware.js'
-import { geocodePlace } from '../services/geocodeService.js'
+import { searchPlace } from '../controllers/geocode.controller.js'
 
 const router = Router()
+const geocodeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false })
 
-const geocodeSchema = z.object({
-  place: z.string().min(2).max(120),
-})
-
-router.use(requireAuth)
-
-router.get('/', validate(geocodeSchema, 'query'), async (req, res, next) => {
-  try {
-    const results = await geocodePlace(req.query.place)
-    res.json(results)
-  } catch (err) {
-    next(err)
-  }
-})
+router.get('/', requireAuth, geocodeLimiter, searchPlace)
 
 export default router
