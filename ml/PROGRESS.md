@@ -409,9 +409,39 @@ confirmed `/health` now returns the real classifier's version.
 these can silently reappear. Full suite: 290 passed, same 6 pre-existing environment-only
 failures (absent real Kaggle file), unrelated to any of this.
 
+## Done, and not blocked (S10)
+
+- **S10 — model card.** `ml/MODEL_CARD.md` written, every number pulled from
+  `registry.json`'s `fertilizer-classifier-0.1.0` entry or re-verified directly against the
+  live data rather than trusted from memory -- caught and corrected two things while writing
+  it: (1) the classifier's own 5 target classes include `np_20_20_0` and `npk_17_17_17`, which
+  are *also* currently unpriced (same situation as MOP), not just the 3 obviously-priced ones
+  I first assumed; (2) `configs/train.yaml`'s `excluded_classes` comment claiming
+  `npk_10_26_26` has "2 rows" is stale -- verified directly, it has **zero** rows in the
+  current 2,800-row `train.csv` (fixed the comment in the same change, reasoning holds either
+  way).
+  **Per-crop metrics, requested by S10 but not previously computed anywhere:** added properly,
+  not as a one-off -- extended `train.py`'s `--final-test` branch to call Richa's `per_slice()`
+  automatically for every future version (`Frame` gained an optional `crop_id` field, since
+  `build_features()` one-hot-encodes the raw column away), then applied the same rigor as the
+  earlier CI enrichment to add it to v0.1.0's already-frozen entry: predicted once more with
+  the already-registered artifact on the already-frozen test rows, verified the point estimates
+  matched exactly (proof it's the same evaluation), then wrote `per_crop` in. Finding worth
+  reading, not just archiving: every per-crop macro-F1 (0.19-0.32) is well below the pooled
+  0.469 -- expected (a crop only sees 2-3 of the 5 products), but the pooled number alone would
+  have overstated it. `chickpea` (0.192) is the weakest crop.
+  **`wall_clock_seconds` is now persisted** in every future run's `env.json` -- previously only
+  `main()` printed it, `run()` itself never captured it, so it was never actually recorded
+  anywhere a later reproducibility report could read it back from. v0.1.0's own figure (10.7s)
+  is cited in the model card from the printed log, not re-derived.
+  **`docs/evaluation-report.md` (R12, Richa's) doesn't exist yet** -- checked every branch,
+  genuinely absent, `TODO(richa-eval-report)` in the model card rather than a self-written
+  substitute for her failure-mode analysis.
+  2 new/extended tests (`test_train.py`): `env.json` gets `wall_clock_seconds`; `--final-test`'s
+  registry entry gets `per_crop`. Full suite: 290 passed, same 6 pre-existing failures.
+
 ## Not started yet
 
-S10 (model card) and S11 (demo readiness) per the pack -- both gated on inputs I don't have
-yet: S10 needs Richa's evaluation report (R12), S11 needs Josh's compose changes above (J10).
+S11 (demo readiness) per the pack -- gated on Josh's compose changes from S9 (J10).
 S12 (learned quantity refinement) is a stretch goal conditional on Richa having found a
 dataset with real applied-quantity labels -- unknown status, hers to say.
