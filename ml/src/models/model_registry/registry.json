@@ -507,6 +507,71 @@
             "macro_f1": 0.2937062937062937,
             "n": 59
           }
+        },
+        "per_crop_confusion": {
+          "barley": {
+            "n": 60,
+            "correct": 26,
+            "misclassified": 34,
+            "misclassified_predicted_as": {
+              "np_28_28_0": 27,
+              "np_20_20_0": 7
+            }
+          },
+          "chickpea": {
+            "n": 58,
+            "correct": 23,
+            "misclassified": 35,
+            "misclassified_predicted_as": {
+              "dap": 34,
+              "np_20_20_0": 1
+            }
+          },
+          "cotton": {
+            "n": 71,
+            "correct": 46,
+            "misclassified": 25,
+            "misclassified_predicted_as": {
+              "urea": 24,
+              "np_20_20_0": 1
+            }
+          },
+          "maize": {
+            "n": 60,
+            "correct": 28,
+            "misclassified": 32,
+            "misclassified_predicted_as": {
+              "urea": 11,
+              "np_28_28_0": 17,
+              "np_20_20_0": 4
+            }
+          },
+          "rice": {
+            "n": 54,
+            "correct": 47,
+            "misclassified": 7,
+            "misclassified_predicted_as": {
+              "urea": 7
+            }
+          },
+          "sugarcane": {
+            "n": 59,
+            "correct": 45,
+            "misclassified": 14,
+            "misclassified_predicted_as": {
+              "urea": 8,
+              "npk_17_17_17": 6
+            }
+          },
+          "wheat": {
+            "n": 59,
+            "correct": 30,
+            "misclassified": 29,
+            "misclassified_predicted_as": {
+              "np_28_28_0": 12,
+              "np_20_20_0": 17
+            }
+          }
         }
       },
       "dataset_source": "real",

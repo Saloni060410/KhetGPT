@@ -239,14 +239,19 @@ failure-mode analysis; summarized here, not duplicated in full:
   model makes. `dap` has perfect recall (1.000) but only 40.4% precision -- a lot of other rows
   get misclassified *into* dap. `urea`, the largest class, is the most reliably identified
   (recall 0.716, F1 0.729).
-- **Chickpea collapses to "dap" entirely**, not a subtle confusion: every one of chickpea's 42
-  misclassified test rows (both true `np_20_20_0` and true `np_28_28_0`) was predicted `dap`,
-  regardless of the row's actual N/P/K values -- likely because chickpea's low-N reference dose
+- **Chickpea collapses to "dap" almost entirely**, not a subtle confusion: of chickpea's 35
+  misclassified test rows (23 of 58 correct), 34 were predicted `dap` (27 of those were truly
+  `np_28_28_0`, 8 truly `np_20_20_0`; the one exception was predicted `np_20_20_0`) --
+  regardless of the row's actual N/P/K values, likely because chickpea's low-N reference dose
   (14.8 kg/ha vs wheat's 123.6, it being a legume) looks close enough to dap's typical low-N
-  profile that the model never learned to separate them within that crop. Per-crop macro-F1 is
-  lowest for barley (0.139) and wheat (0.140), then chickpea (0.181) -- chickpea's classifier
-  output specifically should not be trusted (the dose calculator's own numbers, unaffected, are
-  still the source of truth regardless).
+  profile that the model never learned to separate them within that crop. Chickpea's own
+  macro-F1 (0.192, the "Per-crop, test split" table above) is the single lowest of any crop --
+  chickpea's classifier output specifically should not be trusted (the dose calculator's own
+  numbers, unaffected, are still the source of truth regardless). This confusion breakdown is
+  computed directly from the registered `0.1.1` artifact's own predictions on the frozen test
+  split (`registry.json`'s `test_metrics.per_crop_confusion`, verified against the
+  already-recorded pooled accuracy/macro-F1 before being added, same discipline as every other
+  enrichment in this file) -- not carried over from a different dataset build's report.
 - **`np_28_28_0` <-> `urea` is the single largest cross-crop confusion pattern** in both
   directions -- reflects genuine label ambiguity in the synthetic generator's mid-range soil
   sampling, not an implausible model failure.

@@ -601,3 +601,57 @@ meant to be compared against, so the model would just be learning to imitate the
 synthetic output -- exactly the kind of leakage this project has been careful to avoid
 everywhere else (see the ML standards' data-leakage checklist). A real comparison needs real,
 independently-observed applied quantities; there aren't any.
+
+## External code review response (2026-09-28) -- 4 findings since S9, verified before fixing
+
+**1. `MODEL_CARD.md` contradicted its own per-crop table -- a real bug in the model card
+itself.** Verified directly against `registry.json`'s `test_metrics.per_crop`: the "Per-crop,
+test split" table (chickpea 0.192 lowest, cotton 0.262, wheat 0.294...) is correct. But the
+Limitations paragraph a few sections later asserted different numbers with the opposite
+ranking ("lowest for barley (0.139) and wheat (0.140), then chickpea (0.181)") and claimed
+"every one of chickpea's 42 misclassified test rows... was predicted dap." Root cause: I'd
+pulled that paragraph's content from `docs/evaluation-report.md`'s §1.4/§1.5 -- Richa's *fresh
+reproduction* section, which (per the retrain entry above) turned out not to reproduce on this
+checkout at all (different dataset hash, a 6th class that doesn't exist in the actual raw
+file) -- instead of from the actually-registered `0.1.1` run's own numbers, which I had
+correctly used for the table two paragraphs earlier. Two different runs' numbers, silently
+mixed in one document.
+
+Fixed properly, not just reworded: the "42 misclassified" claim had never actually been
+computed for the registered run at all (no per-crop confusion breakdown existed anywhere) --
+per the reviewer's own suggestion, computed and persisted it rather than asserting a number.
+New verified-inference-only script (same pattern as the 0.1.0 per_crop_metrics.py enrichment):
+`models_artifacts/runs/20260927T200512Z/per_crop_confusion.py` reloads the frozen `0.1.1`
+artifact, re-predicts on the same frozen test split, verifies its accuracy/macro-F1 match the
+already-recorded ones exactly (proof it's the same evaluation, not a new look), then adds
+`test_metrics.per_crop_confusion` to `registry.json` for every crop. The real number: chickpea
+has 35 misclassified rows (not 42), 34 of them predicted `dap` (not literally every one -- one
+was predicted `np_20_20_0`), 27 of those 34 truly `np_28_28_0` and 8 truly `np_20_20_0`.
+`MODEL_CARD.md`'s Limitations paragraph rewritten to state this, cite where it's persisted, and
+stop repeating the wrong per-crop ranking (the table above it already has the right one).
+
+**2. `ruff check .` had a real hit in my own S11 file.** `scripts/demo_requests.py:74` --
+`date.today()` with no `# noqa: DTZ011`, unlike every other real-clock fallback in this
+codebase (`recommendation_engine.py`'s two, both annotated). Fixed with the same one-line
+justification style. `ruff check . --exclude notebooks` is clean; the 4 remaining hits are in
+Richa's `notebooks/model_experiments.ipynb`, not touched (not my file).
+
+**3. `docker-compose.yml` still doesn't have the healthcheck/depends_on half of the original
+S9 ask -- flagging again, more urgently, for Josh.** This file already asked (S9 entry above,
+2026-09-27) for a healthcheck on the `ml` service matching the Dockerfile's own and
+`depends_on: ml: condition: service_healthy` mirroring postgres's. S11 added the volume mount
+(the half that was blocking the demo outright) but not this half, since it wasn't strictly
+blocking and it's Josh's file. It's still missing. Practical effect: nothing in compose
+actually confirms `/health` is `"ok"` (classifier loaded) before backend starts -- precisely
+the gap S11 spent a night manually debugging (`/health` silently `"degraded"` with no compose-
+level signal). Worth fixing before relying on compose unattended again.
+
+**4. Two stale docstrings still said MOP was unpriced.** `cost.py`'s module docstring and
+`npk_calculator.to_products()`'s docstring both still read "MOP... as of 2026-09-27... doesn't
+carry it" -- true when written, wrong since the `richa-ml-data` merge priced it the same day
+(PIB Release ID 2237470). `MODEL_CARD.md`/this file were updated correctly at the time; these
+two inline comments weren't. Cosmetic only (behavior reads live from the CSV, nothing was
+actually broken), fixed to name the products that are *actually* still unpriced today (`ssp`,
+`npk_14_35_14`, `npk_17_17_17`, `np_20_20_0`) instead of a dated, now-wrong MOP-specific claim.
+
+Full suite re-run after all four fixes: 321 passed, 2 skipped, unchanged.

@@ -396,11 +396,11 @@ def to_products(
     contract C1), and maps nutrients to products: DAP for P (crediting its N against the
     first nitrogen-bearing stage), MOP for K, remaining N from urea.
 
-    A needed product is selected and dosed even if it has no verified price yet (Richa
-    re-checked MOP specifically: IFFCO's own price list doesn't carry it and market listings
-    were too inconsistent to cite responsibly -- 2026-09-27). Pricing is cost.py's job, not
-    this function's: an unpriced product still gets a real quantity_kg_per_acre and schedule
-    entry here, and cost.py excludes it from cost.breakdown rather than failing the whole
+    A needed product is selected and dosed even if it has no verified price yet (currently
+    `ssp`, `npk_14_35_14`, `npk_17_17_17`, `np_20_20_0` -- `mop` was resolved 2026-09-27, PIB
+    Release ID 2237470, see fertilizer_products.csv). Pricing is cost.py's job, not this
+    function's: an unpriced product still gets a real quantity_kg_per_acre and schedule entry
+    here, and cost.py excludes it from cost.breakdown rather than failing the whole
     recommendation (see cost.py's module docstring and recommendation_engine.py's data_notes).
     A needed product with no ROW AT ALL in fertilizer_products.csv (so not even its nutrient
     percentages are known, meaning quantity itself can't be computed) still raises

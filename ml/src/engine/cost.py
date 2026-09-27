@@ -4,12 +4,14 @@ Both figures are priced at today's fertilizer_products.csv rates, never a histor
 the farmer may actually have paid (we don't have that), so the comparison is apples to
 apples: what this plan costs today, versus what already-applied fertilizer would cost today.
 
-A product with no verified price (MOP, as of 2026-09-27 -- Richa re-checked: IFFCO's own
-price list doesn't carry it, market listings were too inconsistent to cite) is never invented
-a price, but no longer blocks the whole recommendation either (that was the pre-2026-09-27
-behavior). It is simply excluded from cost.breakdown/estimated_cost_inr_per_acre -- its
-quantity and schedule still come back from npk_calculator.to_products() as normal, and
-recommendation_engine.py's data_notes says its cost is unavailable, once, per response.
+A product with no verified price (currently `ssp`, `npk_14_35_14`, `npk_17_17_17`,
+`np_20_20_0` -- `mop` was resolved 2026-09-27, PIB Release ID 2237470, see
+`fertilizer_products.csv`) is never invented a price, but no longer blocks the whole
+recommendation either (that was the pre-2026-09-27 behavior, before the unpriced-product
+policy below existed at all). It is simply excluded from cost.breakdown/
+estimated_cost_inr_per_acre -- its quantity and schedule still come back from
+npk_calculator.to_products() as normal, and recommendation_engine.py's data_notes says its
+cost is unavailable, once, per response.
 A product with no ROW AT ALL in fertilizer_products.csv is a different, still-fatal problem
 (estimate_cost still raises for that) -- an unknown product, not merely an unpriced one.
 """
