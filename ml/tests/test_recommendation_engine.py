@@ -134,6 +134,20 @@ def test_recommend_still_recommends_the_unpriced_mop_but_excludes_its_cost(clien
     assert any("mop" in note.lower() for note in body["explanation"]["data_notes"])
 
 
+def test_recommend_for_a_crop_with_no_split_schedule_rows_is_a_503_not_a_fake_empty_plan(client):
+    # Barley has a real reference dose but zero split_schedule.csv rows -- ready_crops()'s own
+    # "not ready" reason. Before this fix, /recommend returned 200 with fertilizer_type "none"
+    # and an empty schedule, even though explanation.nutrient_balance showed a real N/P need --
+    # a confident wrong answer instead of the 503 every other missing-data gap raises.
+    payload = load("recommend_request.json")
+    payload["crop_type"] = "barley"
+    payload["variety"] = None
+    payload["growth_stage"] = "sowing"
+    response = client.post("/recommend", json=payload)
+    assert response.status_code == 503
+    assert "split_schedule" in response.json()["detail"]
+
+
 def test_recommend_maps_missing_reference_tables_to_503(client, no_potash_request, tmp_path, monkeypatch):
     monkeypatch.setattr(soil_data_loader, "EXTERNAL_DIR", tmp_path)
     app.state.engine = Engine()  # rebuild against the now-empty directory

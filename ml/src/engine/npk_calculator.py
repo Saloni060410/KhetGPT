@@ -74,21 +74,54 @@ def _ordered_stages(tables: ReferenceTables, crop_id: str) -> list[dict]:
 
 
 def _stcr_dose(tables: ReferenceTables, crop_id: str, variety: str | None, nutrient: str) -> dict | None:
+    # region is a real column in stcr_equations.csv but isn't part of this function's
+    # lookup key (the request has no region field -- contract C1) and every crop/variety/
+    # nutrient combination happens to have exactly one region today. That's silent luck, not
+    # a guarantee: if a second region is ever added for the same combination, picking
+    # "whichever row comes first" would be an unacknowledged guess. Raise instead.
     for candidate in _variety_candidates(variety):
-        for row in tables.stcr_equations:
-            if row["crop_id"] == crop_id and row["variety_id"] == candidate and row["nutrient"] == nutrient:
-                target_yield = _parse_float(row["target_yield_default_q_ha"])
-                if target_yield is None:
-                    continue  # a row exists but has no usable yield target yet -- not usable
-                return {"a": float(row["a"]), "b": float(row["b"]), "target_yield": target_yield, "row": row}
+        matches = [
+            row
+            for row in tables.stcr_equations
+            if row["crop_id"] == crop_id and row["variety_id"] == candidate and row["nutrient"] == nutrient
+        ]
+        usable = [row for row in matches if _parse_float(row["target_yield_default_q_ha"]) is not None]
+        if not usable:
+            continue  # no usable row for this candidate -- the caller tries the next one
+        if len(usable) > 1:
+            regions = sorted({row["region"] for row in usable})
+            raise ReferenceDataIncomplete(
+                crop_id,
+                nutrient,
+                f"stcr_equations.csv has {len(usable)} usable rows for "
+                f"(crop_id={crop_id!r}, variety_id={candidate!r}, nutrient={nutrient!r}) across regions "
+                f"{regions} -- ambiguous without a region to disambiguate, not guessed",
+            )
+        row = usable[0]
+        return {"a": float(row["a"]), "b": float(row["b"]), "target_yield": float(row["target_yield_default_q_ha"]), "row": row}
     return None
 
 
 def _reference_dose_row(tables: ReferenceTables, crop_id: str, variety: str | None, irrigation: str) -> dict | None:
+    # Same region caveat as _stcr_dose above.
     for candidate in _variety_candidates(variety):
-        for row in tables.reference_doses:
-            if row["crop_id"] == crop_id and row["variety_id"] == candidate and row["irrigation"] == irrigation:
-                return row
+        matches = [
+            row
+            for row in tables.reference_doses
+            if row["crop_id"] == crop_id and row["variety_id"] == candidate and row["irrigation"] == irrigation
+        ]
+        if not matches:
+            continue
+        if len(matches) > 1:
+            regions = sorted({row["region"] for row in matches})
+            raise ReferenceDataIncomplete(
+                crop_id,
+                "reference_dose",
+                f"reference_doses.csv has {len(matches)} rows for "
+                f"(crop_id={crop_id!r}, variety_id={candidate!r}, irrigation={irrigation!r}) across regions "
+                f"{regions} -- ambiguous without a region to disambiguate, not guessed",
+            )
+        return matches[0]
     return None
 
 
@@ -379,6 +412,17 @@ def to_products(
     rain_hold_days = 2 if rain_hold_days is None else rain_hold_days
     products = _fertilizer_products(tables)
 
+    # A crop with zero split_schedule rows at all (not just none left for this stage -- that's
+    # the legitimate "later stage, basal split already passed" case _schedule_lines handles on
+    # its own) means every nutrient's need is genuinely unattributable to any product/stage.
+    # Without this check, p_lines/k_lines/n_lines all come back empty below and every branch
+    # is skipped silently, returning schedule=[] -- exactly the missing-data condition
+    # ready_crops() defines as "not ready" ("no split_schedule rows"), but reaching /recommend
+    # as a fake, confident "nothing needed" plan instead of the 503 every other missing-data
+    # gap in this function raises.
+    if not any(row["crop_id"] == crop_id for row in tables.split_schedule):
+        raise ReferenceDataIncomplete(crop_id, "schedule", "split_schedule.csv has no rows for this crop")
+
     current_order = int(_stage_row(tables, crop_id, growth_stage)["order"])
     lines = _schedule_lines(tables, crop_id, current_order)
     effective_sowing = sowing_date or _effective_sowing_date(tables, crop_id, growth_stage, today)
@@ -400,6 +444,20 @@ def to_products(
     p_lines = [line for line in lines if line.nutrient == "p"]
     k_lines = [line for line in lines if line.nutrient == "k"]
     n_lines = sorted((line for line in lines if line.nutrient == "n"), key=lambda line: line.order)
+
+    # Only p_lines[0]/k_lines[0] are ever used below -- correct today because every crop's
+    # split_schedule.csv gives P and K a single basal stage, but nothing enforced that
+    # assumption. If a future data change ever split P or K across stages, this would
+    # silently apply only the first stage's fraction and drop the rest of the dose --
+    # exactly the kind of silent gap this codebase doesn't allow elsewhere. Raise instead.
+    if len(p_lines) > 1:
+        raise ReferenceDataIncomplete(
+            crop_id, "p", f"split_schedule.csv has {len(p_lines)} P rows for this crop -- P is assumed basal (one stage only)"
+        )
+    if len(k_lines) > 1:
+        raise ReferenceDataIncomplete(
+            crop_id, "k", f"split_schedule.csv has {len(k_lines)} K rows for this crop -- K is assumed basal (one stage only)"
+        )
 
     if p_lines and nutrient_balance["p"]["fertilizer_needed_kg_ha"] > 0:
         line = p_lines[0]
