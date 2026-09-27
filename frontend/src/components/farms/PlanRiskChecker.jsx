@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useId } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   FlaskConical,
   Plus,
@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   AlertOctagon,
   ShieldCheck,
-  CheckCircle2,
   ArrowRight,
   RotateCcw,
   Sparkles,
@@ -15,24 +14,12 @@ import {
   Scale,
   Leaf,
   Layers,
-  HelpCircle,
 } from 'lucide-react'
 import Button from '../ui/Button.jsx'
-import Card from '../ui/Card.jsx'
 import Badge from '../ui/Badge.jsx'
-import Skeleton from '../ui/Skeleton.jsx'
 import useDebounce from '../../hooks/useDebounce.js'
 import * as endpoints from '../../services/endpoints.js'
 import { useT } from '../../i18n/useT.js'
-
-// Standard Indian bag weights for farmer visual context
-const BAG_WEIGHTS_KG = {
-  urea: 45,
-  dap: 50,
-  mop: 50,
-  npk_10_26_26: 50,
-  ssp: 50,
-}
 
 function calculateBagText(fertilizerType, totalKgPerAcre, acres = 1, isHindi = false) {
   const normType = fertilizerType?.toLowerCase() || ''
@@ -59,7 +46,6 @@ function calculateBagText(fertilizerType, totalKgPerAcre, acres = 1, isHindi = f
 
 export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldArea = 2.5, cropType = 'Wheat' }) {
   const { t, isHindi, formatNumber, formatFertilizer, formatCrop } = useT()
-  const navigate = useNavigate()
   const componentId = useId()
 
   // Product choices from GET /reference/fertilizers
@@ -137,7 +123,10 @@ export default function PlanRiskChecker({ fieldId, onBackToRecommended, fieldAre
 
   // Debounce reactive trigger
   useEffect(() => {
-    executeRiskCheck(debouncedPlannedRows)
+    const timer = setTimeout(() => {
+      executeRiskCheck(debouncedPlannedRows)
+    }, 0)
+    return () => clearTimeout(timer)
   }, [debouncedPlannedRows, executeRiskCheck])
 
   // Handlers for modifying planned rows

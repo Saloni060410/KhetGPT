@@ -1,15 +1,11 @@
-import React, { useState, useEffect, Suspense, useCallback } from 'react'
+import { useState, useEffect, Suspense, useCallback, lazy } from 'react'
 import {
   Layers,
-  Sparkles,
   Maximize2,
   Minimize2,
   Box,
   BarChart2,
   Info,
-  HelpCircle,
-  ShieldCheck,
-  AlertTriangle,
   RotateCcw,
 } from 'lucide-react'
 import { canRun3DScene } from '../../utils/deviceCapabilities.js'
@@ -18,7 +14,7 @@ import NutrientStrata2DFallback from './NutrientStrata2DFallback.jsx'
 import NutrientStrataSkeleton from './NutrientStrataSkeleton.jsx'
 
 // Lazy-load the 3D Three.js / R3F scene so the initial JS bundle does not grow!
-const NutrientStrataScene = React.lazy(() => import('./NutrientStrataScene.jsx'))
+const NutrientStrataScene = lazy(() => import('./NutrientStrataScene.jsx'))
 
 export { NutrientStrataSkeleton }
 
@@ -30,8 +26,6 @@ export default function NutrientStrataContainer({
   nutrientBalance = {},
   soilTest = null,
   soilRatings = null,
-  risk = null,
-  formula = '',
 }) {
   const [selectedNutrient, setSelectedNutrient] = useState('n')
   const [isExpanded, setIsExpanded] = useState(false)

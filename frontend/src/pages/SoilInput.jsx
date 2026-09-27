@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
   ArrowRight, 
   Check, 
-  FileText, 
   UploadCloud, 
-  Sparkles,
-  History,
-  Droplets
+  Sparkles, 
+  History, 
+  Droplets 
 } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle.js';
 import RecommendationCard from '../components/RecommendationCard.jsx';
@@ -411,7 +410,7 @@ export default function SoilInput() {
             Interactive Field Tool
           </div>
           <h2 className="font-serif text-2xl sm:text-3xl text-[#1C1B18] tracking-tight">
-            Calculate Your Field's Baseline Dose
+            Calculate Your Field&apos;s Baseline Dose
           </h2>
           <p className="text-xs sm:text-sm text-[#756F63]">
             Select your crop, soil texture, and district below to inspect baseline bags, soil-test calibrations, and calendar splits.

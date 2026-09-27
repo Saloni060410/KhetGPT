@@ -1,5 +1,3 @@
-import React from 'react'
-
 /**
  * Real skeleton placeholder for Suspense during lazy load
  * Preserves height (380px-440px) to prevent Cumulative Layout Shift (CLS)

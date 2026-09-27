@@ -7,7 +7,7 @@ import { useEffect } from 'react'
 import { useT } from '../i18n/useT.js'
 
 export default function RiskCheck() {
-  const { t, formatCrop } = useT()
+  const { t } = useT()
   const { fieldId } = useParams()
   const currentFieldId = fieldId || '1'
   const navigate = useNavigate()

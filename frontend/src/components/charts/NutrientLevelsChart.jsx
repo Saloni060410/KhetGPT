@@ -1,7 +1,6 @@
 import { useState, useId } from 'react'
-import { FlaskConical, Table, Eye, CheckCircle2, AlertCircle } from 'lucide-react'
+import { FlaskConical, Table, Eye } from 'lucide-react'
 import Button from '../ui/Button.jsx'
-import Badge from '../ui/Badge.jsx'
 import { getNutrientRating } from '../../utils/soilRating.js'
 
 function formatDateShort(dateStr) {

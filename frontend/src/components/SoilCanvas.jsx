@@ -1,7 +1,41 @@
-import React, { useRef, useMemo } from 'react';
+import { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Float, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
+
+// Pre-computed deterministic nutrient particles (eliminates impure Math.random during render)
+function generateNutrientParticles(count) {
+  const pos = new Float32Array(count * 3);
+  const col = new Float32Array(count * 3);
+
+  const cNitrogen = new THREE.Color('#00F59B'); // Bioluminescent Emerald N
+  const cPhosphorus = new THREE.Color('#F59E0B'); // Warm Ochre P
+  const cPotassium = new THREE.Color('#06B6D4'); // Bio-Cyan K
+
+  for (let i = 0; i < count; i++) {
+    const r1 = Math.abs(Math.sin(i * 12.9898 + 1.23));
+    const r2 = Math.abs(Math.sin(i * 78.233 + 4.56));
+    const r3 = Math.abs(Math.sin(i * 45.164 + 7.89));
+    const r4 = Math.abs(Math.sin(i * 93.712 + 2.34));
+
+    pos[i * 3 + 0] = (r1 - 0.5) * 2.6;
+    pos[i * 3 + 1] = -0.1 - r2 * 1.6;
+    pos[i * 3 + 2] = (r3 - 0.5) * 2.6;
+
+    let chosenCol;
+    if (r4 < 0.45) chosenCol = cNitrogen;
+    else if (r4 < 0.75) chosenCol = cPhosphorus;
+    else chosenCol = cPotassium;
+
+    col[i * 3 + 0] = chosenCol.r;
+    col[i * 3 + 1] = chosenCol.g;
+    col[i * 3 + 2] = chosenCol.b;
+  }
+
+  return [pos, col];
+}
+
+const STATIC_NUTRIENT_DATA = generateNutrientParticles(140);
 
 // Procedural Soil Stratum Block with dynamic degradation/recovery shading
 function SoilBlock({ recoveryProgress }) {
@@ -79,7 +113,7 @@ function CropAndRoots({ recoveryProgress }) {
   const rootGroupRef = useRef();
   const plantGroupRef = useRef();
 
-  useFrame((state, delta) => {
+  useFrame((state) => {
     if (plantGroupRef.current) {
       // Gentle wind breeze
       plantGroupRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 1.5) * 0.04;
@@ -155,36 +189,7 @@ function CropAndRoots({ recoveryProgress }) {
 // Subsurface Bio-Active Nutrient Particles (N-P-K Ion Swarm)
 function NutrientNodes({ recoveryProgress }) {
   const pointsRef = useRef();
-  const particleCount = 140;
-
-  const [positions, colors] = useMemo(() => {
-    const pos = new Float32Array(particleCount * 3);
-    const col = new Float32Array(particleCount * 3);
-
-    const cNitrogen = new THREE.Color('#00F59B'); // Bioluminescent Emerald N
-    const cPhosphorus = new THREE.Color('#F59E0B'); // Warm Ochre P
-    const cPotassium = new THREE.Color('#06B6D4'); // Bio-Cyan K
-    const cToxic = new THREE.Color('#EF4444'); // Red/Saline stress
-
-    for (let i = 0; i < particleCount; i++) {
-      // Clustered under the soil within bounds
-      pos[i * 3 + 0] = (Math.random() - 0.5) * 2.6;
-      pos[i * 3 + 1] = -0.1 - Math.random() * 1.6;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 2.6;
-
-      const randType = Math.random();
-      let chosenCol;
-      if (randType < 0.45) chosenCol = cNitrogen;
-      else if (randType < 0.75) chosenCol = cPhosphorus;
-      else chosenCol = cPotassium;
-
-      col[i * 3 + 0] = chosenCol.r;
-      col[i * 3 + 1] = chosenCol.g;
-      col[i * 3 + 2] = chosenCol.b;
-    }
-
-    return [pos, col];
-  }, [particleCount]);
+  const [positions, colors] = STATIC_NUTRIENT_DATA;
 
   useFrame((state, delta) => {
     if (pointsRef.current) {

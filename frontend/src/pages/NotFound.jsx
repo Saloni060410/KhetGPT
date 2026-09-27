@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Home, LayoutDashboard, Compass, Sprout, ArrowLeft } from 'lucide-react'
+import { Home, LayoutDashboard, Compass } from 'lucide-react'
 import Button from '../components/ui/Button.jsx'
 import Card from '../components/ui/Card.jsx'
 import Badge from '../components/ui/Badge.jsx'

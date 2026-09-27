@@ -4,7 +4,7 @@ import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 
 export default [
-  { ignores: ['dist'] },
+  { ignores: ['dist', 'lint_results.json'] },
   js.configs.recommended,
   {
     files: ['**/*.{js,jsx}'],
@@ -22,6 +22,17 @@ export default [
       ...reactHooks.configs.recommended.rules,
       'react/prop-types': 'off',
       'no-console': 'warn',
+    },
+  },
+  {
+    files: [
+      '**/components/three/**',
+      '**/components/SoilCanvas.jsx',
+      '**/components/SoilSequenceCanvas.jsx',
+      '**/*3D*.jsx',
+    ],
+    rules: {
+      'react/no-unknown-property': 'off',
     },
   },
   {

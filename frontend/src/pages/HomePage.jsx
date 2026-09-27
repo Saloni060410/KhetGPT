@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import SoilScroll from '../components/SoilScroll.jsx';
 import LanguageToggle from '../components/ui/LanguageToggle.jsx';
@@ -118,7 +117,7 @@ export default function HomePage({ onNavigate }) {
               </h1>
 
               <div className="animate-reveal delay-1 p-4 rounded-xl bg-white/75 border border-[#D8CEBC] text-[#1C1B18] text-xs sm:text-sm mb-7 max-w-xl shadow-2xs">
-                <span className="font-semibold text-[#B8791E]">123.6 kg/ha Nitrogen</span>: Punjab Agricultural University's published baseline rate for timely sown irrigated wheat.
+                <span className="font-semibold text-[#B8791E]">123.6 kg/ha Nitrogen</span>: Punjab Agricultural University&apos;s published baseline rate for timely sown irrigated wheat.
               </div>
 
               <div className="animate-reveal delay-2 flex flex-col sm:flex-row items-center gap-3.5 w-full sm:w-auto">
@@ -259,7 +258,7 @@ export default function HomePage({ onNavigate }) {
                 </p>
               </div>
               <div className="mt-4 pt-3 border-t border-[#E8E2D5] text-[11px] font-medium text-[#9C4530]">
-                Source: Farmer's Field History
+                Source: Farmer&apos;s Field History
               </div>
             </div>
 

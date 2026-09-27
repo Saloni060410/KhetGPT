@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * KhetGPT Crop Illustration System (FreshField-adapted)
  * 7 supported crops: wheat, barley, rice, maize, cotton, sugarcane, chickpea

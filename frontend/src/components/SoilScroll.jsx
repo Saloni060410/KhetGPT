@@ -1,6 +1,5 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const TOTAL_FRAMES = 240;

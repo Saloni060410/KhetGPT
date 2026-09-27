@@ -1,6 +1,5 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import { Sprout, Satellite, Activity, CloudSun, Download, Sparkles, ChevronDown, ShieldCheck } from 'lucide-react';
+import { Sprout, Satellite, Activity, CloudSun, Download, Sparkles, ChevronDown } from 'lucide-react';
 
 export default function HeaderNav({ onOpenOptimizer }) {
   return (

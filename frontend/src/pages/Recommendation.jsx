@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -6,17 +6,12 @@ import {
   Printer, 
   Sun, 
   Check, 
-  TrendingDown,
-  RotateCw,
-  Sparkles,
-  ShieldCheck,
-  Calendar,
-  FileText,
-  MessageSquare,
-  X,
-  Send,
-  HelpCircle,
-  WifiOff
+  TrendingDown, 
+  RotateCw, 
+  Sparkles, 
+  ShieldCheck, 
+  X, 
+  Send 
 } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle.js';
 import Crop3DViewer from '../components/three/Crop3DViewer.jsx';
@@ -406,20 +401,19 @@ const CROP_PRESCRIPTIONS = {
 
 export default function Recommendation() {
   const { fieldId = '1' } = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   useDocumentTitle('Agronomic Prescription Docket — KhetGPT');
 
   const cropQuery = searchParams.get('crop')?.toLowerCase();
-  const [selectedCropId, setSelectedCropId] = useState(
-    cropQuery && CROP_PRESCRIPTIONS[cropQuery] ? cropQuery : 'wheat'
-  );
+  const validCropParam = cropQuery && CROP_PRESCRIPTIONS[cropQuery] ? cropQuery : null;
+  const [selectedCropId, setSelectedCropId] = useState(validCropParam || 'wheat');
+  const [prevCropQuery, setPrevCropQuery] = useState(validCropParam);
 
-  useEffect(() => {
-    if (cropQuery && CROP_PRESCRIPTIONS[cropQuery] && cropQuery !== selectedCropId) {
-      setSelectedCropId(cropQuery);
-    }
-  }, [cropQuery]);
+  if (validCropParam && validCropParam !== prevCropQuery) {
+    setPrevCropQuery(validCropParam);
+    setSelectedCropId(validCropParam);
+  }
 
   const [inspectModalCrop, setInspectModalCrop] = useState(null);
 

@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function NPKBar({ label, symbol, current, target, unit = 'ppm', color, status }) {
   const percentage = Math.min(Math.max((current / (target * 1.5)) * 100, 5), 100);
   const targetPercentage = (target / (target * 1.5)) * 100;

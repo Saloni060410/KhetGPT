@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, Check, Sun, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
+import { Printer, ArrowRight, Sparkles } from 'lucide-react';
 
 const CROP_OPTIONS = [
   { 

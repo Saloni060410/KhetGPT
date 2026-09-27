@@ -1,7 +1,6 @@
-import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, Html } from '@react-three/drei'
-import * as THREE from 'three'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
 
@@ -86,6 +85,7 @@ function SoilCoreColumn({
 
   // Exploded spacing offset
   const explodeGap = isExpanded && isSelected ? 0.35 : 0
+  const columnOpacity = isAnySelected && !isSelected ? 0.55 : 1
 
   // Animated positions ref for smooth GSAP transitions
   const animState = useRef({
@@ -99,7 +99,6 @@ function SoilCoreColumn({
       targetNeededHeight / 2,
     neededScaleY: 1,
     groupElevation: isSelected ? 0.15 : 0,
-    opacityFactor: isAnySelected && !isSelected ? 0.55 : 1,
   })
 
   // GSAP animation when data or selection state changes
@@ -114,14 +113,11 @@ function SoilCoreColumn({
       const nextCreditY = sH + (cH > 0 ? gap + cH / 2 : 0)
       const nextNeededY = sH + (cH > 0 ? cH + gap * 2 : gap) + nH / 2
       const nextElev = isSelected ? 0.2 : 0
-      const nextOpacity = isAnySelected && !isSelected ? 0.5 : 1
-
       gsap.to(animState.current, {
         soilY: nextSoilY,
         creditY: nextCreditY,
         neededY: nextNeededY,
         groupElevation: nextElev,
-        opacityFactor: nextOpacity,
         duration: 0.7,
         ease: 'power2.out',
         onUpdate: () => {
@@ -207,7 +203,7 @@ function SoilCoreColumn({
           roughness={0.9}
           metalness={0.08}
           transparent
-          opacity={animState.current.opacityFactor}
+          opacity={columnOpacity}
         />
       </mesh>
 
@@ -234,7 +230,7 @@ function SoilCoreColumn({
             roughness={0.4}
             metalness={0.35}
             transparent
-            opacity={animState.current.opacityFactor}
+            opacity={columnOpacity}
           />
         </mesh>
       )}
@@ -263,7 +259,7 @@ function SoilCoreColumn({
           emissive={theme.glowColor}
           emissiveIntensity={isSelected ? 0.35 : 0.15}
           transparent
-          opacity={animState.current.opacityFactor}
+          opacity={columnOpacity}
         />
       </mesh>
 
@@ -401,7 +397,6 @@ export default function NutrientStrataScene({
   selectedNutrient = 'n',
   onSelectNutrient,
   isExpanded = false,
-  onToggleExpand,
   onWebGLContextLost,
 }) {
   const [tabHidden, setTabHidden] = useState(false)

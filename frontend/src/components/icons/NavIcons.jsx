@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Custom bespoke agricultural navigation icons for KhetGPT.
  * Uniform 24x24 viewBox, 1.8 stroke-width, rounded stroke-caps.

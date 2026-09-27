@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { Sparkles, Layers, ShieldCheck, AlertTriangle } from 'lucide-react'
+import { Layers } from 'lucide-react'
 
 export default function NutrientStrata2DFallback({
   nutrientBalance = {},

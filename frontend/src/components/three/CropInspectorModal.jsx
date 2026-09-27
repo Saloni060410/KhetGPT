@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { X, RotateCw, ArrowRight, ShieldCheck, Droplet, Sun, Sprout } from 'lucide-react';
+import { useEffect } from 'react';
+import { X, RotateCw, ArrowRight } from 'lucide-react';
 import Crop3DViewer from './Crop3DViewer.jsx';
 
 const CROP_AGRONOMY_DATA = {

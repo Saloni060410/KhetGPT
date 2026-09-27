@@ -1,4 +1,4 @@
-import React, { Suspense, Component, useState, useEffect } from 'react';
+import { Suspense, Component, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import Crop3DModel from './Crop3DModels.jsx';
@@ -69,11 +69,10 @@ export default function Crop3DViewer({
   cameraDistance = 2.55,
   interactive = true,
 }) {
-  const [webGLSupported, setWebGLSupported] = useState(true);
-
-  useEffect(() => {
-    setWebGLSupported(isWebGLAvailable());
-  }, []);
+  const [webGLSupported, setWebGLSupported] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return isWebGLAvailable();
+  });
 
   if (!webGLSupported) {
     return <Crop2DFallback cropId={cropId} />;

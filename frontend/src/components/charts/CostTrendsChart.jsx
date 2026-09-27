@@ -1,5 +1,5 @@
 import { useState, useId } from 'react'
-import { IndianRupee, Table, Eye, PiggyBank, ArrowDownRight } from 'lucide-react'
+import { IndianRupee, Table, Eye, PiggyBank } from 'lucide-react'
 import Button from '../ui/Button.jsx'
 
 function formatMonth(monthStr) {

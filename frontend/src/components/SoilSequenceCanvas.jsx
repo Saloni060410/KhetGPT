@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 
 export default function SoilSequenceCanvas({ recoveryProgress = 0.72 }) {
   const canvasRef = useRef(null);

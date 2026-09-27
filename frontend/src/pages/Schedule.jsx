@@ -1,10 +1,8 @@
-import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
   ArrowRight, 
   Printer, 
-  Check, 
   Sun, 
   FileText
 } from 'lucide-react';

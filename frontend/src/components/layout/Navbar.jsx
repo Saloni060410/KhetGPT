@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { Menu, X, LogOut } from 'lucide-react'
 import { useUserStore } from '../../store/useUserStore.js'
@@ -30,9 +30,11 @@ export default function Navbar() {
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useUserStore()
 
-  useEffect(() => {
+  const [prevPathname, setPrevPathname] = useState(location.pathname)
+  if (prevPathname !== location.pathname) {
+    setPrevPathname(location.pathname)
     setIsDrawerOpen(false)
-  }, [location.pathname])
+  }
 
   const handleLogout = async () => {
     await logout()

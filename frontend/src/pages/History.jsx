@@ -1,11 +1,8 @@
-import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
   ArrowRight, 
-  FlaskConical, 
-  TrendingDown, 
-  ShieldCheck 
+  FlaskConical 
 } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle.js';
 

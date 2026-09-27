@@ -1,12 +1,10 @@
-import React from 'react'
-import { Languages } from 'lucide-react'
 import { useLanguageStore } from '../../store/useLanguageStore.js'
 
 /**
  * LanguageToggle Component (PRD Feature 11)
  * Accessible English / Hindi toggle button with persistent state.
  */
-export default function LanguageToggle({ className = '', dark = false, compact = false }) {
+export default function LanguageToggle({ className = '', dark = false }) {
   const { language, setLanguage } = useLanguageStore()
   const isHindi = language === 'hi'
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Plus, 
@@ -6,9 +6,7 @@ import {
   X, 
   ArrowRight, 
   Printer, 
-  Trash2,
-  Calendar,
-  CheckCircle2
+  Trash2 
 } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle.js';
 

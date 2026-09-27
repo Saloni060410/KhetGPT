@@ -2,7 +2,7 @@ import { WifiOff, RefreshCw, Clock } from 'lucide-react'
 import { useT } from '../../i18n/useT.js'
 
 export default function OfflineNotice({ timestamp, onRetry }) {
-  const { t, isHindi } = useT()
+  const { isHindi } = useT()
 
   const formattedTime = timestamp
     ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })

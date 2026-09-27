@@ -1,5 +1,4 @@
-import React from 'react';
-import { X, CheckCircle, Sparkles, TrendingDown, DollarSign, Leaf, Zap, Send, CloudRain, Tractor } from 'lucide-react';
+import { X, TrendingDown, DollarSign, Leaf, Zap, Send, CloudRain, Tractor } from 'lucide-react';
 
 export default function OptimizationModal({ isOpen, onClose, recoveryProgress }) {
   if (!isOpen) return null;
@@ -74,7 +73,7 @@ export default function OptimizationModal({ isOpen, onClose, recoveryProgress })
             <CloudRain className="w-4 h-4 text-cyan-400 flex-shrink-0" />
             <div>
               <span className="font-semibold text-slate-200">Weather-Integrated Application Window: </span>
-              <span className="text-slate-300">0.0" rainfall forecast next 48h. Soil temp 14°C. Perfect incorporation conditions.</span>
+              <span className="text-slate-300">0.0&quot; rainfall forecast next 48h. Soil temp 14°C. Perfect incorporation conditions.</span>
             </div>
           </div>
           <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-500/30 whitespace-nowrap ml-2">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import HeaderNav from '../components/HeaderNav';
 import SoilCanvas from '../components/SoilCanvas';
@@ -11,11 +11,9 @@ import {
   Droplet, 
   DollarSign, 
   ShieldAlert, 
-  Compass, 
   Activity, 
   Sparkles, 
   ArrowUpRight, 
-  Calendar, 
   Tractor, 
   CloudSun,
   ArrowLeft
