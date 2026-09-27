@@ -21,5 +21,6 @@ export async function getWeather({ latitude, longitude }) {
     temperature_c: data.current.temperature_2m,
     humidity_pct: data.current.relative_humidity_2m,
     rainfall_mm_forecast: data.daily.precipitation_sum.reduce((sum, mm) => sum + (mm ?? 0), 0),
+    source: 'live',
   }
 }
