@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.data_pipeline.clean import CleaningError, harmonise, map_labels, run
+from src.data_pipeline.clean import CleaningError, harmonise, map_labels, reconcile_npk_units, run
 
 
 def test_run_produces_a_validation_report_with_expected_shape():
@@ -27,9 +27,30 @@ def test_out_of_vocab_crop_labels_are_dropped_not_kept():
     assert "chickpea" not in report["real_class_balance_crop_id"]
 
 
-def test_no_missing_values_in_the_cleaned_output():
+def test_reconcile_npk_units_blanks_real_rows_and_keeps_synthetic():
+    df = pd.DataFrame({
+        "nitrogen_raw": [37, 300],
+        "potassium_raw": [0, 150],
+        "phosphorous_raw": [19, 40],
+        "data_source": ["real", "synthetic"],
+    })
+    out = reconcile_npk_units(df)
+    assert set(out.columns) >= {"n", "p", "k"}
+    assert out.loc[0, ["n", "p", "k"]].isna().all()  # real row -- blanked, never passed through
+    assert out.loc[1, "n"] == 300 and out.loc[1, "p"] == 40 and out.loc[1, "k"] == 150  # synthetic -- kept
+
+
+def test_no_missing_values_in_the_cleaned_output_except_real_rows_n_p_k():
+    # n/p/k are deliberately NaN for real rows (reconcile_npk_units -- their unit is
+    # empirically inconsistent with kg/ha, not just unstated, so there's nothing to
+    # reconcile them to). Every other column, and n/p/k for synthetic rows, must have zero
+    # missingness.
     report = run()
-    assert all(count == 0 for count in report["missingness_per_column"].values())
+    for column, count in report["missingness_per_column"].items():
+        if column in ("n", "p", "k"):
+            assert count == report["row_count_by_data_source"]["real"]
+        else:
+            assert count == 0, f"{column} has {count} missing value(s)"
 
 
 def test_map_labels_drops_rows_with_unknown_crop_and_keeps_known_ones():

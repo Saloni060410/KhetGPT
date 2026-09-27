@@ -28,8 +28,15 @@ README explains *what* each one is and *why* it was chosen.
 - **Rows:** 99 (verified, 0 exact duplicates)
 - **Columns:** `Temparature, Humidity, Moisture, Soil Type, Crop Type, Nitrogen, Potassium, Phosphorous, Fertilizer Name`
 - **Units:** Temperature in °C, Humidity/Moisture in %. N/P/K units are **not stated by the
-  source** -- treat as relative/index values, not confirmed kg/ha, until reconciled in R4's
-  unit-reconciliation step.
+  source, and empirically not kg/ha**: Nitrogen and Phosphorous have nearly identical numeric
+  ranges here (4-42 and 0-42), but real Soil Health Card kg/ha values for N and P differ by
+  roughly an order of magnitude (`soil_test_ratings.csv`'s own cutoffs: N ~280-560, P ~10-25).
+  There's no hidden correct unit to reconcile these to -- `clean.py`'s `reconcile_npk_units()`
+  blanks (NaN) these three columns for real rows rather than passing through an
+  unverified, wrong-scale number. n/p/k are still in `FEATURE_COLUMNS` (contract C4) on a
+  partial-availability basis: real (NaN) vs. synthetic/live-request (real kg/ha) -- see
+  `feature_engineering.py`'s docstring. Whoever trains the classifier on this needs an
+  algorithm that tolerates missing values (XGBoost, already this project's stated model).
 - **Crops covered:** Maize, Sugarcane, Cotton, Tobacco, Paddy, Barley, Wheat, Millets, Oil
   seeds, Pulses, Ground Nuts (generic labels, not variety-specific; "Pulses" doesn't
   distinguish chickpea from other pulses).

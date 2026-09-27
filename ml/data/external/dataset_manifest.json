@@ -161,11 +161,14 @@
       "test": 10,
       "val": 8
     },
-    "content_hash": "21a2da2db1d22e74",
-    "feature_schema_hash": "e5382c70e374f4e6",
+    "content_hash": "4363017229d6a28e",
+    "feature_schema_hash": "70655708beb3033f",
     "feature_columns": [
       "crop_id",
       "variety_id",
+      "n",
+      "p",
+      "k",
       "temperature_c",
       "humidity_pct",
       "moisture_pct"

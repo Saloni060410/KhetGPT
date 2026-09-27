@@ -109,6 +109,27 @@ def map_labels(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
     return out, dropped
 
 
+def reconcile_npk_units(df: pd.DataFrame) -> pd.DataFrame:
+    """Rename nitrogen_raw/potassium_raw/phosphorous_raw -> n/p/k (matching
+    feature_engineering.request_to_record()'s serving-time field names) and blank them
+    (NaN) for real rows specifically.
+
+    The real Kaggle file's N/P/K unit was already flagged unstated by the source (R4). This
+    goes further: N and P have nearly identical numeric ranges here (Nitrogen 4-42,
+    Phosphorous 0-42), but real Soil Health Card kg/ha values for N and P differ by roughly
+    an order of magnitude (soil_test_ratings.csv's own cutoffs: N ~280-560, P ~10-25) --
+    empirical evidence these are NOT kg/ha, not just an unstated unit that might happen to
+    be. There is no hidden correct unit to recover here, so real rows' n/p/k are set to NaN
+    (never passed through as an unverified, likely-wrong-scale number) rather than
+    "reconciled". Synthetic rows keep their real, confirmed kg/ha values (Soil Health Card
+    basis, same as request_to_record()'s live serving-time values) untouched. Whoever trains
+    the classifier on n/p/k needs an algorithm that tolerates missing values for this reason
+    (XGBoost, already this project's stated model) -- see feature_engineering.py's docstring."""
+    out = df.rename(columns={"nitrogen_raw": "n", "potassium_raw": "k", "phosphorous_raw": "p"})
+    out.loc[out["data_source"] == "real", ["n", "p", "k"]] = float("nan")
+    return out
+
+
 _UNIQUE_SUBSET = ["temperature_c", "humidity_pct", "moisture_pct", "soil_type", "crop_id", "product_id"]
 
 
@@ -206,6 +227,8 @@ def run() -> dict:
 
     if df.duplicated().any():
         raise CleaningError(f"{df.duplicated().sum()} exact duplicate row(s) found after cleaning")
+
+    df = reconcile_npk_units(df)  # rename to n/p/k; blank (NaN) for real rows -- see docstring
 
     report = build_validation_report(raw_rows, df, dropped)
 
