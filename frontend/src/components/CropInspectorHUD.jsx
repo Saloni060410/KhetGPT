@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { DOCKET_DATA } from '../data/docketData';
 import Field2DMap from './Field2DMap';
+import { useT } from '../i18n/useT.js';
 
 /**
  * CropInspectorHUD: Comprehensive 3D Fertilizer Prescription Docket Console
@@ -39,6 +40,7 @@ export default function CropInspectorHUD({
   onOpenSpecs,
   onOpenCalibration,
 }) {
+  const { isHindi } = useT();
   const [hudTab, setHudTab] = useState('docket'); // 'docket' | 'map2d'
   const [isExpanded, setIsExpanded] = useState(false);
   const [simulated, setSimulated] = useState(false);
@@ -110,7 +112,7 @@ export default function CropInspectorHUD({
             title="Inspect Physiological Specs"
           >
             <RotateCcw className="w-3 h-3 text-emerald-400" />
-            <span className="hidden sm:inline">Inspect Specs</span>
+            <span className="hidden sm:inline">{isHindi ? 'विशेषताएं' : 'Inspect Specs'}</span>
           </button>
 
           <button
@@ -153,7 +155,7 @@ export default function CropInspectorHUD({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Prescription Docket</span>
+            <span>{isHindi ? 'सिफारिश डॉकेट' : 'Prescription Docket'}</span>
           </button>
 
           <button
@@ -165,7 +167,7 @@ export default function CropInspectorHUD({
             }`}
           >
             <MapPin className="w-3.5 h-3.5" />
-            <span>2D Soil GIS Map</span>
+            <span>{isHindi ? '2D मृदा नक्शा' : '2D Soil GIS Map'}</span>
           </button>
         </div>
 
@@ -183,7 +185,7 @@ export default function CropInspectorHUD({
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
-                {c.name}
+                {isHindi ? c.hindiName : c.name}
               </button>
             );
           })}
@@ -340,38 +342,37 @@ export default function CropInspectorHUD({
           {/* ========================================================
               CARD 4: ESTIMATED SAVINGS BANNER (Replica of Image 3)
              ======================================================== */}
-          <div className="bg-[#FAF8F5] text-slate-900 rounded-3xl p-5 sm:p-6 border border-[#E8E3DA] shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+          <div className="bg-[#FAF8F5] text-slate-900 rounded-3xl p-4 sm:p-5 border border-[#E8E3DA] shadow-xl flex flex-col gap-3.5">
+            <div className="flex items-start sm:items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-emerald-100/90 text-emerald-800 flex items-center justify-center flex-shrink-0 shadow-xs">
                 <TrendingDown className="w-5 h-5 text-emerald-700" />
               </div>
-              <div>
-                <h4 className="font-serif font-bold text-base sm:text-lg text-slate-900">
+              <div className="min-w-0 flex-1">
+                <h4 className="font-serif font-bold text-base sm:text-lg text-slate-900 leading-snug">
                   Estimated {docketCrop.estimatedSavings.amount} Saved in Unnecessary Fertilizer
                 </h4>
-                <p className="text-xs text-slate-600 font-sans">
+                <p className="text-xs text-slate-600 font-sans mt-0.5 leading-relaxed">
                   {docketCrop.estimatedSavings.description}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 self-end sm:self-center flex-shrink-0 text-xs font-sans font-medium">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-200/80 text-xs font-sans font-medium">
               <button
                 type="button"
                 onClick={() => onOpenCalibration && onOpenCalibration('risk')}
-                className="text-amber-800 hover:text-amber-950 transition-colors flex items-center gap-0.5 cursor-pointer underline decoration-amber-400"
+                className="text-amber-800 hover:text-amber-950 transition-colors flex items-center gap-1 cursor-pointer underline decoration-amber-400 py-0.5"
               >
-                <span>Check Over-Application Risk</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <span>{isHindi ? 'अति-प्रयोग जोखिम जांचें' : 'Check Over-Application Risk'}</span>
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
               </button>
-              <span className="text-slate-300">·</span>
               <button
                 type="button"
                 onClick={() => onOpenCalibration && onOpenCalibration('calibrate')}
-                className="text-emerald-800 hover:text-emerald-950 transition-colors flex items-center gap-0.5 cursor-pointer underline decoration-emerald-400"
+                className="text-emerald-800 hover:text-emerald-950 transition-colors flex items-center gap-1 cursor-pointer underline decoration-emerald-400 py-0.5"
               >
-                <span>Calibrate Soil Values</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <span>{isHindi ? 'मृदा मान कैलिब्रेट करें' : 'Calibrate Soil Values'}</span>
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
               </button>
             </div>
           </div>
@@ -453,7 +454,7 @@ export default function CropInspectorHUD({
             title="Print Dealer Slip"
           >
             <Printer className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden sm:inline">Dealer Slip</span>
+            <span className="hidden sm:inline">{isHindi ? 'खाद पर्ची' : 'Dealer Slip'}</span>
           </button>
 
           <button
@@ -462,7 +463,7 @@ export default function CropInspectorHUD({
             title="View Application Dates"
           >
             <Calendar className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden sm:inline">Dates</span>
+            <span className="hidden sm:inline">{isHindi ? 'तिथियां' : 'Dates'}</span>
           </button>
 
           <button
@@ -471,7 +472,7 @@ export default function CropInspectorHUD({
             title="Reset 3D Overview"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Reset Cam</span>
+            <span className="hidden sm:inline">{isHindi ? 'रीसेट' : 'Reset Cam'}</span>
           </button>
         </div>
 
@@ -486,12 +487,12 @@ export default function CropInspectorHUD({
           {simulated ? (
             <>
               <CheckCircle2 className="w-4 h-4" />
-              <span>Nutrient Uptake Active in 3D!</span>
+              <span>{isHindi ? '3D में पोषण अवशोषण सक्रिय!' : 'Nutrient Uptake Active in 3D!'}</span>
             </>
           ) : (
             <>
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Simulate 3D Delivery &amp; Uptake</span>
+              <span>{isHindi ? '3D पोषण सिमुलेशन चलाएं' : 'Simulate 3D Delivery & Uptake'}</span>
             </>
           )}
         </button>

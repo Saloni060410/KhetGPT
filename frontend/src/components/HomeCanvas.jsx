@@ -396,7 +396,7 @@ function SceneContent({
         intensity={2.2}
         color="#fff6eb"
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[1024, 1024]}
         shadow-camera-near={0.5}
         shadow-camera-far={45}
         shadow-camera-left={-12}
@@ -544,21 +544,23 @@ export function HomeCanvas({
   selectedCropId,
   onSelectCrop,
   activeNutrientStream,
+  isPaused = false,
 }) {
   return (
     <div className="fixed inset-0 w-full h-full pointer-events-auto z-0">
       <Canvas
+        frameloop={isPaused ? 'never' : 'always'}
         shadows
-        dpr={[1, 1.5]}
+        dpr={[1, 1.25]}
         camera={{ position: [0.0, 7.5, 13.5], fov: 46 }}
         gl={{
           antialias: false,
           powerPreference: 'high-performance',
+          stencil: false,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.15,
         }}
       >
-
         <Suspense fallback={null}>
           <SceneContent
             sceneRefs={sceneRefs}

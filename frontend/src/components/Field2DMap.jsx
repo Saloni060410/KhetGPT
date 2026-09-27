@@ -14,6 +14,7 @@ import {
   TrendingDown,
 } from 'lucide-react';
 import { DOCKET_DATA } from '../data/docketData';
+import { useT } from '../i18n/useT.js';
 
 export default function Field2DMap({
   activeCrop: propCrop,
@@ -26,6 +27,7 @@ export default function Field2DMap({
   onSwitchTo3D,
   isStandalone = false,
 }) {
+  const { isHindi } = useT();
   const [activeLayer, setActiveLayer] = useState('nitrogen'); // 'nitrogen' | 'potassium' | 'ph' | 'moisture'
   const [selectedProbe, setSelectedProbe] = useState(null);
   const [selectedZoneId, setSelectedZoneId] = useState('all'); // 'all' | 'zone-1' | 'zone-2' | 'zone-3'
@@ -83,9 +85,9 @@ export default function Field2DMap({
     if (selectedZoneId === 'zone-1') {
       return {
         zoneName: 'Zone 1: North Terraced Basin',
-        punjabiTitle: 'ਜ਼ੋਨ 1 (ਉੱਤਰੀ ਰੇਤਲੀ ਜ਼ਮੀਨ)',
+        zoneTitle: isHindi ? 'ज़ोन 1 (उत्तरी बलुई दोमट)' : 'ਜ਼ੋਨ 1 (ਉੱਤਰੀ ਰੇਤਲੀ ਜ਼ਮੀਨ)',
         acres: 3.2,
-        soilType: 'Sandy Loam (ਰੇਤਲੀ ਦੋਮਟ)',
+        soilType: isHindi ? 'Sandy Loam (बलुई दोमट)' : 'Sandy Loam (ਰੇਤਲੀ ਦੋਮਟ)',
         nitrogenStatus: 'Low Deficit (195 kg/ha)',
         nitrogenBadgeColor: 'bg-red-100 text-red-800 border-red-200',
         potassiumStatus: 'Very High (330 kg/ha) · 100% Buffer',
@@ -94,7 +96,7 @@ export default function Field2DMap({
         moisture: '28% Optimal',
         primaryFertilizer:
           cropId === 'chickpea'
-            ? '0 Bags Urea (Rhizobium Active)'
+            ? (isHindi ? '0 बोरी यूरिया (राइजोबियम सक्रिय)' : '0 Bags Urea (Rhizobium Active)')
             : cropId === 'sugarcane'
             ? '5.5 Bags Urea'
             : cropId === 'cotton'
@@ -103,7 +105,7 @@ export default function Field2DMap({
             ? '4.5 Bags Urea'
             : cropId === 'barley'
             ? '2.3 Bags Urea'
-            : '4.2 Bags Neem-Coated Urea (45kg)',
+            : (isHindi ? '4.2 बोरी नीम-लेपित यूरिया (45kg)' : '4.2 Bags Neem-Coated Urea (45kg)'),
         secondaryFertilizer:
           cropId === 'chickpea'
             ? '1.5 Bags DAP Basal Placement'
@@ -111,9 +113,10 @@ export default function Field2DMap({
             ? '1.9 Bags DAP + 2 sprays Foliar K'
             : cropId === 'rice'
             ? '1.5 Bags ZnSO₄ 21%'
-            : '1.5 Bags DAP (Applied) · 0 Potash',
-        farmerAdvicePunjabi:
-          'ਪਹਿਲੇ ਪਾਣੀ ਤੋਂ ਪਹਿਲਾਂ ਯੂਰੀਆ ਛੱਟਾ ਦਿਓ। ਪੋਟਾਸ਼ ਦੀ ਲੋੜ ਨਹੀਂ ਕਿਉਂਕਿ ਜ਼ਮੀਨ ਵਿੱਚ ਕੁਦਰਤੀ ਪੋਟਾਸ਼ ਬਹੁਤ ਹੈ।',
+            : (isHindi ? '1.5 बोरी DAP · 0 पोटाश' : '1.5 Bags DAP (Applied) · 0 Potash'),
+        farmerAdvice: isHindi
+          ? 'पहले पानी से पहले यूरिया का छिड़काव करें। मिट्टी में प्राकृतिक पोटाश भरपूर होने से पोटाश की आवश्यकता नहीं है।'
+          : 'ਪਹਿਲੇ ਪਾਣੀ ਤੋਂ ਪਹਿਲਾਂ ਯੂਰੀਆ ਛੱਟਾ ਦਿਓ। ਪੋਟਾਸ਼ ਦੀ ਲੋੜ ਨਹੀਂ ਕਿਉਂਕਿ ਜ਼ਮੀਨ ਵਿੱਚ ਕੁਦਰਤੀ ਪੋਟਾਸ਼ ਬਹੁਤ ਹੈ।',
         farmerAdviceEnglish:
           'Broadcast top-dress Urea strictly before 1st canal irrigation. High natural soil potassium safely eliminates Potash.',
       };
@@ -122,9 +125,9 @@ export default function Field2DMap({
     if (selectedZoneId === 'zone-2') {
       return {
         zoneName: 'Zone 2: Central Furrow Alluvium',
-        punjabiTitle: 'ਜ਼ੋਨ 2 (ਵਿਚਕਾਰਲਾ ਉਪਜਾਊ ਖੇਤਰ)',
+        zoneTitle: isHindi ? 'ज़ोन 2 (मध्य उपजाऊ दोमट)' : 'ਜ਼ੋਨ 2 (ਵਿਚਕਾਰਲਾ ਉਪਜਾਊ ਖੇਤਰ)',
         acres: 3.5,
-        soilType: 'Loam Alluvium (ਉਪਜਾਊ ਦੋਮਟ)',
+        soilType: isHindi ? 'Loam Alluvium (उपजाऊ दोमट)' : 'Loam Alluvium (ਉਪਜਾਊ ਦੋਮਟ)',
         nitrogenStatus: 'Medium-Low (215 kg/ha)',
         nitrogenBadgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
         potassiumStatus: 'High (310 kg/ha) · Balanced',
@@ -133,7 +136,7 @@ export default function Field2DMap({
         moisture: '31% Field Capacity',
         primaryFertilizer:
           cropId === 'chickpea'
-            ? '0 Bags Urea (Nodule Protected)'
+            ? (isHindi ? '0 बोरी यूरिया (गांठ सुरक्षित)' : '0 Bags Urea (Nodule Protected)')
             : cropId === 'sugarcane'
             ? '5.8 Bags Urea'
             : cropId === 'cotton'
@@ -142,7 +145,7 @@ export default function Field2DMap({
             ? '5.0 Bags Urea'
             : cropId === 'barley'
             ? '2.5 Bags Urea'
-            : '4.0 Bags Neem-Coated Urea (45kg)',
+            : (isHindi ? '4.0 बोरी नीम-लेपित यूरिया (45kg)' : '4.0 Bags Neem-Coated Urea (45kg)'),
         secondaryFertilizer:
           cropId === 'chickpea'
             ? '1.6 Bags DAP Basal'
@@ -150,9 +153,10 @@ export default function Field2DMap({
             ? '2.1 Bags DAP + Boron Spray'
             : cropId === 'rice'
             ? '1.6 Bags ZnSO₄ 21%'
-            : '1.6 Bags DAP (Applied) · 0 Potash',
-        farmerAdvicePunjabi:
-          'ਸਿਆੜਾਂ ਦੇ ਨਾਲ-ਨਾਲ ਯੂਰੀਆ ਡਰਿੱਲ ਕਰੋ। ਮਿੱਟੀ ਵਿੱਚ ਨਮੀ ਪੂਰੀ ਹੈ, ਖਾਦ ਪੂਰੀ ਤਰ੍ਹਾਂ ਜੜ੍ਹਾਂ ਤੱਕ ਪਹੁੰਚੇਗੀ।',
+            : (isHindi ? '1.6 बोरी DAP · 0 पोटाश' : '1.6 Bags DAP (Applied) · 0 Potash'),
+        farmerAdvice: isHindi
+          ? 'कूड़ों (furrows) के साथ-साथ यूरिया डालें। दोमट मिट्टी में नमी संतुलित होने से खाद सीधे जड़ों तक पहुंचेगी।'
+          : 'ਸਿਆੜਾਂ ਦੇ ਨਾਲ-ਨਾਲ ਯੂਰੀਆ ਡਰਿੱਲ ਕਰੋ। ਮਿੱਟੀ ਵਿੱਚ ਨਮੀ ਪੂਰੀ ਹੈ, ਖਾਦ ਪੂਰੀ ਤਰ੍ਹਾਂ ਜੜ੍ਹਾਂ ਤੱਕ ਪਹੁੰਚੇਗੀ।',
         farmerAdviceEnglish:
           'Drill urea along the furrows. Balanced loam humus ensures rapid vegetative uptake at active tillering.',
       };
@@ -161,9 +165,9 @@ export default function Field2DMap({
     if (selectedZoneId === 'zone-3') {
       return {
         zoneName: 'Zone 3: South Canal Border Bed',
-        punjabiTitle: 'ਜ਼ੋਨ 3 (ਨਹਿਰ ਕੰਢੇ ਵਾਲੀ ਜ਼ਮੀਨ)',
+        zoneTitle: isHindi ? 'ज़ोन 3 (नहर किनारे की भारी मिट्टी)' : 'ਜ਼ੋਨ 3 (ਨਹਿਰ ਕੰਢੇ ਵਾਲੀ ਜ਼ਮੀਨ)',
         acres: 1.8,
-        soilType: 'Heavy Clay Loam (ਚੀਕਣੀ ਦੋਮਟ)',
+        soilType: isHindi ? 'Heavy Clay Loam (चिकनी दोमट)' : 'Heavy Clay Loam (ਚੀਕਣੀ ਦੋਮਟ)',
         nitrogenStatus: 'Medium Optimal (240 kg/ha)',
         nitrogenBadgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
         potassiumStatus: 'High (290 kg/ha)',
@@ -172,7 +176,7 @@ export default function Field2DMap({
         moisture: '34% High Canal Moisture',
         primaryFertilizer:
           cropId === 'chickpea'
-            ? '0 Bags Urea (Natural Fixation)'
+            ? (isHindi ? '0 बोरी यूरिया (प्राकृतिक स्थिरीकरण)' : '0 Bags Urea (Natural Fixation)')
             : cropId === 'sugarcane'
             ? '2.7 Bags Urea'
             : cropId === 'cotton'
@@ -181,7 +185,7 @@ export default function Field2DMap({
             ? '2.5 Bags Urea'
             : cropId === 'barley'
             ? '1.2 Bags Urea'
-            : '1.8 Bags Neem-Coated Urea (45kg)',
+            : (isHindi ? '1.8 बोरी नीम-लेपित यूरिया (45kg)' : '1.8 Bags Neem-Coated Urea (45kg)'),
         secondaryFertilizer:
           cropId === 'chickpea'
             ? '0.9 Bags DAP Basal'
@@ -189,9 +193,10 @@ export default function Field2DMap({
             ? '1.0 Bags DAP'
             : cropId === 'rice'
             ? '0.9 Bags ZnSO₄ 21%'
-            : '0.9 Bags DAP (Applied) · 0 Potash',
-        farmerAdvicePunjabi:
-          'ਨਹਿਰੀ ਪਾਣੀ ਦਾ ਅਸਰ ਹੋਣ ਕਾਰਨ ਪਹਿਲਾਂ ਹੀ ਨਮੀ ਜ਼ਿਆਦਾ ਹੈ। ਯੂਰੀਆ ਪਾਉਣ ਤੋਂ ਬਾਅਦ 24 ਘੰਟੇ ਪਾਣੀ ਨਾ ਛੱਡੋ।',
+            : (isHindi ? '0.9 बोरी DAP · 0 पोटाश' : '0.9 Bags DAP (Applied) · 0 Potash'),
+        farmerAdvice: isHindi
+          ? 'सरहिंद नहर के पास नमी पहले से अधिक है। यूरिया छिड़कने के 24 घंटे बाद ही नहर का पानी लगाएं।'
+          : 'ਨਹਿਰੀ ਪਾਣੀ ਦਾ ਅਸਰ ਹੋਣ ਕਾਰਨ ਪਹਿਲਾਂ ਹੀ ਨਮੀ ਜ਼ਿਆਦਾ ਹੈ। ਯੂਰੀਆ ਪਾਉਣ ਤੋਂ ਬਾਅਦ 24 ਘੰਟੇ ਪਾਣੀ ਨਾ ਛੱਡੋ।',
         farmerAdviceEnglish:
           'High seepage near Sirhind feeder canal. Broadcast urea and delay canal watering 24h to avoid waterlogging.',
       };
@@ -200,16 +205,16 @@ export default function Field2DMap({
     // Default: Entire Plot A (8.5 Acres Aggregate)
     const primaryTotal =
       cropId === 'chickpea'
-        ? '0 Bags Chemical Urea (₹6,400 Saved)'
+        ? (isHindi ? '0 रासायनिक यूरिया बोरी (₹6,400 बचत)' : '0 Bags Chemical Urea (₹6,400 Saved)')
         : cropId === 'sugarcane'
-        ? '14 Bags Neem-Coated Urea'
+        ? (isHindi ? '14 बोरी नीम-लेपित यूरिया' : '14 Bags Neem-Coated Urea')
         : cropId === 'cotton'
-        ? '8 Bags Urea Due Now (16 Season Total)'
+        ? (isHindi ? '8 बोरी यूरिया अभी देय' : '8 Bags Urea Due Now (16 Season Total)')
         : cropId === 'rice'
-        ? '12 Bags Neem-Coated Urea'
+        ? (isHindi ? '12 बोरी नीम-लेपित यूरिया' : '12 Bags Neem-Coated Urea')
         : cropId === 'barley'
-        ? '6 Bags Neem-Coated Urea'
-        : '10 Bags Neem-Coated Urea Due Now';
+        ? (isHindi ? '6 बोरी नीम-लेपित यूरिया' : '6 Bags Neem-Coated Urea')
+        : (isHindi ? '10 बोरी नीम-लेपित यूरिया अभी देय' : '10 Bags Neem-Coated Urea Due Now');
 
     const secondaryTotal =
       cropId === 'chickpea'
@@ -218,11 +223,11 @@ export default function Field2DMap({
         ? '5 Bags DAP + 4 Potassium Nitrate Sprays'
         : cropId === 'rice'
         ? '4 Bags DAP + 4 Bags Zinc Sulfate (ZnSO₄)'
-        : '4 Bags DAP Applied · 3.5 Bags Potash Saved';
+        : (isHindi ? '4 बोरी DAP प्रयुक्त · 3.5 बोरी पोटाश बचत' : '4 Bags DAP Applied · 3.5 Bags Potash Saved');
 
     return {
       zoneName: 'All 8.5 Acres · Malwa Central Parcel',
-      punjabiTitle: 'ਸਾਰੇ 8.5 ਏਕੜ (ਪਲਾਟ ਏ - ਮਾਲਵਾ ਫਾਰਮ)',
+      zoneTitle: isHindi ? 'सभी 8.5 एकड़ (मालवा फार्म)' : 'ਸਾਰੇ 8.5 ਏਕੜ (ਪਲਾਟ ਏ - ਮਾਲਵਾ ਫਾਰਮ)',
       acres: 8.5,
       soilType: 'Composite Sandy Loam & Alluvium',
       nitrogenStatus: 'Calibrated Average (210 kg/ha)',
@@ -233,12 +238,13 @@ export default function Field2DMap({
       moisture: '31% Field Capacity (Optimal)',
       primaryFertilizer: primaryTotal,
       secondaryFertilizer: secondaryTotal,
-      farmerAdvicePunjabi:
-        'ਪੰਜਾਬ ਐਗਰੀਕਲਚਰਲ ਯੂਨੀਵਰਸਿਟੀ (PAU) ਦੇ ਹਿਸਾਬ ਨਾਲ ਖਾਦ ਦਾ ਸੰਤੁਲਨ ਤਿਆਰ ਹੈ। 48 ਘੰਟੇ ਮੌਸਮ ਸਾਫ਼ ਹੈ।',
+      farmerAdvice: isHindi
+        ? 'पंजाब कृषि विश्वविद्यालय (PAU) STCR मॉडल के अनुसार संतुलित उर्वरक तैयार है। 48 घंटे मौसम साफ है।'
+        : 'ਪੰਜਾਬ ਐਗਰੀਕਲਚਰਲ ਯੂਨੀਵਰਸਿਟੀ (PAU) ਦੇ ਹਿਸਾਬ ਨਾਲ ਖਾਦ ਦਾ ਸੰਤੁਲਨ ਤਿਆਰ ਹੈ। 48 ਘੰਟੇ ਮੌਸਮ ਸਾਫ਼ ਹੈ।',
       farmerAdviceEnglish:
         'Calibrated with PAU STCR yield equation. Zero precipitation window ensures 100% absorption without runoff.',
     };
-  }, [crop, selectedZoneId]);
+  }, [crop, selectedZoneId, isHindi]);
 
   return (
     <div className="relative w-full bg-[#FAF8F5] text-slate-900 rounded-3xl overflow-hidden border border-[#E2DDD3] shadow-xl flex flex-col">
@@ -256,7 +262,7 @@ export default function Field2DMap({
                 2D Precision Soil GIS Map
               </h2>
               <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold">
-                ਸੌਖਾ ਨਕਸ਼ਾ
+                {isHindi ? 'सरल नक्शा' : 'ਸੌਖਾ ਨਕਸ਼ਾ'}
               </span>
             </div>
             <p className="text-[11px] text-slate-500 font-mono">
@@ -273,7 +279,7 @@ export default function Field2DMap({
             title="Switch back to 3D Farm Diorama"
           >
             <Compass className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="font-semibold">Switch to 3D Farm</span>
+            <span className="font-semibold">{isHindi ? '3D खेत देखें' : 'Switch to 3D Farm'}</span>
           </button>
         )}
       </div>
@@ -283,7 +289,7 @@ export default function Field2DMap({
          ======================================================== */}
       <div className="px-3 sm:px-4 py-2.5 bg-[#F6F3EC] border-b border-[#E2DDD3] flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider font-bold shrink-0">
-          Select Zone:
+          {isHindi ? 'ज़ोन चुनें:' : 'Select Zone:'}
         </span>
 
         <button
@@ -294,7 +300,7 @@ export default function Field2DMap({
               : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
           }`}
         >
-          <span>ਸਾਰੇ ਜ਼ੋਨ · All 8.5 Ac</span>
+          <span>{isHindi ? 'सभी ज़ोन · All 8.5 Ac' : 'ਸਾਰੇ ਜ਼ੋਨ · All 8.5 Ac'}</span>
         </button>
 
         {field2D.zones.map((z, idx) => {
@@ -314,7 +320,7 @@ export default function Field2DMap({
                 style={{ backgroundColor: z.color || '#10b981' }}
               />
               <span>
-                ਜ਼ੋਨ {idx + 1}: {z.acres} Ac
+                {isHindi ? 'ज़ोन' : 'ਜ਼ੋਨ'} {idx + 1}: {z.acres} Ac
               </span>
             </button>
           );
@@ -341,7 +347,7 @@ export default function Field2DMap({
                 }`}
                 title="View Soil Nitrogen Deficit Layer"
               >
-                <span>N-Deficit (ਨਾਈਟ੍ਰੋਜਨ)</span>
+                <span>N-Deficit ({isHindi ? 'नाइट्रोजन' : 'ਨਾਈਟ੍ਰੋਜਨ'})</span>
               </button>
 
               <button
@@ -353,7 +359,7 @@ export default function Field2DMap({
                 }`}
                 title="View High Potassium Reserve (Savings)"
               >
-                <span>K-Buffer (ਪੋਟਾਸ਼)</span>
+                <span>K-Buffer ({isHindi ? 'पोटाश' : 'ਪੋਟਾਸ਼'})</span>
               </button>
 
               <button
@@ -378,7 +384,7 @@ export default function Field2DMap({
                 title="View Open-Meteo Soil Moisture Layer"
               >
                 <Droplets className="w-2.5 h-2.5" />
-                <span>Radar (ਨਮੀ)</span>
+                <span>Radar ({isHindi ? 'नमी' : 'ਨਮੀ'})</span>
               </button>
             </div>
 
@@ -392,7 +398,7 @@ export default function Field2DMap({
               title="Toggle Tractor Broadcast Spray Lines"
             >
               <Tractor className="w-3 h-3" />
-              <span>Waylines (ਟਰੈਕਟਰ ਰਾਹ)</span>
+              <span>Waylines ({isHindi ? 'ट्रैक्टर मार्ग' : 'ਟਰੈਕਟਰ ਰਾਹ'})</span>
             </button>
           </div>
 
@@ -667,13 +673,13 @@ export default function Field2DMap({
             <div className="flex items-center justify-between border-b border-emerald-700/60 pb-2.5">
               <div>
                 <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300 font-bold block">
-                  Target Zone Fertilizer Dosage · ਖਾਦ ਦੀ ਮਾਤਰਾ
+                  Target Zone Fertilizer Dosage · {isHindi ? 'खाद की मात्रा' : 'ਖਾਦ ਦੀ ਮਾਤਰਾ'}
                 </span>
                 <h4 className="text-base font-serif font-bold text-white">
                   {zonePrescription.zoneName}
                 </h4>
                 <span className="text-xs text-emerald-200 font-medium">
-                  {zonePrescription.punjabiTitle}
+                  {zonePrescription.zoneTitle}
                 </span>
               </div>
               <div className="text-right">
@@ -690,7 +696,7 @@ export default function Field2DMap({
             <div className="space-y-2">
               <div className="bg-emerald-950/60 rounded-xl p-3 border border-emerald-700/50">
                 <span className="text-[10px] font-mono uppercase text-emerald-300 font-semibold block">
-                  Primary Top-Dress (ਯੂਰੀਆ):
+                  Primary Top-Dress ({isHindi ? 'यूरिया' : 'ਯੂਰੀਆ'}):
                 </span>
                 <div className="text-base sm:text-lg font-mono font-bold text-white flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -708,7 +714,7 @@ export default function Field2DMap({
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <span className="text-[10px] font-mono text-emerald-300 block">Potash Savings</span>
+                  <span className="text-[10px] font-mono text-emerald-300 block">{isHindi ? 'पोटाश बचत' : 'Potash Savings'}</span>
                   <span className="text-xs font-mono font-bold text-amber-300 flex items-center gap-0.5 justify-end">
                     <TrendingDown className="w-3 h-3 text-amber-300" />
                     <span>{zonePrescription.potassiumSavings}</span>
@@ -717,10 +723,10 @@ export default function Field2DMap({
               </div>
             </div>
 
-            {/* Advice in Gurmukhi and English */}
+            {/* Advice in Hindi/Gurmukhi and English */}
             <div className="bg-emerald-900/50 rounded-xl p-3 border border-emerald-700/40 space-y-1">
               <p className="text-xs text-amber-200 font-medium leading-relaxed">
-                🌾 {zonePrescription.farmerAdvicePunjabi}
+                🌾 {zonePrescription.farmerAdvice}
               </p>
               <p className="text-[11px] text-slate-300 font-sans leading-relaxed">
                 {zonePrescription.farmerAdviceEnglish}
@@ -731,19 +737,19 @@ export default function Field2DMap({
           {/* Soil Telemetry Quick Pills */}
           <div className="grid grid-cols-2 gap-2 text-xs font-mono">
             <div className="bg-white p-2.5 rounded-xl border border-[#E2DDD3] shadow-2xs">
-              <span className="text-[10px] text-slate-500 block">Soil Nitrogen Level:</span>
+              <span className="text-[10px] text-slate-500 block">{isHindi ? 'मिट्टी नाइट्रोजन स्तर:' : 'Soil Nitrogen Level:'}</span>
               <span className="font-bold text-slate-800">{zonePrescription.nitrogenStatus}</span>
             </div>
             <div className="bg-white p-2.5 rounded-xl border border-[#E2DDD3] shadow-2xs">
-              <span className="text-[10px] text-slate-500 block">Soil Potassium Buffer:</span>
+              <span className="text-[10px] text-slate-500 block">{isHindi ? 'मिट्टी पोटाश बफर:' : 'Soil Potassium Buffer:'}</span>
               <span className="font-bold text-purple-700">{zonePrescription.potassiumStatus}</span>
             </div>
             <div className="bg-white p-2.5 rounded-xl border border-[#E2DDD3] shadow-2xs">
-              <span className="text-[10px] text-slate-500 block">Soil pH Reaction:</span>
+              <span className="text-[10px] text-slate-500 block">{isHindi ? 'मिट्टी pH स्थिति:' : 'Soil pH Reaction:'}</span>
               <span className="font-bold text-cyan-700">pH {zonePrescription.ph} (Optimal)</span>
             </div>
             <div className="bg-white p-2.5 rounded-xl border border-[#E2DDD3] shadow-2xs">
-              <span className="text-[10px] text-slate-500 block">Open-Meteo Moisture:</span>
+              <span className="text-[10px] text-slate-500 block">{isHindi ? 'मौसम नमी:' : 'Open-Meteo Moisture:'}</span>
               <span className="font-bold text-emerald-700">{zonePrescription.moisture}</span>
             </div>
           </div>
@@ -757,7 +763,7 @@ export default function Field2DMap({
                 title="Open Full Prescription Docket"
               >
                 <FileText className="w-3.5 h-3.5 text-emerald-700" />
-                <span>Full Docket</span>
+                <span>{isHindi ? 'पूरा डॉकेट' : 'Full Docket'}</span>
               </button>
             )}
 
@@ -768,7 +774,7 @@ export default function Field2DMap({
                 title="Print Mandi Dealer Fertilizer Slip"
               >
                 <Printer className="w-3.5 h-3.5 text-blue-700" />
-                <span>Dealer Slip</span>
+                <span>{isHindi ? 'खाद पर्ची' : 'Dealer Slip'}</span>
               </button>
             )}
 
@@ -779,7 +785,7 @@ export default function Field2DMap({
                 title="View Irrigation & Application Dates"
               >
                 <Calendar className="w-3.5 h-3.5 text-amber-700" />
-                <span>Dates (ਤਾਰੀਖਾਂ)</span>
+                <span>Dates ({isHindi ? 'तिथियां' : 'ਤਾਰੀਖਾਂ'})</span>
               </button>
             )}
 
@@ -790,7 +796,7 @@ export default function Field2DMap({
                 title="Ask Agronomist AI"
               >
                 <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
-                <span>Ask AI</span>
+                <span>{isHindi ? 'AI सलाह' : 'Ask AI'}</span>
               </button>
             )}
           </div>

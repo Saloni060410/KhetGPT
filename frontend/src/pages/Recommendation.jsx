@@ -17,9 +17,11 @@ import CropInspectorHUD from '../components/CropInspectorHUD';
 import Field2DMap from '../components/Field2DMap';
 import { DOCKET_DATA } from '../data/docketData';
 import { CROPS_DATA } from '../data/cropsData';
+import { useT } from '../i18n/useT.js';
 
 export default function Recommendation() {
   useDocumentTitle('Agronomic Prescription Docket — KhetGPT');
+  const { isHindi } = useT();
   const [searchParams] = useSearchParams();
 
   const sceneRefs = useRef({});
@@ -195,6 +197,7 @@ export default function Recommendation() {
             setIsDocketOpen(true);
           }}
           activeNutrientStream={activeNutrientStream}
+          isPaused={viewMode !== '3d'}
         />
       </div>
 
@@ -214,13 +217,15 @@ export default function Recommendation() {
               <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
               <div>
                 <h2 className="text-sm font-bold text-white font-serif flex items-center gap-2">
-                  <span>ਸੌਖਾ 2D ਨਕਸ਼ਾ (2D Precision Soil GIS)</span>
+                  <span>{isHindi ? 'सरल 2D नक्शा (2D प्रिसिजन सॉइल GIS)' : 'ਸੌਖਾ 2D ਨਕਸ਼ਾ (2D Precision Soil GIS)'}</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono">
-                    Farmer Accessibility Mode
+                    {isHindi ? 'किसान सुलभता मोड' : 'Farmer Accessibility Mode'}
                   </span>
                 </h2>
                 <p className="text-xs text-slate-300">
-                  ਸੌਖੇ ਤਰੀਕੇ ਨਾਲ ਆਪਣੇ 8.5 ਏਕੜ ਖੇਤ ਦੇ ਜ਼ੋਨ ਦੇਖੋ ਅਤੇ ਬਿਨਾਂ 3D ਘੁਮਾਏ ਖਾਦ ਦੀ ਸਹੀ ਮਾਤਰਾ ਜਾਣੋ।
+                  {isHindi
+                    ? 'सरल तरीके से अपने 8.5 एकड़ खेत के ज़ोन देखें और बिना 3D घुमाए खाद की सही मात्रा जानें।'
+                    : 'ਸੌਖੇ ਤਰੀਕੇ ਨਾਲ ਆਪਣੇ 8.5 ਏਕੜ ਖੇਤ ਦੇ ਜ਼ੋਨ ਦੇਖੋ ਅਤੇ ਬਿਨਾਂ 3D ਘੁਮਾਏ ਖਾਦ ਦੀ ਸਹੀ ਮਾਤਰਾ ਜਾਣੋ।'}
                 </p>
               </div>
             </div>
@@ -230,7 +235,7 @@ export default function Recommendation() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-mono font-medium transition-all cursor-pointer shadow-xs border border-slate-700 active:scale-95"
             >
               <Compass className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Try 3D Diorama</span>
+              <span>{isHindi ? '3D खेत देखें' : 'Try 3D Diorama'}</span>
             </button>
           </div>
 
@@ -250,170 +255,182 @@ export default function Recommendation() {
       )}
 
       {/* ========================================================
-          3. FLOATING TOP KHETGPT NAVBAR & DOCKET CONTROLS
+          3. FLOATING TOP KHETGPT NAVBAR & HEADER CONTROLS (STACKED, ZERO OVERLAP)
          ======================================================== */}
-      <div className="relative z-40 pointer-events-auto w-full">
-        <Navbar />
-      </div>
+      <div className="relative z-40 pointer-events-none w-full flex flex-col items-center">
+        {/* Navbar */}
+        <div className="w-full pointer-events-auto">
+          <Navbar />
+        </div>
 
-      {/* Floating Action Sub-Bar (Docket Meta + View & Print Controls) */}
-      <div className="absolute top-18 sm:top-20 left-0 right-0 z-30 px-3 sm:px-6 max-w-6xl mx-auto flex items-center justify-between pointer-events-none flex-wrap gap-2">
-        
-        {/* Left: Agronomic Docket Badge */}
-        <div className="flex items-center gap-2 pointer-events-auto">
-          <div className="backdrop-blur-xl bg-slate-950/85 border border-slate-800/90 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-lg shadow-black/40">
-            <div className="w-6 h-6 rounded-lg bg-[#2D5430] flex items-center justify-center shadow-xs">
-              <Leaf className="w-3.5 h-3.5 text-emerald-300 font-bold" />
-            </div>
-            <div>
-              <span className="font-serif font-bold text-xs tracking-wide text-white block leading-tight">
-                Prescription Docket
-              </span>
-              <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
-                <span>Plot A · 8.5 Ac</span>
-                <span>•</span>
-                <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Weather Safe (0.0mm rain)</span>
+        {/* Floating Action Sub-Bar (Docket Meta + View & Print Controls) */}
+        <div className="w-full max-w-6xl mx-auto px-3 sm:px-6 mt-2 flex items-center justify-between pointer-events-none flex-wrap gap-2">
+          
+          {/* Left: Agronomic Docket Badge */}
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <div className="backdrop-blur-xl bg-slate-950/85 border border-slate-800/90 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-lg shadow-black/40">
+              <div className="w-6 h-6 rounded-lg bg-[#2D5430] flex items-center justify-center shadow-xs">
+                <Leaf className="w-3.5 h-3.5 text-emerald-300 font-bold" />
+              </div>
+              <div>
+                <span className="font-serif font-bold text-xs tracking-wide text-white block leading-tight">
+                  {isHindi ? 'उर्वरक सिफारिश डॉकेट' : 'Prescription Docket'}
                 </span>
+                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
+                  <span>{isHindi ? 'प्लॉट A · 8.5 एकड़' : 'Plot A · 8.5 Ac'}</span>
+                  <span>•</span>
+                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>{isHindi ? 'मौसम अनुकूल (0.0mm)' : 'Weather Safe (0.0mm rain)'}</span>
+                  </span>
+                </div>
               </div>
             </div>
+
+            <div className="hidden md:flex items-center gap-1.5 backdrop-blur-xl bg-slate-950/70 border border-slate-800/80 px-2.5 py-1 rounded-xl text-[10px] font-mono text-slate-300">
+              <span className="text-emerald-400 font-bold">{isHindi ? 'PAU STCR प्रमाणित' : 'PAU STCR CALIBRATED'}</span>
+              <span className="text-slate-600">|</span>
+              <span className="text-slate-400">{isHindi ? 'ऑफलाइन सुरक्षित' : 'Offline Cached'}</span>
+            </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-1.5 backdrop-blur-xl bg-slate-950/70 border border-slate-800/80 px-2.5 py-1 rounded-xl text-[10px] font-mono text-slate-300">
-            <span className="text-emerald-400 font-bold">PAU STCR CALIBRATED</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400">Offline Cached</span>
+          {/* Right: Quick Tools (Segmented 3D/2D Switcher, Slip, Dates) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto flex-wrap">
+            {/* Segmented 3D vs 2D Switcher */}
+            <div className="flex items-center bg-slate-950/90 backdrop-blur-xl border border-slate-800 rounded-xl p-0.5 shadow-lg">
+              <button
+                onClick={() => handleSetViewMode('3d')}
+                className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === '3d'
+                    ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title={isHindi ? '3D खेत दृश्य पर जाएं' : 'Switch to 3D Farm Diorama'}
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span>{isHindi ? '3D खेत' : '3D Farm'}</span>
+              </button>
+              <button
+                onClick={() => handleSetViewMode('2d')}
+                className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === '2d'
+                    ? 'bg-cyan-500 text-slate-950 font-bold shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title={isHindi ? 'सरल 2D नक्शे पर जाएं' : 'Switch to 2D Simple Map (ਸੌਖਾ ਨਕਸ਼ਾ)'}
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                <span>{isHindi ? '2D नक्शा' : '2D Map'}</span>
+              </button>
+            </div>
+
+            {/* Print Dealer Slip */}
+            <button
+              onClick={() => setShowDealerSlip(true)}
+              className="backdrop-blur-md bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 shadow-xs hover:border-slate-700"
+              title={isHindi ? 'खाद विक्रेता पर्ची देखें' : 'Print Official Fertilizer Dealer Slip'}
+            >
+              <Printer className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">{isHindi ? 'खाद पर्ची' : 'Dealer Slip'}</span>
+            </button>
+
+            {/* Application Dates */}
+            <button
+              onClick={() => setShowDatesModal(true)}
+              className="backdrop-blur-md bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 shadow-xs hover:border-slate-700"
+              title={isHindi ? 'प्रयोग तिथियां देखें' : 'View Calibrated Application Dates Calendar'}
+            >
+              <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">{isHindi ? 'अनुसूची' : 'Schedule'}</span>
+            </button>
+
+            {/* Prescription Docket HUD Toggle Button */}
+            <button
+              onClick={() => {
+                if (!selectedCropId) setSelectedCropId('wheat');
+                setIsDocketOpen(!isDocketOpen);
+              }}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 shadow-xs ${
+                isDocketOpen
+                  ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold shadow-emerald-500/25'
+                  : 'backdrop-blur-md bg-slate-950/80 hover:bg-slate-900 border-slate-800 text-emerald-400 hover:border-emerald-500/50'
+              }`}
+              title={isDocketOpen ? (isHindi ? 'डॉकेट बंद करें' : 'Close Prescription Docket') : (isHindi ? 'सिफारिश डॉकेट खोलें' : 'Open Prescription Docket')}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">
+                {isDocketOpen ? (isHindi ? 'डॉकेट बंद' : 'Close Docket') : (isHindi ? 'सिफारिश डॉकेट' : 'Prescription Docket')}
+              </span>
+              <span className="sm:hidden">
+                {isDocketOpen ? (isHindi ? 'बंद' : 'Close') : (isHindi ? 'डॉकेट' : 'Docket')}
+              </span>
+            </button>
           </div>
         </div>
 
-        {/* Right: Quick Tools (Segmented 3D/2D Switcher, Slip, Dates) */}
-        <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto flex-wrap">
-          {/* Segmented 3D vs 2D Switcher */}
-          <div className="flex items-center bg-slate-950/90 backdrop-blur-xl border border-slate-800 rounded-xl p-0.5 shadow-lg">
-            <button
-              onClick={() => handleSetViewMode('3d')}
-              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                viewMode === '3d'
-                  ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Switch to 3D Farm Diorama"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>3D Farm</span>
-            </button>
-            <button
-              onClick={() => handleSetViewMode('2d')}
-              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                viewMode === '2d'
-                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Switch to 2D Simple Map (ਸੌਖਾ ਨਕਸ਼ਾ)"
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              <span>2D Map (ਸੌਖਾ ਨਕਸ਼ਾ)</span>
-            </button>
+        {/* 4. FLOATING 7-CROP SELECTOR BAR (In 3D Mode) - Naturally follows Sub-bar! */}
+        {viewMode === '3d' && (
+          <div className="mt-2.5 pointer-events-auto max-w-[95vw] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-2 py-0.5">
+            <div className="backdrop-blur-xl bg-slate-950/85 border border-slate-800/90 rounded-full px-3 py-1.5 shadow-2xl shadow-black/50 flex items-center gap-1.5">
+              <span className="text-[11px] font-mono text-slate-400 pl-1 pr-1.5 flex items-center gap-1 flex-shrink-0">
+                <span>{isHindi ? 'फसल चुनें:' : 'Select Crop:'}</span>
+              </span>
+
+              {crops.map((c) => {
+                const isSelected = selectedCropId === c.id;
+                const cropLabel = isHindi
+                  ? `${c.name} (${c.hindiName})`
+                  : (c.displayLabel || `${c.name} (${c.punjabiName})`);
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setSelectedCropId(c.id);
+                      setIsDocketOpen(true);
+                      if (sceneRefs.current?.focusCrop) sceneRefs.current.focusCrop(c.id);
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                      isSelected && isDocketOpen
+                        ? 'bg-[#1D4D2C] text-white border border-emerald-400/60 shadow-lg shadow-emerald-950/60 font-semibold scale-105'
+                        : 'bg-slate-900/70 text-slate-300 hover:text-white border border-slate-800 hover:bg-slate-800'
+                    }`}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: c.color || '#10b981' }}
+                    />
+                    <span>{cropLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        )}
 
-          {/* Print Dealer Slip */}
-          <button
-            onClick={() => setShowDealerSlip(true)}
-            className="backdrop-blur-md bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 shadow-xs hover:border-slate-700"
-            title="Print Official Fertilizer Dealer Slip"
-          >
-            <Printer className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden sm:inline">Dealer Slip</span>
-          </button>
-
-          {/* Application Dates */}
-          <button
-            onClick={() => setShowDatesModal(true)}
-            className="backdrop-blur-md bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 shadow-xs hover:border-slate-700"
-            title="View Calibrated Application Dates Calendar"
-          >
-            <Calendar className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden sm:inline">Schedule</span>
-          </button>
-
-          {/* Prescription Docket HUD Toggle Button */}
-          <button
-            onClick={() => {
-              if (!selectedCropId) setSelectedCropId('wheat');
-              setIsDocketOpen(!isDocketOpen);
-            }}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 shadow-xs ${
-              isDocketOpen
-                ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold shadow-emerald-500/25'
-                : 'backdrop-blur-md bg-slate-950/80 hover:bg-slate-900 border-slate-800 text-emerald-400 hover:border-emerald-500/50'
-            }`}
-            title={isDocketOpen ? 'Close Prescription Docket' : 'Open Prescription Docket'}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{isDocketOpen ? 'Close Docket' : 'Prescription Docket'}</span>
-            <span className="sm:hidden">{isDocketOpen ? 'Close' : 'Docket'}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ========================================================
-          4. FLOATING 7-CROP SELECTOR BAR (In 3D Mode)
-         ======================================================== */}
-      {viewMode === '3d' && (
-        <div className="absolute top-28 sm:top-32 left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-[95vw] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-2 py-1">
-          <div className="backdrop-blur-xl bg-slate-950/85 border border-slate-800/90 rounded-full px-3 py-1.5 shadow-2xl shadow-black/50 flex items-center gap-1.5">
-            <span className="text-[11px] font-mono text-slate-400 pl-1 pr-1.5 flex items-center gap-1 flex-shrink-0">
-              <span>Select Crop:</span>
+        {/* 5. MINIMALIST CENTER PROMPT (When Docket is Closed in 3D Mode) - Naturally follows Crop Bar! */}
+        {!isDocketOpen && viewMode === '3d' && (
+          <div className="mt-2.5 pointer-events-auto flex items-center gap-3 backdrop-blur-xl bg-slate-950/85 border border-slate-800/90 px-5 py-2 rounded-full text-xs text-slate-200 shadow-2xl">
+            <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
+            <span className="hidden sm:inline">
+              {isHindi
+                ? '3D फसल पर क्लिक करें या डॉकेट देखने के लिए फसल चुनें'
+                : 'Click any 3D crop on the soil diorama or select a crop to view prescription docket'}
             </span>
-
-            {crops.map((c) => {
-              const isSelected = selectedCropId === c.id;
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => {
-                    setSelectedCropId(c.id);
-                    setIsDocketOpen(true);
-                    if (sceneRefs.current?.focusCrop) sceneRefs.current.focusCrop(c.id);
-                  }}
-                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
-                    isSelected && isDocketOpen
-                      ? 'bg-[#1D4D2C] text-white border border-emerald-400/60 shadow-lg shadow-emerald-950/60 font-semibold scale-105'
-                      : 'bg-slate-900/70 text-slate-300 hover:text-white border border-slate-800 hover:bg-slate-800'
-                  }`}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: c.color || '#10b981' }}
-                  />
-                  <span>{c.displayLabel || `${c.name} (${c.punjabiName})`}</span>
-                </button>
-              );
-            })}
+            <span className="sm:hidden">
+              {isHindi ? 'डॉकेट हेतु फसल चुनें' : 'Select crop to view prescription docket'}
+            </span>
+            <button
+              onClick={() => {
+                setSelectedCropId(selectedCropId || 'wheat');
+                setIsDocketOpen(true);
+              }}
+              className="px-3 py-1 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[11px] cursor-pointer shadow-xs transition-all shrink-0 active:scale-95"
+            >
+              {isHindi ? 'डॉकेट देखें' : 'View Docket'}
+            </button>
           </div>
-        </div>
-      )}
-
-      {/* ========================================================
-          5. MINIMALIST CENTER PROMPT (When Docket is Closed in 3D Mode)
-         ======================================================== */}
-      {!isDocketOpen && viewMode === '3d' && (
-        <div className="absolute top-44 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center gap-3 backdrop-blur-xl bg-slate-950/85 border border-slate-800/90 px-5 py-2.5 rounded-full text-xs text-slate-200 shadow-2xl">
-          <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
-          <span className="hidden sm:inline">Click any 3D crop on the soil diorama or select a crop to view prescription docket</span>
-          <span className="sm:hidden">Select crop to view prescription docket</span>
-          <button
-            onClick={() => {
-              setSelectedCropId(selectedCropId || 'wheat');
-              setIsDocketOpen(true);
-            }}
-            className="px-3 py-1 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[11px] cursor-pointer shadow-xs transition-all shrink-0 active:scale-95"
-          >
-            View Docket
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ========================================================
           FARMER 3D ASSISTANCE FLOATING GUIDE (In 3D Mode)
@@ -426,18 +443,20 @@ export default function Recommendation() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-slate-100 flex items-center gap-1.5 text-[11px] sm:text-xs">
-                <span>3D ਚਲਾਉਣ ਵਿੱਚ ਦਿੱਕਤ?</span>
-                <span className="text-[10px] text-cyan-400 font-mono">Trouble in 3D?</span>
+                <span>{isHindi ? '3D चलाने में परेशानी?' : '3D ਚਲਾਉਣ ਵਿੱਚ ਦਿੱਕਤ?'}</span>
+                <span className="text-[10px] text-cyan-400 font-mono">
+                  {isHindi ? 'Easy 2D' : 'Trouble in 3D?'}
+                </span>
               </div>
               <div className="text-[10px] text-slate-400 truncate">
-                Switch to 2D Easy Map with touch buttons
+                {isHindi ? 'सरल 2D नक्शे पर जाएं' : 'Switch to 2D Easy Map with touch buttons'}
               </div>
             </div>
             <button
               onClick={() => handleSetViewMode('2d')}
               className="px-2.5 py-1 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shrink-0 cursor-pointer shadow-xs transition-all active:scale-95"
             >
-              2D Map
+              {isHindi ? '2D नक्शा' : '2D Map'}
             </button>
           </div>
         </div>
@@ -495,7 +514,7 @@ export default function Recommendation() {
           className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-slate-950/90 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-white text-xs font-semibold shadow-2xl shadow-black/80 transition-all hover:scale-105 active:scale-95 cursor-pointer group"
         >
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>🌾 Ask Agronomist (PRD #16)</span>
+          <span>{isHindi ? '🌾 कृषि विशेषज्ञ से पूछें (PRD #16)' : '🌾 Ask Agronomist (PRD #16)'}</span>
         </button>
       </div>
 
