@@ -1,24 +1,33 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from src.api.config import SettingsDep
 from src.api.deps import EngineDep
+from src.api.logging_utils import log_request
 from src.api.mock import build_mock_risk_score
-from src.api.schemas import RiskScoreRequest, RiskScoreResponse
-from src.data_pipeline.feature_engineering import UnknownCropError
-from src.engine.npk_calculator import ReferenceDataIncomplete, UnknownStageError
-from src.engine.recommendation_engine import EngineUnavailable
+from src.api.schemas import (
+    RiskScoreRequest,
+    RiskScoreResponse,
+    ServiceUnavailableResponse,
+    ValidationErrorResponse,
+)
 from src.engine.recommendation_engine import score_planned_risk as run_score_planned
 
 router = APIRouter()
 
 
-@router.post("/risk-score", response_model=RiskScoreResponse)
+@router.post(
+    "/risk-score",
+    response_model=RiskScoreResponse,
+    responses={422: {"model": ValidationErrorResponse}, 503: {"model": ServiceUnavailableResponse}},
+)
 def risk_score(request: RiskScoreRequest, settings: SettingsDep, engine: EngineDep) -> RiskScoreResponse:
-    if settings.predict_mode == "mock":
-        return build_mock_risk_score(request)
-    try:
-        return run_score_planned(request, engine)
-    except (UnknownCropError, UnknownStageError) as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
-    except (ReferenceDataIncomplete, EngineUnavailable) as error:
-        raise HTTPException(status_code=503, detail=str(error)) from error
+    # UnknownCropError/UnknownStageError (422) and ReferenceDataIncomplete/EngineUnavailable
+    # (503) are handled globally now (src/api/errors.py, registered in main.py) -- not caught
+    # here, so they propagate to that handler.
+    with log_request(endpoint="/risk-score", field_id=None, crop_type=request.crop_type) as fields:
+        if settings.predict_mode == "mock":
+            response = build_mock_risk_score(request)
+        else:
+            response = run_score_planned(request, engine)
+        fields["model_version"] = response.model_version
+        return response
