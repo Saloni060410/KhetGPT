@@ -1,7 +1,7 @@
 # Saloni's progress — ml/src/api, ml/src/engine, ml/src/models
 
-Branch `feature/saloni-ml-core`. Last checked against `origin/feature/saloni-ml-core`: in sync,
-nothing unpushed (commit `a077530`). Update the "Last checked" line whenever this file is revisited.
+Branch `feature/saloni-ml-core`. Last checked against `origin/feature/saloni-ml-core`: local
+had 2 unpushed commits (S5 + this update) — push before telling anyone S5 is available.
 
 Pack reference: `docs/prompt-packs/saloni.md`. Step ids below (S0, S1, ...) match that file.
 
@@ -18,6 +18,15 @@ Pack reference: `docs/prompt-packs/saloni.md`. Step ids below (S0, S1, ...) matc
 - **S4 — NPK dose calculator.** `src/engine/npk_calculator.py`: `compute_balance` (STCR, then
   reference dose + soil adjustment, else `ReferenceDataIncomplete`) and `to_products` (dated
   schedule, DAP/MOP/urea mapping, rain-hold delay). 23 golden tests, all passing.
+- **S5 — cost and history comparison.** `src/engine/cost.py`: `estimate_cost`, `compare_to_history`
+  (nulls when there's no usable logged history, saving can be negative, over-application
+  reduction sums N+P2O5+K2O and clamps to 0), plus `cost_breakdown`/`prices_as_of` for contract
+  C1. 13 tests, all passing. **One decision worth revisiting:** `agronomy_rules.yaml` has no
+  dedicated "season window" key, so `compare_to_history` reuses `credit_window_days` (60 days)
+  as an interim proxy — flagged in code and here, not silently assumed. A real crop season is
+  100-150+ days, so this likely undercounts early-season applications (e.g. a wheat basal DAP
+  dose applied at sowing, ~80+ days before a mid-season recommendation) until Richa adds a
+  dedicated key. Ask her.
 
 ## Done, but verification is still open
 
@@ -73,5 +82,5 @@ Pack reference: `docs/prompt-packs/saloni.md`. Step ids below (S0, S1, ...) matc
 
 ## Not started yet
 
-S5 (cost and saving), S6 (recommendation engine, real API mode — needs S3's real model and S4's
-calculator, both of which have the open verifications above), S7 onward per the pack.
+S6 (recommendation engine, real API mode — needs S3's real model and S4's calculator, both of
+which have the open verifications above), S7 onward per the pack.
