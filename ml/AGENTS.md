@@ -42,4 +42,14 @@ pip install -r requirements.txt
 pytest -q && ruff check .
 jupyter notebook                                  # for notebooks/
 uvicorn src.api.main:app --reload --port 8001     # serve locally
+
+# Recreate the model artifact from a clean checkout (models_artifacts/ is gitignored --
+# S9's Docker image gets it via a bind mount, not by baking it in):
+python -m src.models.train --config configs/train.yaml
+
+# Build and run the service image alone (S9) -- data/external/ and configs/ are baked in,
+# the model artifact is bind-mounted read-only so it never needs to be in the image:
+docker build -t khetgpt-ml .
+docker run -p 8001:8001 -e PREDICT_MODE=real \
+  -v "$(pwd)/models_artifacts:/app/models_artifacts:ro" khetgpt-ml
 ```

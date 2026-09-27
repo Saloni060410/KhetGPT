@@ -4,6 +4,12 @@ S7: every request/response model carries a full `json_schema_extra["example"]` s
 (Swagger) shows a realistic, pre-filled example for every field, not an empty or all-zeros
 body. The four request/response fixtures are read from docs/contract-fixtures/ directly --
 one example, reused, instead of a second hand-maintained copy that can drift from it.
+
+`docs/` is a sibling of `ml/` in the monorepo checkout, but the Docker image (ml/Dockerfile,
+S9) packages only `ml/`'s own contents -- `docs/contract-fixtures/` isn't in the image, on
+purpose (the contract docs aren't service code). `_fixture_example` must degrade to no example
+rather than crash: a missing OpenAPI example is a cosmetic /docs gap, not a reason the whole
+service should fail to start.
 """
 
 import json
@@ -16,10 +22,21 @@ from pydantic import BaseModel, ConfigDict, Field
 _FIXTURES_DIR = Path(__file__).resolve().parents[3] / "docs" / "contract-fixtures"
 
 
-def _fixture_example(name: str) -> dict:
-    payload = json.loads((_FIXTURES_DIR / name).read_text())
+def _fixture_example(name: str) -> dict | None:
+    try:
+        payload = json.loads((_FIXTURES_DIR / name).read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
     payload.pop("_note", None)
     return payload
+
+
+def _example_config(name: str) -> ConfigDict:
+    """`ConfigDict(json_schema_extra={"example": ...})` when the fixture is reachable, else a
+    plain `ConfigDict()` so /docs falls back to pydantic's own generated example instead of
+    showing a misleading empty one."""
+    example = _fixture_example(name)
+    return ConfigDict(json_schema_extra={"example": example}) if example is not None else ConfigDict()
 
 
 class Soil(BaseModel):
@@ -52,7 +69,7 @@ class PlannedApplication(BaseModel):
 
 
 class RecommendRequest(BaseModel):
-    model_config = ConfigDict(json_schema_extra={"example": _fixture_example("recommend_request.json")})
+    model_config = _example_config("recommend_request.json")
 
     field_id: str
     crop_type: str
@@ -66,7 +83,7 @@ class RecommendRequest(BaseModel):
 
 
 class RiskScoreRequest(BaseModel):
-    model_config = ConfigDict(json_schema_extra={"example": _fixture_example("risk_score_request.json")})
+    model_config = _example_config("risk_score_request.json")
 
     crop_type: str
     variety: str | None = None
@@ -142,7 +159,7 @@ class Impact(BaseModel):
 
 
 class RecommendResponse(BaseModel):
-    model_config = ConfigDict(json_schema_extra={"example": _fixture_example("recommend_response.json")})
+    model_config = _example_config("recommend_response.json")
 
     recommendation: Recommendation
     risk: Risk
@@ -165,7 +182,7 @@ class AppliedBalance(BaseModel):
 
 
 class RiskScoreResponse(BaseModel):
-    model_config = ConfigDict(json_schema_extra={"example": _fixture_example("risk_score_response.json")})
+    model_config = _example_config("risk_score_response.json")
 
     risk: Risk
     nutrient_balance: AppliedBalance
