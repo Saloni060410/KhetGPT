@@ -584,7 +584,20 @@ published-table-sourced; the classifier only ever refines which product name is 
 only when it agrees with the rule-based choice), and known limitations stated up front rather
 than waiting to be asked.
 
-## Not started yet
+## Skipped
 
-S12 (learned quantity refinement) is a stretch goal conditional on Richa having found a
-dataset with real applied-quantity labels -- unknown status, hers to say.
+**S12 (learned quantity refinement), deliberately, checked rather than assumed (2026-09-28).**
+Its own spec gates it on "only if Richa has found a dataset with real applied-quantity labels
+for at least one crop." Checked directly rather than left open: the only raw file that exists
+(`data/raw/fertilizer_prediction_synthetic.csv`) has a fertilizer *type* label
+(`Fertilizer Name`) and no applied-*quantity* column at all; nothing in
+`SUMMARY_FOR_SALONI.md`, `docs/evaluation-report.md`, `data/README.md` or
+`DATA_REQUIREMENTS.md` mentions such a dataset having been found. The precondition isn't met,
+so this is the documented skip condition applying, not scope cut for time.
+
+Beyond the missing data: training a quantity regressor on the synthetic data anyway would be
+circular. Its target labels would have to come from the same rule-based dose formula S12 is
+meant to be compared against, so the model would just be learning to imitate the formula's own
+synthetic output -- exactly the kind of leakage this project has been careful to avoid
+everywhere else (see the ML standards' data-leakage checklist). A real comparison needs real,
+independently-observed applied quantities; there aren't any.
