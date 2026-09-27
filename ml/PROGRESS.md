@@ -283,12 +283,47 @@ entry above.
   and that run's `metrics.json` are gitignored/untracked as always. **The test split must not be
   evaluated again for this model version -- this is final.**
 
+## Done, and not blocked (S9)
+
+- **S9 — package the ML service for compose.** `ml/Dockerfile` now copies `configs/` and
+  `data/external/` alongside `src/` (previously only `src/` was copied -- the rule tables
+  are read at runtime by every request, so `/recommend`/`/risk-score` could never have
+  worked in the container before this), runs as a non-root user, and adds a `HEALTHCHECK`
+  against `/health` using Python's own `urllib` (no extra package -- `python:3.11-slim` has
+  no `curl`).
+  **Real bug found by actually building and running the image, not just reading the
+  Dockerfile:** `schemas.py`'s OpenAPI-example loader (S7) reads `docs/contract-fixtures/`
+  assuming it's a sibling of `ml/` -- true in the monorepo checkout, false in the Docker
+  image, which packages only `ml/`'s own contents. The whole service crashed on import
+  inside the container (`FileNotFoundError` before FastAPI even started). Fixed:
+  `_fixture_example` now returns `None` on a missing/unreadable fixture instead of raising,
+  and each model's `json_schema_extra` falls back to no example (pydantic's own generated
+  one) rather than taking the service down -- a missing OpenAPI example is cosmetic, never
+  a reason `/recommend` shouldn't start.
+  **Verified for real** (`docker build ml/`, `docker run`, not just inspected):
+  - No model mounted, `PREDICT_MODE=real`: `/health` → `degraded` (200) with a clear reason,
+    `/recommend` still returns a complete plan via the rule-based calculator (the S6 design
+    deviation, working as intended in a container for the first time).
+  - `PREDICT_MODE=mock` (the image's default -- no `.env` is baked in, correctly, it's
+    gitignored): `/recommend` answers the fixture.
+  - Model bind-mounted (`-v $(pwd)/models_artifacts:/app/models_artifacts:ro`): `/health` →
+    `ok` with `fertilizer-classifier-0.1.0+rules-f22bca59`, `/risk-score` matches the
+    fixture's risk level.
+  - `ml/AGENTS.md`'s Commands section now has the exact `python -m src.models.train` (recreate
+    the artifact) and `docker build`/`docker run` commands.
+  **For Josh (`docker-compose.yml`, his file, not touched here):** the `ml` service needs
+  `volumes: ["./ml/models_artifacts:/app/models_artifacts:ro"]` and a healthcheck matching
+  the Dockerfile's own (`test: ["CMD", "python", "-c", "import urllib.request as u; import sys; sys.exit(0 if u.urlopen('http://localhost:8001/health', timeout=2).status == 200 else 1)"]`,
+  10s interval / 3s timeout / 5s start period / 5 retries) so `depends_on: ml: condition:
+  service_healthy` can work the same way it already does for `postgres`.
+  **Aside, not fixed (not S9's ask):** the built image is ~2.4GB -- `requirements.txt`
+  installs `jupyter`/`jupyterlab`/`notebook` etc. for `notebooks/`, none of which the served
+  API needs. Worth a follow-up (a slimmer serving-only requirements file) but out of scope
+  for "install the pinned requirements" as written.
+
 ## Not started yet
 
-S9 onward per the pack. S3 through S8 are all done, unblocked and re-verified end to end as of
-2026-09-27: a real classifier is registered (`fertilizer-classifier-0.1.0`) with a genuine,
-CI-enriched frozen-test-split result, `/health` reports `ok` with its version, the fixture demo
-in real mode validates against the contract for both the potash and no-potash paths,
-`/risk-score` works, p95 latency over 50 calls is 64.9ms (well inside NFR1's 3s), the API is
-hardened with contract tests, a request-size limit, structured logging and a global
-error-shape handler. No open gaps left in my area right now.
+S10 (model card) and S11 (demo readiness) per the pack -- both gated on inputs I don't have
+yet: S10 needs Richa's evaluation report (R12), S11 needs Josh's compose changes above (J10).
+S12 (learned quantity refinement) is a stretch goal conditional on Richa having found a
+dataset with real applied-quantity labels -- unknown status, hers to say.
