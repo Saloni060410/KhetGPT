@@ -57,6 +57,30 @@ def _stage_ordinal(tables: ReferenceTables, crop_id: str, stage_id: str | None) 
     return None
 
 
+def season_length_days(tables: ReferenceTables, crop_id: str) -> int | None:
+    """Sourced days-after-sowing length of crop_id's full growing season, read from
+    growth_stages.csv's own maturity/harvest row -- NOT the same thing as
+    agronomy_rules.yaml's credit_window_days (how long a past application is still credited
+    against nutrient need). A crop's real season is often much longer than the 60-day
+    credit window (wheat: 148-158 days; barley: 137-146 days) -- conflating the two would
+    silently drop a genuinely same-season basal application from a risk assessment made
+    later in the season. Returns None (not credit_window_days, not an invented number) when
+    growth_stages.csv has no maturity/harvest stage for this crop yet -- most crops don't:
+    only wheat and barley have one as of this pass. Callers must fall back explicitly and
+    visibly, never treat None as "0 days" or silently substitute credit_window_days."""
+    best_end = None
+    for row in tables.growth_stages:
+        if row["crop_id"] != crop_id:
+            continue
+        if "maturity" not in row["stage_id"] and "harvest" not in row["stage_id"]:
+            continue
+        das_end = row["das_end"]
+        if str(das_end).startswith("TODO"):
+            continue
+        best_end = max(best_end or 0, int(das_end))
+    return best_end
+
+
 def soil_rating(tables: ReferenceTables, parameter: str, value: float) -> str:
     for row in tables.soil_test_ratings:
         if row["parameter"] != parameter:
