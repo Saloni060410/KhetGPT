@@ -1,18 +1,19 @@
 # Model card: `fertilizer-classifier-0.1.0`
 
 Every number below is pulled from `ml/src/models/model_registry/registry.json`'s
-`fertilizer-classifier`/`0.1.0` entry, or from `ml/PROGRESS.md`'s dated entries for the same
-run, unless marked `TODO(metric)` or `TODO(richa-eval-report)`. Nothing here is estimated or
-rounded from memory. Written for S10 (`docs/prompt-packs/saloni.md`); the ML standards this
-follows are `~/claude-plugins/ml-ds-standards/CLAUDE.md` section 5.
+`fertilizer-classifier`/`0.1.0` entry, from `ml/PROGRESS.md`'s dated entries for the same
+run, or (Limitations section) from Richa's `docs/evaluation-report.md`, unless marked
+`TODO(metric)`. Nothing here is estimated or rounded from memory. Written for S10
+(`docs/prompt-packs/saloni.md`); the ML standards this follows are
+`~/claude-plugins/ml-ds-standards/CLAUDE.md` section 5.
 
 ## Intended use
 
 Refines **which fertilizer product** (of five options in its training target: `urea`, `dap`,
 `np_28_28_0`, `np_20_20_0`, `npk_17_17_17` -- only the first three currently have a verified
 price in `fertilizer_products.csv`; `np_20_20_0` and `npk_17_17_17` are valid classifier
-outputs that are *also* currently unpriced, the same situation as MOP below, not a special
-case) is the best fit for a soil-test-based fertilizer plan for one of seven Punjab field
+outputs that are *also* currently unpriced, see "Risk and cost" below for how an unpriced
+product is still recommended) is the best fit for a soil-test-based fertilizer plan for one of seven Punjab field
 crops (wheat, rice, maize, cotton, sugarcane, barley, chickpea). It is one
 input among several, not the source of the plan: **the rule-based dose formula
 (`ml/src/engine/npk_calculator.py`) sets quantity, timing and the schedule regardless of what
@@ -37,8 +38,8 @@ with the formula's own product choice, the formula wins and the disagreement is 
   `ssp` or `npk_14_35_14` at all -- those three are entirely the rule-based layer's domain
   (DAP/MOP/urea product-mapping in `to_products()`), never a classifier output. `np_20_20_0`
   and `npk_17_17_17` *are* in scope for the classifier despite currently having no verified
-  price (see "Intended use" above and `ml/PROGRESS.md`'s MOP-price entry for the general
-  unpriced-product policy).
+  price (see "Intended use" above and "Risk and cost" below for the general unpriced-product
+  policy).
 - **Not a safety-critical or financial system.** This is a Smart India Hackathon prototype.
   It has not been reviewed by an agronomist for real-world deployment (see "Limitations" and
   the standing caveat repeated throughout `ml/PROGRESS.md`).
@@ -213,34 +214,53 @@ deliberate design deviation from the literal S6 spec).
   the farmer's logged previous cost in the same crop-season window
   (`feature_engineering.season_length_days()`, falling back to `credit_window_days` with an
   explicit warning where no sourced season length exists yet). A product with no verified
-  price (currently `mop`, `ssp`, `npk_14_35_14`) is still recommended with a real dose -- it's
-  excluded from the cost breakdown, never priced at zero or guessed, with a `data_notes` entry
-  saying why (see `ml/PROGRESS.md`'s 2026-09-27 MOP-policy entry).
+  price (currently `ssp`, `npk_14_35_14`, `npk_17_17_17`, `np_20_20_0` -- `mop` was resolved
+  2026-09-27, see below) is still recommended with a real dose -- it's excluded from the cost
+  breakdown, never priced at zero or guessed, with a `data_notes` entry saying why (see
+  `ml/PROGRESS.md`'s 2026-09-27 MOP-policy entry).
 
 ## Limitations and failure modes
 
-**`ml/../docs/evaluation-report.md` (R12, Richa's) does not exist yet** -- checked the working
-tree and every team branch (`main`, `feature/richa-ml-data`, `feature/josh-backend`,
-`feature/darsh-frontend`); genuinely absent everywhere, not something to invent content for.
-`TODO(richa-eval-report)`: pull her failure-mode analysis in here once it exists, rather than
-duplicating a weaker version of it myself.
+`docs/evaluation-report.md` (R12, Richa's, added 2026-09-27) is now the authoritative
+failure-mode analysis; summarized here, not duplicated in full:
 
-What's verified directly, in the meantime:
-- **Never evaluated on real data.** Every number above is synthetic-on-synthetic. Real-world
-  accuracy could differ in either direction and is currently unknowable.
-- **Severe class imbalance** means `npk_17_17_17` (18 rows total, 3 in the frozen test split)
-  and `np_20_20_0` (recall 0.167) are the least trustworthy predictions the model makes.
-  `urea` and `dap` are comparatively strong (`dap` recall 1.000, though on only 23 test rows).
-- **`chickpea` is the weakest crop** (per-crop macro-F1 0.192) -- worth a specific look before
-  trusting this model's product refinement for chickpea recommendations.
+- **Never evaluated on real data at meaningful scale.** The test split has 421 rows, of which
+  only 10 are real (97.6% synthetic across train/val/test, 57 real rows total from the 99-row
+  public Kaggle dataset after dropping unusable rows/classes). Every accuracy number in this
+  card is an upper bound on real-world performance, not an estimate of it.
+- **Severe class imbalance** means `npk_17_17_17` (3 test rows, recall 0.667 but on a base too
+  thin to trust) and `np_20_20_0` (recall 0.167) are the least trustworthy predictions the
+  model makes. `dap` has perfect recall (1.000) but only 40.4% precision -- a lot of other rows
+  get misclassified *into* dap. `urea`, the largest class, is the most reliably identified
+  (recall 0.716, F1 0.729).
+- **Chickpea collapses to "dap" entirely**, not a subtle confusion: every one of chickpea's 42
+  misclassified test rows (both true `np_20_20_0` and true `np_28_28_0`) was predicted `dap`,
+  regardless of the row's actual N/P/K values -- likely because chickpea's low-N reference dose
+  (14.8 kg/ha vs wheat's 123.6, it being a legume) looks close enough to dap's typical low-N
+  profile that the model never learned to separate them within that crop. Per-crop macro-F1 is
+  lowest for barley (0.139) and wheat (0.140), then chickpea (0.181) -- chickpea's classifier
+  output specifically should not be trusted (the dose calculator's own numbers, unaffected, are
+  still the source of truth regardless).
+- **`np_28_28_0` <-> `urea` is the single largest cross-crop confusion pattern** in both
+  directions -- reflects genuine label ambiguity in the synthetic generator's mid-range soil
+  sampling, not an implausible model failure.
 - **Region ambiguity risk, structural not yet triggered:** `reference_doses.csv`/
   `stcr_equations.csv` carry a `region` column the dose formula doesn't yet use to
   disambiguate (harmless today -- every crop/variety/irrigation combination has exactly one
   region -- but `npk_calculator.py` now raises rather than silently guessing if that ever
   changes; see `ml/PROGRESS.md`'s external-review entry).
-- **MOP has no verified price** (re-checked 2026-09-27; IFFCO's own list doesn't carry it,
-  market listings too inconsistent to cite responsibly) -- doesn't block a recommendation, but
-  means the cost estimate for a potash-needing plan is always partial.
+- **The formula itself checks out independently:** a separate 63-check grid Richa ran directly
+  against `compute_balance()`'s live output found zero arithmetic mismatches -- every one of the
+  9 "violators" was the same already-disclosed data gap (no sourced soil-adjustment row yet for
+  wheat/N, wheat/P, rice/N), not a formula bug.
+- **MOP's price is now resolved** (2026-09-27, PIB Release ID 2237470, ₹34.21/kg) --
+  `ssp`, `npk_14_35_14`, `npk_17_17_17` and `np_20_20_0` remain unpriced (see "Risk and cost").
+- **The registered v0.1.0 model predates this merge's data fixes** (barley's
+  `split_schedule.csv` row, sourced P/K nutrient efficiency). A fresh local reproduction on the
+  current dataset shows a 6th class (`npk_14_35_14`, 9 rows) not present when v0.1.0 was
+  registered, and correspondingly different metrics (macro F1 0.341 vs the registered 0.469).
+  The reproduction is exact and repeatable (not a fluke), but whether to register a new model
+  version over this is an open decision, not yet made -- see `ml/PROGRESS.md`.
 
 ## Fairness and regional caveats
 
