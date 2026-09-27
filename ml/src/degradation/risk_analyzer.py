@@ -4,6 +4,7 @@ the same Risk. Thresholds come only from agronomy_rules.yaml (passed in as `rule
 soil_test_ratings.csv (via feature_engineering.soil_rating); nothing here is hardcoded.
 """
 
+import warnings
 from datetime import UTC, date, datetime
 
 from src.data_pipeline.soil_data_loader import ReferenceTables, load_reference_tables
@@ -127,14 +128,45 @@ def _compute_risk(applied_kg_ha: dict[str, float], nutrient_balance: dict, soil:
     }
 
 
-def assess_recommendation(nutrient_balance: dict, schedule: list[dict], soil: dict, weather: dict,
-                           prior_usage: list[dict], rules: dict, tables: ReferenceTables | None = None) -> dict:
-    """Risk for the field, based on the farmer's own recent application history (prior_usage
-    within agronomy_rules.yaml's credit_window_days) versus what the crop actually needs --
-    not a judgement of the new recommendation, which by construction meets need."""
+def assess_recommendation(crop_id: str, nutrient_balance: dict, schedule: list[dict], soil: dict,
+                           weather: dict, prior_usage: list[dict], rules: dict,
+                           tables: ReferenceTables | None = None) -> dict:
+    """Risk for the field, based on the farmer's own SAME-SEASON application history versus
+    what the crop actually needs -- not a judgement of the new recommendation, which by
+    construction meets need.
+
+    "Same season" and agronomy_rules.yaml's credit_window_days are NOT the same concept:
+    credit_window_days (60) is how long a past application still earns nutrient credit;
+    a crop's actual growing season is often much longer (wheat: 148-158 days; barley:
+    137-146 days) -- a basal application at sowing could be well past the 60-day credit
+    window while still squarely inside the current crop cycle. Using credit_window_days
+    here would silently drop a genuinely same-season application from the risk picture.
+
+    feature_engineering.season_length_days() gives a real, sourced season length
+    (growth_stages.csv's maturity/harvest stage) for crops that have one -- currently only
+    wheat and barley. For every other crop, no sourced season length exists yet, and this
+    function falls back to credit_window_days EXPLICITLY (logged as a warning, not a
+    silent substitution) rather than inventing a number or pretending the two concepts are
+    interchangeable. Whoever adds a maturity stage for another crop's growth_stages.csv
+    automatically gets a real season window here with no code change needed."""
+    from src.data_pipeline.feature_engineering import season_length_days
+
     tables = tables or load_reference_tables()
+    season_days = season_length_days(tables, crop_id)
+    if season_days is not None:
+        within_days = season_days
+    else:
+        within_days = rules["credit_window_days"]
+        warnings.warn(
+            f"assess_recommendation: no sourced season length for crop_id={crop_id!r} "
+            f"(growth_stages.csv has no maturity/harvest row) -- falling back to "
+            f"credit_window_days ({within_days}) as a same-season proxy, which is NOT "
+            "the same concept and may undercount early-season applications.",
+            stacklevel=2,
+        )
+
     applied = {
-        nutrient: _applied_kg_ha(prior_usage, nutrient, tables, within_days=rules["credit_window_days"])
+        nutrient: _applied_kg_ha(prior_usage, nutrient, tables, within_days=within_days)
         for nutrient in ("n", "p", "k")
     }
     return _compute_risk(applied, nutrient_balance, soil, weather, rules, tables)

@@ -33,6 +33,48 @@
       "used_for": "Seed training data for the fertilizer-type classifier (contract C4 CLASSIFIER_TARGET). Quantity and schedule come from ml/data/external/reference_doses.csv and split_schedule.csv (PAU-sourced), not from this dataset."
     },
     {
+      "id": "fertilizer_prediction_synthetic",
+      "description": "SYNTHETIC classifier-training supplement -- generated, not observed. Supplements (does not replace) the real 99-row fertilizer_prediction dataset above.",
+      "path": "data/raw/fertilizer_prediction_synthetic.csv",
+      "committed": true,
+      "real": false,
+      "generation_method": "ml/src/data_pipeline/generate_synthetic_data.py -- every value is grounded in an already-sourced table in this repo (seasonal_weather.csv's real Open-Meteo monthly Punjab averages for temperature/humidity, soil_test_ratings.csv's ICAR-IISS bands for N/P/K, reference_doses.csv + soil_adjustments.csv for the fertilizer LABEL, computed per-row from that row's own generated soil values, never assigned independently). moisture_pct's band is a documented team assumption -- no per-month real moisture source exists in this repo, unlike temperature/humidity. Product sampling applies a flat bonus to priced products' similarity score (fertilizer_products.csv's price_inr_per_kg not TODO) per Saloni's DATA_REQUIREMENTS.md, so the label distribution leans toward products that can actually produce a usable cost/schedule end-to-end, without ever overriding a genuinely much better-matching unpriced grade.",
+      "generated_on": "2026-09-27",
+      "seed": 42,
+      "rows_per_crop": 400,
+      "crop_scope": [
+        "wheat",
+        "rice",
+        "maize",
+        "cotton",
+        "sugarcane",
+        "chickpea",
+        "barley"
+      ],
+      "sha256": "ee0e67bf2e51faeef33147d2e740495181860e58cd33d964d8dd64d04ef32f1a",
+      "rows": 2800,
+      "columns": [
+        "Temparature",
+        "Humidity",
+        "Moisture",
+        "Soil Type",
+        "Crop Type",
+        "Nitrogen",
+        "Potassium",
+        "Phosphorous",
+        "Fertilizer Name"
+      ],
+      "units": {
+        "Temparature": "degrees C",
+        "Humidity": "%",
+        "Moisture": "%",
+        "Nitrogen": "kg/ha (Soil Health Card basis) -- unlike the real file, units are confirmed here since this script generated them that way deliberately",
+        "Potassium": "kg/ha (Soil Health Card basis)",
+        "Phosphorous": "kg/ha (Soil Health Card basis)"
+      },
+      "used_for": "Supplements the real 99-row seed for the fertilizer-type classifier. Labelled synthetic everywhere it's used (this manifest, data_source column added by clean.py, ml/data/README.md) so it can never be mistaken for a real field observation."
+    },
+    {
       "id": "isric_sotwis_igp_soil_profiles",
       "description": "Real SOTER soil-profile estimates for the Indo-Gangetic Plains (includes Punjab), 0-20cm depth",
       "path": "data/external/isric_sotwis_igp_soil_profiles.csv",
@@ -115,15 +157,18 @@
       "test": 0.15
     },
     "split_sizes": {
-      "train": 35,
-      "test": 8,
-      "val": 7
+      "train": 2839,
+      "test": 10,
+      "val": 8
     },
-    "content_hash": "18fb1191ea0c2f3b",
-    "feature_schema_hash": "e5382c70e374f4e6",
+    "content_hash": "4363017229d6a28e",
+    "feature_schema_hash": "70655708beb3033f",
     "feature_columns": [
       "crop_id",
       "variety_id",
+      "n",
+      "p",
+      "k",
       "temperature_c",
       "humidity_pct",
       "moisture_pct"

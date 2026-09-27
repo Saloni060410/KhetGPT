@@ -44,10 +44,15 @@ def _request(**overrides) -> dict:
 
 def test_parity_between_training_path_and_request_path():
     """The same underlying record, fed through the training path (a train.csv row) and the
-    serving path (request_to_record + build_features), must produce identical features."""
+    serving path (request_to_record + build_features), must produce identical features.
+    Uses a synthetic row specifically: real rows have NaN n/p/k (their unit is empirically
+    inconsistent with kg/ha, see feature_engineering's docstring), which validate_soil()
+    correctly rejects -- there's no valid live request a real training row could correspond
+    to any more, which is the deliberate point of that fix, not a gap in this test."""
     tables = load_reference_tables()
 
-    train_row = load_training_frame("train").iloc[0].to_dict()
+    train_df = load_training_frame("train")
+    train_row = train_df[train_df["data_source"] == "synthetic"].iloc[0].to_dict()
 
     req = _request(
         crop_type=train_row["crop_id"],
@@ -56,6 +61,9 @@ def test_parity_between_training_path_and_request_path():
     req["weather"]["temperature_c"] = train_row["temperature_c"]
     req["weather"]["humidity_pct"] = train_row["humidity_pct"]
     req["soil"]["moisture"] = train_row["moisture_pct"]
+    req["soil"]["n"] = train_row["n"]
+    req["soil"]["p"] = train_row["p"]
+    req["soil"]["k"] = train_row["k"]
 
     record_from_request = request_to_record(req, tables=tables)
 
@@ -73,15 +81,22 @@ def test_unknown_crop_raises_a_clear_error():
 def test_build_features_raises_for_unknown_crop_id_in_a_record():
     with pytest.raises(UnknownCropError):
         build_features([{"crop_id": "banana", "variety_id": "generic", "temperature_c": 25,
-                          "humidity_pct": 50, "moisture_pct": 40}])
+                          "humidity_pct": 50, "moisture_pct": 40, "n": 100, "p": 15, "k": 120}])
 
 
-def test_build_features_has_no_nans():
+def test_build_features_has_no_nans_outside_n_p_k():
+    # n/p/k are deliberately NaN for real-sourced training rows (see feature_engineering's
+    # docstring) -- every other feature, and n/p/k for synthetic rows, must never be NaN.
     tables = load_reference_tables()
     df = load_training_frame("train")
     records = df.to_dict(orient="records")
     features = build_features(records, tables=tables)
-    assert not features.isna().any().any()
+    non_npk = [c for c in features.columns if c not in ("n", "p", "k")]
+    assert not features[non_npk].isna().any().any()
+    synthetic_mask = df["data_source"] == "synthetic"
+    assert not features.loc[synthetic_mask.to_numpy(), ["n", "p", "k"]].isna().any().any()
+    real_mask = df["data_source"] == "real"
+    assert features.loc[real_mask.to_numpy(), ["n", "p", "k"]].isna().all().all()
 
 
 def test_build_features_columns_are_fixed_regardless_of_batch_content():
@@ -89,7 +104,7 @@ def test_build_features_columns_are_fixed_regardless_of_batch_content():
     column -- fixed vocabulary, not vocabulary-from-the-batch."""
     tables = load_reference_tables()
     one_record = [{"crop_id": "wheat", "variety_id": "generic", "temperature_c": 26,
-                   "humidity_pct": 52, "moisture_pct": 40}]
+                   "humidity_pct": 52, "moisture_pct": 40, "n": 100, "p": 15, "k": 120}]
     features = build_features(one_record, tables=tables)
     assert any(col.startswith("crop_id__rice") for col in features.columns)
     assert any(col.startswith("crop_id__cotton") for col in features.columns)
@@ -146,4 +161,4 @@ def test_weather_features_rain_hold_threshold():
 
 def test_feature_columns_and_target_are_stable_constants():
     assert CLASSIFIER_TARGET == "fertilizer_product_id"
-    assert FEATURE_COLUMNS == ["crop_id", "variety_id", "temperature_c", "humidity_pct", "moisture_pct"]
+    assert FEATURE_COLUMNS == ["crop_id", "variety_id", "n", "p", "k", "temperature_c", "humidity_pct", "moisture_pct"]

@@ -2,14 +2,29 @@
 /recommend handler) both call build_features() on the output of request_to_record() /
 load_training_frame(), so the two code paths can never drift into different columns.
 
-FEATURE_COLUMNS is deliberately narrow. The raw training dataset's Nitrogen/Potassium/
-Phosphorous columns have no stated unit and no defensible mapping to the API's real n/p/k
-(kg/ha, Soil Health Card basis) -- see the R4 unit-reconciliation note in
-docs/data-dictionary.md -- and the training dataset has no growth-stage or pH/organic_carbon
-data at all. Including any of those would make "serving can never produce different columns
-than training" false by construction, not just risky. temperature_c/humidity_pct/moisture_pct
-were assessed in R4 as a plausible (if unconfirmed) direct match and are the only numeric
-features carried over.
+FEATURE_COLUMNS is deliberately narrow, but includes n/p/k despite the real training
+dataset's units problem -- read this before changing either.
+
+The raw training dataset's Nitrogen/Potassium/Phosphorous columns have no stated unit (R4),
+and it's worse than "unstated": Nitrogen and Phosphorous have nearly identical numeric
+ranges in that file (4-42 and 0-42), but real Soil Health Card kg/ha values for N and P
+differ by roughly an order of magnitude (soil_test_ratings.csv's own cutoffs: N ~280-560,
+P ~10-25) -- empirical evidence these are NOT kg/ha, not a value that merely lacks a label.
+There is no hidden correct unit to recover for those rows.
+
+So real rows keep n/p/k as NaN (clean.py's reconcile_npk_units(), never passed through as
+an unverified, probably-wrong-scale number) while synthetic rows
+(generate_synthetic_data.py) and every live /recommend request (request_to_record(), always
+a real soil test) have real, confirmed kg/ha values. n/p/k are in FEATURE_COLUMNS on that
+basis: partial availability by data_source, not a reconciled column. build_features() below
+allows NaN in n/p/k specifically (and only there) for exactly this reason -- whoever trains
+the classifier on this needs an algorithm that tolerates missing values (XGBoost, already
+this project's stated model; plain sklearn LogisticRegression/RandomForest do not).
+
+The training dataset also has no growth-stage or pH/organic_carbon data at all -- including
+those would make "serving can never produce different columns than training" false by
+construction, not just risky, so they stay out. temperature_c/humidity_pct/moisture_pct were
+assessed in R4 as a plausible (if unconfirmed) direct match and are carried over as before.
 """
 
 from pathlib import Path
@@ -30,6 +45,9 @@ CLASSIFIER_TARGET = "fertilizer_product_id"
 FEATURE_COLUMNS = [
     "crop_id",
     "variety_id",
+    "n",
+    "p",
+    "k",
     "temperature_c",
     "humidity_pct",
     "moisture_pct",
@@ -55,6 +73,30 @@ def _stage_ordinal(tables: ReferenceTables, crop_id: str, stage_id: str | None) 
         if row["crop_id"] == crop_id and row["stage_id"] == stage_id:
             return int(row["order"])
     return None
+
+
+def season_length_days(tables: ReferenceTables, crop_id: str) -> int | None:
+    """Sourced days-after-sowing length of crop_id's full growing season, read from
+    growth_stages.csv's own maturity/harvest row -- NOT the same thing as
+    agronomy_rules.yaml's credit_window_days (how long a past application is still credited
+    against nutrient need). A crop's real season is often much longer than the 60-day
+    credit window (wheat: 148-158 days; barley: 137-146 days) -- conflating the two would
+    silently drop a genuinely same-season basal application from a risk assessment made
+    later in the season. Returns None (not credit_window_days, not an invented number) when
+    growth_stages.csv has no maturity/harvest stage for this crop yet -- most crops don't:
+    only wheat and barley have one as of this pass. Callers must fall back explicitly and
+    visibly, never treat None as "0 days" or silently substitute credit_window_days."""
+    best_end = None
+    for row in tables.growth_stages:
+        if row["crop_id"] != crop_id:
+            continue
+        if "maturity" not in row["stage_id"] and "harvest" not in row["stage_id"]:
+            continue
+        das_end = row["das_end"]
+        if str(das_end).startswith("TODO"):
+            continue
+        best_end = max(best_end or 0, int(das_end))
+    return best_end
 
 
 def soil_rating(tables: ReferenceTables, parameter: str, value: float) -> str:
@@ -145,11 +187,18 @@ def build_features(records: list[dict], tables: ReferenceTables | None = None) -
         row["temperature_c"] = float(record["temperature_c"])
         row["humidity_pct"] = float(record["humidity_pct"])
         row["moisture_pct"] = float(record["moisture_pct"])
+        # n/p/k may be NaN here by design (real Kaggle training rows -- see this module's
+        # docstring) -- float(nan) stays nan, never raises. Every other feature must be a
+        # real number, so the NaN check below only exempts these three columns.
+        row["n"] = float(record["n"])
+        row["p"] = float(record["p"])
+        row["k"] = float(record["k"])
         rows.append(row)
 
     df = pd.DataFrame(rows)
-    if df.isna().any().any():
-        raise ValueError("build_features produced NaN values -- a record was missing data")
+    non_npk_columns = [c for c in df.columns if c not in ("n", "p", "k")]
+    if df[non_npk_columns].isna().any().any():
+        raise ValueError("build_features produced NaN values outside n/p/k -- a record was missing data")
     return df
 
 
