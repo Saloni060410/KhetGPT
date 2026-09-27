@@ -199,6 +199,18 @@ def test_mock_reference_crops_include_one_crop_with_varieties_and_one_without():
     assert all(c["stages"] for c in crops)
 
 
+def test_real_mode_reference_crops_excludes_a_not_ready_crop(use_settings):
+    # Barley has a real reference dose but zero split_schedule.csv rows -- ready_crops() calls
+    # this out by name ("no split_schedule rows") and its own docstring says /reference/crops
+    # is supposed to list only the ready ones. Verified live before this fix: barley appeared
+    # in this list anyway (load_crops() had a stale "readiness filtering... added when the
+    # shared loader lands" comment describing a filter that was never actually wired in).
+    use_settings(predict_mode="real")
+    ids = [c["id"] for c in client.get("/reference/crops").json()]
+    assert "barley" not in ids
+    assert "wheat" in ids  # sanity: the endpoint still returns real, ready crops
+
+
 def test_mock_reference_lists_validate():
     for item in client.get("/reference/soil-ratings").json():
         SoilRating.model_validate(item)
@@ -244,6 +256,21 @@ def test_real_mode_reads_the_tables(use_settings, tmp_path):
     write(tmp_path, "crop_varieties.csv", "crop_id,variety_id,name_en,name_hi,source\nrice,pr_132,PR 132,,x\nrice,generic,Generic,,x")
     write(tmp_path, "soil_test_ratings.csv", "parameter,unit,low_below,high_above,source\nn,kg/ha,280,560,x\nk,kg/ha,108,280,x\nzn,ppm,TODO(data),TODO(data),x")
     write(tmp_path, "fertilizer_products.csv", "product_id,name,n_pct,p2o5_pct,k2o_pct,price_inr_per_kg,price_date,source\nurea,Urea,46,0,0,5.92,2025-01-01,x\nmop,MOP,0,0,60,TODO(data),TODO(data),x")
+    # Readiness (ready_crops()'s criteria, mirrored in reference_data.py's own
+    # _ready_crop_ids -- see its docstring): a generic reference dose with no TODO(data)
+    # nutrient cells, and at least one split_schedule row. Both wheat and rice need these to
+    # stay listed below -- "ghost" deliberately has neither, on top of having no stages.
+    write(
+        tmp_path,
+        "reference_doses.csv",
+        "crop_id,variety_id,irrigation,region,n_kg_ha,p2o5_kg_ha,k2o_kg_ha,source\n"
+        "wheat,generic,irrigated,Punjab,123.6,61.8,0,x\nrice,generic,irrigated,Punjab,103.8,29.7,29.7,x",
+    )
+    write(
+        tmp_path,
+        "split_schedule.csv",
+        "crop_id,stage_id,n_fraction,p_fraction,k_fraction\nwheat,first,1.0,1.0,1.0\nrice,nursery,1.0,1.0,1.0",
+    )
     use_settings(predict_mode="real", data_external_dir=tmp_path)
 
     crops = client.get("/reference/crops").json()

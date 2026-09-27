@@ -222,6 +222,21 @@ def test_beats_baseline_is_true_when_the_candidate_clearly_wins():
     assert beats is True
 
 
+def test_baseline_model_names_includes_logistic_regression_not_just_dummy():
+    # Previously only "dummy" kinds were ever selected -- logistic_regression is the
+    # ml-ds-standards "simple model" baseline, sitting right in the same config, but was never
+    # actually part of the beats_baseline gate.
+    config = {
+        "models": {
+            "majority": {"kind": "dummy"},
+            "stratified": {"kind": "dummy"},
+            "logistic_regression": {"kind": "logistic_regression"},
+            "random_forest": {"kind": "random_forest"},
+        }
+    }
+    assert set(train_module._baseline_model_names(config)) == {"majority", "stratified", "logistic_regression"}
+
+
 def test_run_is_deterministic_across_two_runs(config, tmp_path):
     train_module.run(CONFIG_PATH, final_test=False)
     first = json.loads(train_module.REGISTRY_PATH.read_text())["models"][0]["cv_metrics"]
@@ -243,6 +258,55 @@ def test_run_refuses_final_test_in_fallback_mode(config):
     with pytest.raises(SystemExit, match="no real, frozen test split"):
         train_module.run(CONFIG_PATH, final_test=True)
     assert not train_module.REGISTRY_PATH.exists()
+
+
+def test_final_test_enriches_metrics_with_bootstrap_confidence_intervals(monkeypatch, tmp_path):
+    """--final-test's test_metrics now come from Richa's evaluate_classifier (bootstrap 95%
+    CIs, per-class precision/recall/F1, a confusion matrix), produced by this real code path
+    every time, not just point estimates from a one-off enrichment script run once by hand
+    (see PROGRESS.md's S8/S9 entries for why that was worth fixing). Monkeypatches
+    load_train_and_val/load_frame directly with tiny in-memory Frames (source="real") rather
+    than needing a full real train.csv on disk -- run() only ever treats a Frame's
+    features/target as already-built data, regardless of how it got there."""
+    n = 30
+    train_frame = train_module.Frame(
+        features=pd.DataFrame({"x": list(range(n))}),
+        target=pd.Series((["a"] * (n // 2)) + (["b"] * (n // 2))),
+        source="real",
+    )
+    test_frame = train_module.Frame(
+        features=pd.DataFrame({"x": list(range(10))}),
+        target=pd.Series((["a"] * 5) + (["b"] * 5)),
+        source="real",
+    )
+    monkeypatch.setattr(train_module, "load_train_and_val", lambda excluded_classes: (train_frame, None))
+    monkeypatch.setattr(train_module, "load_frame", lambda split, excluded_classes: test_frame)
+
+    tiny_config = {
+        "seed": 42,
+        "folds": 3,
+        "model_name": "test-model",
+        "models": {
+            "majority": {"kind": "dummy", "strategy": "most_frequent"},
+            "candidate": {"kind": "logistic_regression", "C": 1.0, "max_iter": 200},
+        },
+        "candidate": "candidate",
+        "leakage_smell_test": {"macro_f1_warn_above": 0.98, "feature_importance_warn_above": 0.60},
+        "excluded_classes": [],
+    }
+    import yaml
+
+    config_path = tmp_path / "tiny_train.yaml"
+    config_path.write_text(yaml.safe_dump(tiny_config))
+
+    train_module.run(config_path, final_test=True)
+
+    registry = json.loads(train_module.REGISTRY_PATH.read_text())
+    test_metrics = registry["models"][-1]["test_metrics"]
+    assert "bootstrap_ci_95" in test_metrics
+    assert "per_class" in test_metrics
+    assert "confusion_matrix" in test_metrics
+    assert test_metrics["n_rows"] == 10
 
 
 def test_run_registers_a_model_with_a_labels_sidecar(config):

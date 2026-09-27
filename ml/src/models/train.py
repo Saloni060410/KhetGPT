@@ -43,6 +43,7 @@ from src.data_pipeline.feature_engineering import (
     build_features,
     load_training_frame,
 )
+from src.evaluation.metrics import evaluate_classifier
 from src.models.fertilizer_model import build_pipeline
 from src.models.seeding import seed_everything
 
@@ -255,6 +256,17 @@ def leakage_smell_test(results: dict[str, dict], config: dict) -> list[str]:
     return warnings
 
 
+def _baseline_model_names(config: dict) -> list[str]:
+    """ml-ds-standards' baseline_report distinguishes a trivial baseline (majority/stratified --
+    "dummy" here) from a simple model (logistic regression), and expects a real candidate to
+    beat both. This previously only ever selected "dummy" kinds -- logistic_regression sat
+    right there in the same config as a legitimate simple-model baseline, described that way
+    elsewhere in this file's own comments, but was never actually included in the gate.
+    random_forest does beat it (verified separately), but that was true by the numbers, not
+    because this check was looking."""
+    return [name for name, model_config in config["models"].items() if model_config["kind"] in ("dummy", "logistic_regression")]
+
+
 def beats_baseline(results: dict[str, dict], candidate: str, baselines: list[str]) -> tuple[bool, str]:
     candidate_low = results[candidate]["macro_f1"]["mean"] - results[candidate]["macro_f1"]["std"]
     best_baseline_name = max(baselines, key=lambda name: results[name]["macro_f1"]["mean"])
@@ -323,7 +335,8 @@ def run(config_path: Path, final_test: bool) -> int:
     for warning in leakage_smell_test(results, config):
         print(f"LEAKAGE WARNING: {warning}")
 
-    baselines = [name for name, model_config in config["models"].items() if model_config["kind"] == "dummy"]
+    # ml-ds-standards' baseline_report distinguishes a trivial baseline (majority/stratified --
+    baselines = _baseline_model_names(config)
     candidate = config["candidate"]
     beats, detail = beats_baseline(results, candidate, baselines)
     print(f"\n{candidate} beats the strongest baseline by more than fold noise: {beats}")
@@ -359,14 +372,18 @@ def run(config_path: Path, final_test: bool) -> int:
             raise SystemExit(f"{model_name} {version} has already been evaluated on the test split. Refusing to run again.")
         pred_encoded = pipeline.predict(test_frame.features)
         pred = label_encoder.inverse_transform(pred_encoded)
-        test_metrics = {
-            "macro_f1": f1_score(test_frame.target, pred, average="macro", zero_division=0),
-            "balanced_accuracy": balanced_accuracy_score(test_frame.target, pred),
-            "mcc": matthews_corrcoef(test_frame.target, pred),
-            "accuracy": accuracy_score(test_frame.target, pred),
-            "n_rows": len(test_frame.target),
-        }
-        print(f"\nFinal test-split metrics (evaluated once): {test_metrics}")
+        # Richa's evaluate_classifier (contract C7): bootstrap 95% CIs, per-class precision/
+        # recall/F1 and a confusion matrix, not just point estimates -- produced by this real,
+        # committed code path every time --final-test runs. (Previously this only recorded
+        # point estimates, and the CI enrichment for v0.1.0 came from a one-off script whose
+        # source lived only in the gitignored run directory -- not reproducible for the next
+        # version. See PROGRESS.md.)
+        test_metrics = evaluate_classifier(
+            test_frame.target, pred, classes=label_encoder.classes_.tolist(), seed=config["seed"]
+        )
+        test_metrics["n_rows"] = test_metrics.pop("n")
+        summary = {k: v for k, v in test_metrics.items() if k not in ("confusion_matrix", "per_class")}
+        print(f"\nFinal test-split metrics (evaluated once): {json.dumps(summary, indent=2)}")
 
     ARTIFACT_DIR.mkdir(exist_ok=True)
     artifact_path = ARTIFACT_DIR / f"{model_name}-{version}.joblib"

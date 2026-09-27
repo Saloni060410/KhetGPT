@@ -51,19 +51,45 @@ def _number(value: str | None) -> float | None:
         return None
 
 
+def _ready_crop_ids(directory: Path) -> set[str]:
+    """Which crop_ids have every cell a recommendation needs: a generic reference dose for
+    all three nutrients, and at least one split_schedule row -- the same criteria
+    src.data_pipeline.soil_data_loader.ready_crops() checks (its own docstring: "Saloni's
+    /reference/crops lists only the ready ones"). Not a call to that function directly: it
+    only reads from the fixed soil_data_loader.EXTERNAL_DIR, not the `directory` this module
+    is parameterized by (real requests and this module's own tests can point at a different
+    path), and it builds a full ReferenceTables object this module doesn't otherwise need.
+    If load_reference_tables() ever takes a directory argument, switch to calling
+    ready_crops() directly instead of keeping this in sync by hand."""
+    doses = _read(directory, "reference_doses.csv", {"crop_id", "variety_id", "n_kg_ha", "p2o5_kg_ha", "k2o_kg_ha"})
+    split_schedule = _read(directory, "split_schedule.csv", {"crop_id"})
+
+    doses_by_crop_generic = {row["crop_id"]: row for row in doses if row["variety_id"] == "generic"}
+    split_crops = {row["crop_id"] for row in split_schedule}
+
+    ready = set()
+    for crop_id, dose in doses_by_crop_generic.items():
+        if crop_id not in split_crops:
+            continue
+        if any(str(dose[col]).startswith("TODO") for col in ("n_kg_ha", "p2o5_kg_ha", "k2o_kg_ha")):
+            continue
+        ready.add(crop_id)
+    return ready
+
+
 def load_crops(directory: Path) -> list[ReferenceCrop]:
-    # Readiness filtering (only crops with every required dose cell filled) is added when the
-    # shared loader from ml/src/data_pipeline/soil_data_loader.py lands. Until then every crop
-    # that has at least one growth stage is listed.
     crops = _read(directory, "crops.csv", {"crop_id", "name_en", "name_hi"})
     stages = _read(directory, "growth_stages.csv", {"crop_id", "stage_id", "name_en", "name_hi", "order"})
     try:
         varieties = _read(directory, "crop_varieties.csv", {"crop_id", "variety_id", "name_en", "name_hi"})
     except ReferenceUnavailable:
         varieties = []
+    ready_crop_ids = _ready_crop_ids(directory)
 
     result = []
     for crop in crops:
+        if crop["crop_id"] not in ready_crop_ids:
+            continue
         crop_stages = sorted(
             (
                 ReferenceStage(

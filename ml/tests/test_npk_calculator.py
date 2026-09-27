@@ -290,3 +290,57 @@ def test_a_chickpea_plan_never_touches_potash():
     assert result["k"]["fertilizer_needed_kg_ha"] == 0.0
     schedule = to_products(result, "chickpea", "sowing", date(2026, 10, 20), {"rainfall_mm_forecast": 0}, TABLES, TODAY)
     assert "mop" not in {item["fertilizer_type"] for item in schedule}
+
+
+def test_a_crop_with_no_split_schedule_rows_raises_instead_of_a_fake_empty_plan():
+    # Barley has a real reference dose (compute_balance succeeds, a real N/P need comes back)
+    # but zero split_schedule.csv rows (ready_crops() calls this out by name: "no split_schedule
+    # rows", the reason it's excluded from /reference/crops). Before this test existed,
+    # to_products() didn't check for this at all: p_lines/k_lines/n_lines all came back empty,
+    # every branch was skipped, and it silently returned schedule=[] -- a confident "nothing
+    # needed" plan for a crop that very much needs fertilizer. Verified live via POST
+    # /recommend before this fix landed.
+    result, _ = balance("barley", growth_stage="sowing")
+    assert result["n"]["fertilizer_needed_kg_ha"] > 0  # a real need exists
+    with pytest.raises(ReferenceDataIncomplete, match="split_schedule"):
+        to_products(result, "barley", "sowing", date(2026, 10, 20), {"rainfall_mm_forecast": 0}, TABLES, TODAY)
+
+
+# ---------- region ambiguity: reference_dose_row / stcr_dose ----------
+
+
+def test_two_reference_dose_rows_in_different_regions_raises_rather_than_picking_the_first():
+    # region is a real reference_doses.csv column that _reference_dose_row never filtered on
+    # (the request has no region field -- contract C1). Harmless while every crop/variety/
+    # irrigation combination has exactly one region, which is true today by luck, not by
+    # construction. This constructs the ambiguous case directly.
+    extra_row = {
+        "crop_id": "wheat", "variety_id": "generic", "irrigation": "irrigated", "region": "Haryana",
+        "n_kg_ha": "100.0", "p2o5_kg_ha": "50.0", "k2o_kg_ha": "0",
+    }
+    ambiguous_tables = dataclasses.replace(TABLES, reference_doses=[*TABLES.reference_doses, extra_row])
+    with pytest.raises(ReferenceDataIncomplete, match="ambiguous"):
+        compute_balance("wheat", None, "irrigated", "sowing", FIXTURE_SOIL, [], ambiguous_tables, TODAY)
+
+
+def test_two_stcr_rows_in_different_regions_raises_rather_than_picking_the_first():
+    extra_row = {
+        "crop_id": "wheat", "variety_id": "wh_542", "region": "Punjab", "applies_to": "irrigated",
+        "nutrient": "n", "a": "5.0", "b": "1.0", "target_yield_default_q_ha": "45",
+    }
+    stcr_row = next(r for r in TABLES.stcr_equations if r["crop_id"] == "wheat" and r["nutrient"] == "n")
+    assert stcr_row["region"] != "Punjab"  # sanity: this really is a second, different region
+    ambiguous_tables = dataclasses.replace(TABLES, stcr_equations=[*TABLES.stcr_equations, extra_row])
+    with pytest.raises(ReferenceDataIncomplete, match="ambiguous"):
+        compute_balance("wheat", "wh_542", "irrigated", "sowing", FIXTURE_SOIL, [], ambiguous_tables, TODAY)
+
+
+# ---------- split across stages: p_lines / k_lines must be exactly one ----------
+
+
+def test_p_split_across_two_stages_raises_instead_of_silently_dropping_the_second():
+    extra_line = {"crop_id": "wheat", "stage_id": "second_irrigation", "n_fraction": "0", "p_fraction": "0.3", "k_fraction": "0"}
+    two_p_lines_tables = dataclasses.replace(TABLES, split_schedule=[*TABLES.split_schedule, extra_line])
+    result, _ = balance("wheat", soil={**FIXTURE_SOIL, "k": 300.0})
+    with pytest.raises(ReferenceDataIncomplete, match="P is assumed basal"):
+        to_products(result, "wheat", "sowing", date(2026, 11, 5), {"rainfall_mm_forecast": 0}, two_p_lines_tables, TODAY)

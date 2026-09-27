@@ -235,12 +235,183 @@ entry above.
     assuming it belongs in the contract's error taxonomy or that his `mlService.js` already
     tolerates an unrecognized status code.
 
+## Done, and not blocked (S8)
+
+- **S8 — formula sanity gate.** `tests/test_formula_sanity.py` (57 tests): for every ready
+  crop (`ready_crops()` -- barley excluded, `no split_schedule rows`, listed explicitly) and
+  every variety (`crop_varieties.csv`'s `rice/pr_132`, `chickpea/kabuli`, plus `wheat/wh_542`
+  added manually -- it's a real, sourced STCR variety but isn't in `crop_varieties.csv` yet,
+  **flagged for Richa**), at low/medium/high soil, an independent recomputation via Richa's
+  `evaluation.metrics.formula_conformity` (reading `reference_doses.csv`/`soil_adjustments.csv`/
+  `stcr_equations.csv` directly -- `compute_balance()` is called exactly once per case, only to
+  produce the recommendation this test then checks, never to recompute the formula a second
+  time) matches within `agronomy_rules.yaml`'s `formula_tolerance_pct`. Also asserts no
+  negative quantities anywhere, that schedule quantities sum to the primary product's
+  top-level total, and that a credit larger than the dose clamps to zero (wheat N, the one
+  nutrient where crediting is actually sourced -- P/K's `nutrient_efficiency.csv` default rows
+  are both `TODO(data)`, which skips crediting entirely, so that clamp can't be exercised via
+  credit for those two yet).
+  **One real finding, not a bug:** `formula_conformity` correctly reports wheat/n, wheat/p and
+  rice/n as violators for a *different* reason than a numeric mismatch -- `soil_adjustments.csv`
+  has no adjustment source at all for those three (its own `TODO(data)`-in-`soil_rating` rows,
+  already documented in that file). Allowlisted explicitly in the test (by exact
+  crop/nutrient, not broadly) so a genuinely new gap wouldn't silently pass as "expected" too.
+  **`docs/demo-scenarios.md` doesn't exist yet** -- checked the working tree and every branch
+  (`main`, `feature/richa-ml-data`, `feature/josh-backend`, `feature/darsh-frontend`,
+  `docs/contract-v1`, `docs/richa-c5-v1`), genuinely absent everywhere, not something I should
+  invent content for. Not a blocker: "every crop and variety in crops.csv, low/medium/high
+  soil" is itself a fully specified, exhaustive test matrix without it -- but whoever owns that
+  file should know it's referenced by the pack and doesn't exist yet.
+
+- **S8 — final test-split evaluation, enriched with confidence intervals.** The frozen test
+  split was already evaluated once (`--final-test`, this conversation, registered as
+  `fertilizer-classifier-0.1.0`). Re-running `python -m src.models.train --final-test` was
+  **not** done again: `_next_version()` auto-increments on every call, so it would have silently
+  registered a new `0.1.1` and genuinely touched the frozen test split a second time -- not a
+  re-run of the same evaluation, a second one. Instead: loaded the already-registered artifact
+  and predicted once, purely as inference, on the same already-frozen test rows; verified the
+  resulting point estimates matched the already-recorded ones exactly (macro-F1 0.4686,
+  balanced-accuracy 0.6007, MCC 0.3665, accuracy 0.5819, n=421) as proof this is the same
+  evaluation, not a new one; then ran Richa's `evaluate_classifier` on those exact predictions
+  for the enrichment (bootstrap 95% CI, per-class precision/recall/F1, confusion matrix) and
+  wrote it into the registry entry in place. **95% CIs: macro-F1 [0.370, 0.548], balanced-accuracy
+  [0.458, 0.691], accuracy [0.534, 0.627]** -- wide, at n=421 with one class (`npk_17_17_17`,
+  support 3) this thin, expected and reported plainly rather than hidden. Per-class recall is
+  uneven: `dap` 1.00, `urea` 0.72, `np_28_28_0` 0.45, `np_20_20_0` 0.17 -- worth knowing before
+  calling this "done," not just the headline numbers. The enrichment script is archived at
+  `models_artifacts/runs/20260927T132419Z/enrich_test_metrics.py` for audit; both `registry.json`
+  and that run's `metrics.json` are gitignored/untracked as always. **The test split must not be
+  evaluated again for this model version -- this is final.**
+
+## Done, and not blocked (S9)
+
+- **S9 — package the ML service for compose.** `ml/Dockerfile` now copies `configs/` and
+  `data/external/` alongside `src/` (previously only `src/` was copied -- the rule tables
+  are read at runtime by every request, so `/recommend`/`/risk-score` could never have
+  worked in the container before this), runs as a non-root user, and adds a `HEALTHCHECK`
+  against `/health` using Python's own `urllib` (no extra package -- `python:3.11-slim` has
+  no `curl`).
+  **Real bug found by actually building and running the image, not just reading the
+  Dockerfile:** `schemas.py`'s OpenAPI-example loader (S7) reads `docs/contract-fixtures/`
+  assuming it's a sibling of `ml/` -- true in the monorepo checkout, false in the Docker
+  image, which packages only `ml/`'s own contents. The whole service crashed on import
+  inside the container (`FileNotFoundError` before FastAPI even started). Fixed:
+  `_fixture_example` now returns `None` on a missing/unreadable fixture instead of raising,
+  and each model's `json_schema_extra` falls back to no example (pydantic's own generated
+  one) rather than taking the service down -- a missing OpenAPI example is cosmetic, never
+  a reason `/recommend` shouldn't start.
+  **Verified for real** (`docker build ml/`, `docker run`, not just inspected):
+  - No model mounted, `PREDICT_MODE=real`: `/health` → `degraded` (200) with a clear reason,
+    `/recommend` still returns a complete plan via the rule-based calculator (the S6 design
+    deviation, working as intended in a container for the first time).
+  - `PREDICT_MODE=mock` (the image's default -- no `.env` is baked in, correctly, it's
+    gitignored): `/recommend` answers the fixture.
+  - Model bind-mounted (`-v $(pwd)/models_artifacts:/app/models_artifacts:ro`): `/health` →
+    `ok` with `fertilizer-classifier-0.1.0+rules-f22bca59`, `/risk-score` matches the
+    fixture's risk level.
+  - `ml/AGENTS.md`'s Commands section now has the exact `python -m src.models.train` (recreate
+    the artifact) and `docker build`/`docker run` commands.
+  **For Josh (`docker-compose.yml`, his file, not touched here):** the `ml` service needs
+  `volumes: ["./ml/models_artifacts:/app/models_artifacts:ro"]` and a healthcheck matching
+  the Dockerfile's own (`test: ["CMD", "python", "-c", "import urllib.request as u; import sys; sys.exit(0 if u.urlopen('http://localhost:8001/health', timeout=2).status == 200 else 1)"]`,
+  10s interval / 3s timeout / 5s start period / 5 retries) so `depends_on: ml: condition:
+  service_healthy` can work the same way it already does for `postgres`.
+  **Aside, not fixed (not S9's ask):** the built image is ~2.4GB -- `requirements.txt`
+  installs `jupyter`/`jupyterlab`/`notebook` etc. for `notebooks/`, none of which the served
+  API needs. Worth a follow-up (a slimmer serving-only requirements file) but out of scope
+  for "install the pinned requirements" as written.
+
+## External code review response (2026-09-27) -- verified and fixed, my territory only
+
+A teammate reviewed everything I own (`src/api`, `src/engine`, `src/models`, `Dockerfile`,
+`configs/`, `tests/`) by reading the code, running the suite, and spinning up the service live
+-- not just skimming. Every finding was verified myself before fixing (not taken on trust),
+and nothing outside my area was touched (no `data_pipeline/`, `weather/`, `degradation/`,
+`evaluation/`, and `docker-compose.yml` stayed Josh's).
+
+**Critical, both verified live before fixing:**
+- **`/recommend` silently returned a fake "nothing needed" plan for a crop with no
+  `split_schedule.csv` rows.** Verified: `crop_type: "barley"` returned `200`, `fertilizer_type:
+  "none"`, an empty schedule -- while `explanation.nutrient_balance` correctly showed a real
+  61.8 kg/ha N need. Root cause: `to_products()`'s `ReferenceDataIncomplete` guard only lived
+  inside the `if p_lines`/`if k_lines`/`if n_lines` branches; a crop with zero schedule rows at
+  all makes every one of those lists empty, so every branch is skipped and it returns
+  `schedule=[]` -- exactly `ready_crops()`'s own "not ready" condition ("no split_schedule
+  rows"), reaching `/recommend` as a confident wrong answer instead of a 503. Fixed:
+  `to_products()` now checks `tables.split_schedule` for the crop *unfiltered by stage* right
+  at the top and raises `ReferenceDataIncomplete` if there's nothing at all -- left untouched
+  is the legitimate case a later stage has already passed its only split (existing test
+  `test_a_later_growth_stage_drops_the_basal_stage`).
+- **`/reference/crops` listed crops `ready_crops()` says aren't ready** -- including barley,
+  the same one above. `ready_crops()`'s own docstring says "Saloni's /reference/crops lists
+  only the ready ones," but `src/api/reference_data.py::load_crops()` still had a stale
+  "readiness filtering... added when the shared loader lands" comment describing a filter that
+  was never actually wired in, even though that loader (`ready_crops()`) has existed since S8.
+  Fixed with `_ready_crop_ids()`, a local readiness check mirroring `ready_crops()`'s exact
+  criteria (generic reference dose, no `TODO(data)` nutrient cells, at least one
+  `split_schedule` row) -- not a call to `ready_crops()` itself, because it only reads from
+  the fixed `soil_data_loader.EXTERNAL_DIR`, not the `directory` this module is parameterized
+  by (this module's own tests point it at a different `tmp_path`); documented in code why, and
+  to switch to the real function if `load_reference_tables()` ever takes a directory argument.
+
+**High:** local `.env` on this machine only had `MODEL_ARTIFACT_DIR` -- never regenerated
+after S6 changed `.env.example` to add `PREDICT_MODE=real`/`DATA_EXTERNAL_DIR`. The ML service
+had been running in mock mode locally without me noticing (`/health` still said `"ok"`, just
+with the mock model_version). Fixed locally (`.env` is gitignored, nothing to commit);
+confirmed `/health` now returns the real classifier's version.
+
+**Medium, both fixed in `npk_calculator.py`:**
+- **`region` is a real `reference_doses.csv`/`stcr_equations.csv` column never used to
+  disambiguate a lookup.** `_reference_dose_row()`/`_stcr_dose()` matched on crop/variety/
+  irrigation (or nutrient) only, silently taking the first match. Harmless today because every
+  combination happens to have exactly one region -- not a guarantee once a second region exists
+  for the same crop. No request field for region to filter on (contract C1 has none, and adding
+  one is a contract change I'm not making unilaterally), so instead: both functions now raise
+  `ReferenceDataIncomplete` if more than one usable row matches for a given variety candidate,
+  naming the ambiguous regions, rather than picking one silently.
+- **`train.py --final-test`'s recorded confidence intervals for v0.1.0 weren't reproducible by
+  anyone, including me.** They came from a one-off `enrich_test_metrics.py` script whose
+  source only lived in the gitignored `models_artifacts/runs/.../` directory (done carefully --
+  it verified point estimates matched before enriching -- but not by code anyone could rerun).
+  Fixed: `evaluate_classifier` (Richa's, contract C7 -- bootstrap 95% CIs, per-class precision/
+  recall/F1, a confusion matrix) is now called directly inside `run()`'s `--final-test` branch,
+  so every future version gets the same enrichment from the same committed code, automatically.
+
+**Low, all fixed:**
+- `src/models/predict.py` was a dead 2-line stub (`MODEL_VERSION = "unloaded"`) nothing
+  imported, left over from before S6 wired all real loading through
+  `recommendation_engine.py`. Deleted; `ml/AGENTS.md`'s folder map updated to stop describing
+  a file that did nothing.
+- `to_products()` only ever used `p_lines[0]`/`k_lines[0]`, correct today (every crop's
+  `split_schedule.csv` gives P and K one basal stage) but nothing enforced it -- a future data
+  change splitting P or K across stages would have silently dropped every stage but the first.
+  Now raises `ReferenceDataIncomplete` if more than one P or K line exists, instead of guessing
+  which one matters.
+- `beats_baseline()`'s baseline set only ever included "dummy" kinds, never
+  `logistic_regression` -- the ml-ds-standards "simple model" baseline, sitting in the same
+  config, described that way in this file's own comments, but never actually part of the gate.
+  `random_forest` does beat it (separately verified: 0.394-0.024=0.370 mean-std vs
+  0.301+0.010=0.311 mean+std on the post-split-fix numbers), but that was true by the numbers,
+  not because the check was looking. Extracted into `_baseline_model_names()` and fixed to
+  include it.
+- **Investigated, deliberately left as-is:** `Engine()` is constructed twice in `main.py` --
+  once eagerly at import time, once again in the lifespan hook. The obvious "fix" (skip the
+  second build if `app.state.engine` already exists) would break `client_without_classifier`
+  and every other test that monkeypatches something (`REGISTRY_PATH`, `EXTERNAL_DIR`) *before*
+  entering `with TestClient(app)`, deliberately relying on the lifespan hook rebuilding a fresh
+  `Engine()` that reflects the patch -- confirmed by reading how those S7 fixtures actually
+  work, not assumed. The real-world cost is one redundant `Engine()` build at process startup
+  (not per-request), which is genuinely low-stakes. Left alone rather than risk a regression to
+  fix a startup-time inefficiency.
+
+8 new regression tests added (`test_npk_calculator.py` x4, `test_mock_and_reference.py` x1,
+`test_recommendation_engine.py` x1, `test_train.py` x2) -- one per verified finding, so none of
+these can silently reappear. Full suite: 290 passed, same 6 pre-existing environment-only
+failures (absent real Kaggle file), unrelated to any of this.
+
 ## Not started yet
 
-S8 (formula sanity gate, final test evaluation) onward per the pack. S3, S4, S5, S6 and S7 are
-all done, unblocked and re-verified end to end as of 2026-09-27: a real classifier is
-registered (`fertilizer-classifier-0.1.0`), `/health` reports `ok` with its version, the
-fixture demo in real mode validates against the contract for both the potash and no-potash
-paths, `/risk-score` works, p95 latency over 50 calls is 64.9ms (well inside NFR1's 3s), and
-the API is hardened with contract tests, a request-size limit, structured logging and a global
-error-shape handler. No open gaps left in my area right now.
+S10 (model card) and S11 (demo readiness) per the pack -- both gated on inputs I don't have
+yet: S10 needs Richa's evaluation report (R12), S11 needs Josh's compose changes above (J10).
+S12 (learned quantity refinement) is a stretch goal conditional on Richa having found a
+dataset with real applied-quantity labels -- unknown status, hers to say.
