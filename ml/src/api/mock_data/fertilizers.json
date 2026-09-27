@@ -1,0 +1,9 @@
+{
+  "_note": "Mock reference data. The MOP price is a placeholder. Real products and prices come from ml/data/external/fertilizer_products.csv (Richa).",
+  "items": [
+    { "id": "urea", "name": "Urea (neem-coated)", "n_pct": 46, "p2o5_pct": 0, "k2o_pct": 0, "price_inr_per_kg": 5.92, "price_date": "2025-01-01", "bag_size_kg": 45 },
+    { "id": "dap", "name": "DAP", "n_pct": 18, "p2o5_pct": 46, "k2o_pct": 0, "price_inr_per_kg": 27.0, "price_date": "2025-01-01", "bag_size_kg": 50 },
+    { "id": "mop", "name": "MOP (Muriate of Potash)", "n_pct": 0, "p2o5_pct": 0, "k2o_pct": 60, "price_inr_per_kg": 34.0, "price_date": "2025-01-01", "bag_size_kg": 50 },
+    { "id": "npk_10_26_26", "name": "NPK 10-26-26", "n_pct": 10, "p2o5_pct": 26, "k2o_pct": 26, "price_inr_per_kg": 34.4, "price_date": "2025-01-01", "bag_size_kg": 50 }
+  ]
+}

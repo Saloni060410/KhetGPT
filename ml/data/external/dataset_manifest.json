@@ -1,0 +1,178 @@
+{
+  "datasets": [
+    {
+      "id": "fertilizer_prediction",
+      "description": "Fertilizer-type classifier training seed",
+      "path": "data/raw/fertilizer_prediction.csv",
+      "committed": false,
+      "url": "https://www.kaggle.com/datasets/gdabhishek/fertilizer-prediction",
+      "license": "Unknown (not stated by uploader on Kaggle)",
+      "retrieved": "2026-09-26",
+      "retrieval_method": "Kaggle's public dataset-preview API (GetDataViewExternal), read via browser session -- the file_download button requires a logged-in Kaggle account, which was not available in this environment. All 99 rows were retrieved in two API pages (50 + 49) and verified against the file's own totalRows=99 metadata from GetDatabundleExternal before saving.",
+      "sha256": "2a32ca081dbc616ee17ff4c273345c0e520e3deae59502fb1057ff3704f5a0d8",
+      "rows": 99,
+      "columns": [
+        "Temparature",
+        "Humidity",
+        "Moisture",
+        "Soil Type",
+        "Crop Type",
+        "Nitrogen",
+        "Potassium",
+        "Phosphorous",
+        "Fertilizer Name"
+      ],
+      "units": {
+        "Temparature": "degrees C",
+        "Humidity": "%",
+        "Moisture": "%",
+        "Nitrogen": "unspecified by source -- treat as relative/index value, not confirmed kg/ha",
+        "Potassium": "unspecified by source -- treat as relative/index value, not confirmed kg/ha",
+        "Phosphorous": "unspecified by source -- treat as relative/index value, not confirmed kg/ha"
+      },
+      "used_for": "Seed training data for the fertilizer-type classifier (contract C4 CLASSIFIER_TARGET). Quantity and schedule come from ml/data/external/reference_doses.csv and split_schedule.csv (PAU-sourced), not from this dataset."
+    },
+    {
+      "id": "fertilizer_prediction_synthetic",
+      "description": "SYNTHETIC classifier-training supplement -- generated, not observed. Supplements (does not replace) the real 99-row fertilizer_prediction dataset above.",
+      "path": "data/raw/fertilizer_prediction_synthetic.csv",
+      "committed": true,
+      "real": false,
+      "generation_method": "ml/src/data_pipeline/generate_synthetic_data.py -- every value is grounded in an already-sourced table in this repo (seasonal_weather.csv's real Open-Meteo monthly Punjab averages for temperature/humidity, soil_test_ratings.csv's ICAR-IISS bands for N/P/K, reference_doses.csv + soil_adjustments.csv for the fertilizer LABEL, computed per-row from that row's own generated soil values, never assigned independently). moisture_pct's band is a documented team assumption -- no per-month real moisture source exists in this repo, unlike temperature/humidity. Product sampling applies a flat bonus to priced products' similarity score (fertilizer_products.csv's price_inr_per_kg not TODO) per Saloni's DATA_REQUIREMENTS.md, so the label distribution leans toward products that can actually produce a usable cost/schedule end-to-end, without ever overriding a genuinely much better-matching unpriced grade.",
+      "generated_on": "2026-09-27",
+      "seed": 42,
+      "rows_per_crop": 400,
+      "crop_scope": [
+        "wheat",
+        "rice",
+        "maize",
+        "cotton",
+        "sugarcane",
+        "chickpea",
+        "barley"
+      ],
+      "sha256": "6a9a2d910d52afcab2a1661a62672a59429bf56e898055c436943d8394b96916",
+      "rows": 2800,
+      "columns": [
+        "Temparature",
+        "Humidity",
+        "Moisture",
+        "Soil Type",
+        "Crop Type",
+        "Nitrogen",
+        "Potassium",
+        "Phosphorous",
+        "Fertilizer Name"
+      ],
+      "units": {
+        "Temparature": "degrees C",
+        "Humidity": "%",
+        "Moisture": "%",
+        "Nitrogen": "kg/ha (Soil Health Card basis) -- unlike the real file, units are confirmed here since this script generated them that way deliberately",
+        "Potassium": "kg/ha (Soil Health Card basis)",
+        "Phosphorous": "kg/ha (Soil Health Card basis)"
+      },
+      "used_for": "Supplements the real 99-row seed for the fertilizer-type classifier. Labelled synthetic everywhere it's used (this manifest, data_source column added by clean.py, ml/data/README.md) so it can never be mistaken for a real field observation."
+    },
+    {
+      "id": "isric_sotwis_igp_soil_profiles",
+      "description": "Real SOTER soil-profile estimates for the Indo-Gangetic Plains (includes Punjab), 0-20cm depth",
+      "path": "data/external/isric_sotwis_igp_soil_profiles.csv",
+      "committed": true,
+      "url": "https://data.isric.org/geonetwork/srv/api/records/6eba341b-79d7-4b40-bc19-14a9066f1386",
+      "download_url": "https://files.isric.org/public/sotwis/SOTWIS_IGP-IN.zip",
+      "license": "CC BY 3.0",
+      "retrieved": "2026-09-26",
+      "retrieval_method": "Direct download of the public ISRIC SOTWIS_IGP-IN.zip archive; attribute table extracted from GIS/SOTWIS/SOTWIS_0-20cm_parametersestimates/IGP-IN_SOTWISv1_t1s1d1.dbf with dbfread. Geometry/shapefile discarded -- only the tabular soil-property attributes were kept.",
+      "sha256": "56fe8d32ba89f08860b5d848256df7502040c3599d1b7903e6ed6e55c66d795d",
+      "rows": 497,
+      "columns": [
+        "soter_unit_id",
+        "suid",
+        "profile_id",
+        "fao88_soil_class",
+        "drainage_class",
+        "layer",
+        "top_depth_cm",
+        "bottom_depth_cm",
+        "sand_pct",
+        "silt_pct",
+        "clay_pct",
+        "particle_size_class",
+        "bulk_density_g_cm3",
+        "avail_water_capacity_mm_m",
+        "cec_soil_cmol_kg",
+        "base_saturation_pct",
+        "cec_clay_cmol_kg",
+        "ph_h2o",
+        "caco3_pct",
+        "gypsum_pct",
+        "ec_ds_m",
+        "total_carbon_pct",
+        "total_nitrogen_pct",
+        "al_saturation_pct",
+        "exchangeable_sodium_pct",
+        "proportion_of_map_unit_pct"
+      ],
+      "units": {
+        "top_depth_cm": "cm",
+        "bottom_depth_cm": "cm",
+        "sand_pct": "%",
+        "silt_pct": "%",
+        "clay_pct": "%",
+        "bulk_density_g_cm3": "g/cm3",
+        "avail_water_capacity_mm_m": "mm/m",
+        "cec_soil_cmol_kg": "cmol(+)/kg",
+        "cec_clay_cmol_kg": "cmol(+)/kg",
+        "base_saturation_pct": "%",
+        "ph_h2o": "pH units (H2O)",
+        "caco3_pct": "%",
+        "gypsum_pct": "%",
+        "ec_ds_m": "dS/m",
+        "total_carbon_pct": "%",
+        "total_nitrogen_pct": "%",
+        "al_saturation_pct": "%",
+        "exchangeable_sodium_pct": "%"
+      },
+      "used_for": "Complementary reference only -- cross-checking realistic soil parameter ranges (pH, organic carbon proxy via total_carbon_pct, N%, EC) for the Punjab/Indo-Gangetic-Plains region. Polygon/map-unit level (1:1,000,000 scale), not per-field; not used as classifier training rows. Not filtered to Punjab specifically -- covers the whole Indo-Gangetic Plains (497 SOTER units), which includes Punjab but is not exclusive to it."
+    }
+  ],
+  "evaluated_not_ingested": [
+    {
+      "id": "fubc_2017_18",
+      "description": "IFA/FAO Fertilizer Use by Crop (FUBC) 2017-18 survey + historical collation, includes India (rice/wheat/cotton/sugarcane) at country level",
+      "url": "https://datadryad.org/dataset/doi:10.5061/dryad.2rbnzs7qh",
+      "license": "Public domain (CC0)",
+      "reason_not_ingested": "License and structure fully verified (peer-reviewed in Nature Scientific Data, DOI 10.1038/s41597-022-01592-z), but the raw CSV download is behind an anti-bot challenge (Anubis/BotStopper) that this session's tools could not mechanically pass, and the in-browser preview truncates before reaching India alphabetically in the country-sorted file. Rather than fabricate India rows, this was left unfetched. Recommend a manual download by a teammate in a normal browser session for R3/R10 norm cross-checking."
+    }
+  ],
+  "train_dataset_version": {
+    "description": "Built train/val/test table for the fertilizer-type classifier",
+    "path": "data/processed/train.csv",
+    "committed": false,
+    "seed": 42,
+    "split_ratios": {
+      "train": 0.7,
+      "val": 0.15,
+      "test": 0.15
+    },
+    "split_sizes": {
+      "train": 1958,
+      "val": 421,
+      "test": 421
+    },
+    "content_hash": "ba354f74ea178bc4",
+    "feature_schema_hash": "70655708beb3033f",
+    "feature_columns": [
+      "crop_id",
+      "variety_id",
+      "n",
+      "p",
+      "k",
+      "temperature_c",
+      "humidity_pct",
+      "moisture_pct"
+    ],
+    "classifier_target": "fertilizer_product_id"
+  }
+}

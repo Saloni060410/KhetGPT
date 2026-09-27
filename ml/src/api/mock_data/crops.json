@@ -1,0 +1,28 @@
+{
+  "_note": "Mock reference data for parallel work. Not sourced. Real data comes from ml/data/external/ (Richa). Rice has two varieties and wheat has none, so the UI can test both cases.",
+  "items": [
+    {
+      "id": "wheat", "name_en": "Wheat", "name_hi": "गेहूं", "varieties": [],
+      "stages": [
+        { "id": "sowing", "name_en": "Sowing", "name_hi": "बुवाई", "order": 1 },
+        { "id": "crown_root_initiation", "name_en": "Crown Root Initiation / First Irrigation", "name_hi": "मूल प्रारंभ अवस्था", "order": 2 },
+        { "id": "second_irrigation", "name_en": "Second Irrigation / Late Tillering", "name_hi": "दूसरी सिंचाई अवस्था", "order": 3 },
+        { "id": "maturity", "name_en": "Maturity / Harvest", "name_hi": "परिपक्वता अवस्था", "order": 4 }
+      ]
+    },
+    {
+      "id": "rice", "name_en": "Rice", "name_hi": "चावल",
+      "varieties": [
+        { "id": "pr_132", "name_en": "PR 132", "name_hi": "पीआर 132" },
+        { "id": "pr_126", "name_en": "PR 126", "name_hi": "पीआर 126" }
+      ],
+      "stages": [
+        { "id": "nursery_sowing", "name_en": "Nursery Sowing", "name_hi": "नर्सरी बुवाई", "order": 1 },
+        { "id": "transplanting", "name_en": "Transplanting", "name_hi": "रोपाई", "order": 2 },
+        { "id": "first_n_split", "name_en": "First Nitrogen Split", "name_hi": "पहली नाइट्रोजन खुराक", "order": 3 },
+        { "id": "active_tillering", "name_en": "Active Tillering / Second Nitrogen Split", "name_hi": "सक्रिय कल्ले निकलना", "order": 4 },
+        { "id": "panicle_initiation", "name_en": "Panicle Initiation / Third Nitrogen Split", "name_hi": "बाली बनने की अवस्था", "order": 5 }
+      ]
+    }
+  ]
+}

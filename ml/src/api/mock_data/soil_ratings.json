@@ -1,0 +1,10 @@
+{
+  "_note": "Mock reference data. Not sourced. Real cut-offs come from ml/data/external/soil_test_ratings.csv (Richa).",
+  "items": [
+    { "parameter": "n", "unit": "kg/ha", "very_low_below": null, "low_below": 280, "high_above": 560 },
+    { "parameter": "p", "unit": "kg/ha", "very_low_below": null, "low_below": 10, "high_above": 25 },
+    { "parameter": "k", "unit": "kg/ha", "very_low_below": null, "low_below": 108, "high_above": 280 },
+    { "parameter": "organic_carbon", "unit": "%", "very_low_below": null, "low_below": 0.5, "high_above": 0.75 },
+    { "parameter": "ph", "unit": "pH units", "very_low_below": null, "low_below": 6.5, "high_above": 7.5 }
+  ]
+}
