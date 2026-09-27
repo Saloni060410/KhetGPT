@@ -1,5 +1,15 @@
+import { useEffect } from 'react'
 import { Route, Routes } from 'react-router-dom'
-import Landing from './pages/Landing.jsx'
+import Shell from './components/layout/Shell.jsx'
+import RequireAuth from './components/layout/RequireAuth.jsx'
+import RouteErrorBoundary from './components/layout/RouteErrorBoundary.jsx'
+import { useUserStore } from './store/useUserStore.js'
+
+// Current UI pages (Home & Optimizer)
+import HomePage from './pages/HomePage.jsx'
+import OptimizerPage from './pages/OptimizerPage.jsx'
+
+// Core KhetGPT application pages
 import Dashboard from './pages/Dashboard.jsx'
 import SoilInput from './pages/SoilInput.jsx'
 import Recommendation from './pages/Recommendation.jsx'
@@ -9,20 +19,120 @@ import FieldProfile from './pages/FieldProfile.jsx'
 import Login from './pages/Auth/Login.jsx'
 import Register from './pages/Auth/Register.jsx'
 import NotFound from './pages/NotFound.jsx'
+import Kit from './pages/Kit.jsx'
 
 export default function App() {
+  const { hydrate } = useUserStore()
+
+  useEffect(() => {
+    hydrate()
+  }, [hydrate])
+
   return (
-    <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/fields/:fieldId" element={<FieldProfile />} />
-      <Route path="/fields/:fieldId/soil" element={<SoilInput />} />
-      <Route path="/fields/:fieldId/recommendation" element={<Recommendation />} />
-      <Route path="/fields/:fieldId/schedule" element={<Schedule />} />
-      <Route path="/fields/:fieldId/history" element={<History />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <RouteErrorBoundary>
+      <Routes>
+        {/* Current UI as the Home Page & Field Optimizer (Full-screen dark mode layouts) */}
+        <Route path="/" element={<HomePage />} />
+        <Route path="/optimizer" element={<OptimizerPage />} />
+
+        {/* Core KhetGPT App Pages with standard Shell & Navigation */}
+        <Route
+          path="/login"
+          element={
+            <Shell>
+              <Login />
+            </Shell>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <Shell>
+              <Register />
+            </Shell>
+          }
+        />
+        <Route
+          path="/kit"
+          element={
+            <Shell>
+              <Kit />
+            </Shell>
+          }
+        />
+
+        {/* Protected App Routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <Shell>
+                <Dashboard />
+              </Shell>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/fields/:fieldId"
+          element={
+            <RequireAuth>
+              <Shell>
+                <FieldProfile />
+              </Shell>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/fields/:fieldId/soil"
+          element={
+            <RequireAuth>
+              <Shell>
+                <SoilInput />
+              </Shell>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/fields/:fieldId/recommendation"
+          element={
+            <RequireAuth>
+              <Shell>
+                <Recommendation />
+              </Shell>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/fields/:fieldId/schedule"
+          element={
+            <RequireAuth>
+              <Shell>
+                <Schedule />
+              </Shell>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/fields/:fieldId/history"
+          element={
+            <RequireAuth>
+              <Shell>
+                <History />
+              </Shell>
+            </RequireAuth>
+          }
+        />
+
+        {/* 404 Catch-All */}
+        <Route
+          path="*"
+          element={
+            <Shell>
+              <NotFound />
+            </Shell>
+          }
+        />
+      </Routes>
+    </RouteErrorBoundary>
   )
 }
