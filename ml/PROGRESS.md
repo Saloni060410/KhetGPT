@@ -111,24 +111,30 @@ these premises no longer hold under the new policy and are failing for that reas
 regression. Left them as-is rather than rewriting her assertions about her own data myself;
 her call whether to retire, skip, or repoint them.
 
-- **S4 — NPK dose calculator (partial block, not a code problem).** The calculator itself is
-  correct and tested. But running it against the real fixture (`docs/contract-fixtures/`)
-  surfaced that **MOP's price is `TODO(data)`** in Richa's merged `fertilizer_products.csv`.
-  Any crop/soil combination that needs potash (wheat with low soil K, rice's base K2O dose)
-  correctly raises `ReferenceDataIncomplete` rather than a wrong number — this is intended
-  behavior, not a bug, but it means **no potash-needing plan can be end-to-end verified until
-  MOP has a real price.** The no-potash-needed path (soil K high) is verified and matches the
-  contract fixture.
-  **To close this out:** once Richa has a dated MOP price, rerun the fixture demo (see the S4
-  report in this conversation for the exact commands) and confirm the potash path too.
+- **S4 — NPK dose calculator, closed (potash gap resolved by product decision, 2026-09-27).**
+  Richa re-verified MOP's price: IFFCO's own price list doesn't carry it, and market listings
+  were too inconsistent to cite responsibly, so it stays genuinely unpriced -- not invented.
+  But per her call, that's no longer a blocker: a needed-but-unpriced product (MOP) is still
+  selected and dosed with a real quantity/schedule; it's excluded from `cost.breakdown`/
+  `estimated_cost_inr_per_acre` (never priced at 0 or guessed) and `explanation.data_notes`
+  says its cost is unavailable. Only a product with no *row at all* in `fertilizer_products.csv`
+  still raises `ReferenceDataIncomplete` -- a different, structural gap (quantity itself can't
+  be computed without n_pct/p2o5_pct/k2o_pct), not a pricing one. Changed: `npk_calculator.py`'s
+  `to_products()` (no longer requires a price to select a product), `cost.py`'s `estimate_cost`/
+  `cost_breakdown`/`prices_as_of` (skip unpriced items instead of raising), and
+  `recommendation_engine.py` (a new data_notes entry when a scheduled product has no cost
+  line). `docs/api-contract.md`'s missing-data-policy table and `/recommend` section updated to
+  match. Both the potash and no-potash paths are now verified end-to-end against the fixture.
+  Golden tests rewritten in `test_npk_calculator.py`/`test_cost.py`/`test_api.py`/
+  `test_recommendation_engine.py`/`test_contract.py` (previously asserted the old "never
+  selected" behavior).
 
 ## Blocked on (not mine to fix — Richa's data-sourcing lane, R2/R3)
 
 - ~~`data/raw/fertilizer_prediction.csv` (Kaggle) doesn't exist~~ — no longer being waited on
   (2026-09-27 policy change, see the synthetic-as-raw-data note above). Not a blocker anymore.
-- MOP's price in `fertilizer_products.csv` (`price_inr_per_kg`, `price_date`, `bag_size_kg` all
-  `TODO(data)`). Richa's own note calls this "URGENT." Blocks S4's potash path and any full
-  `/recommend` for wheat with low-K soil or rice's base dose.
+- ~~MOP's price in `fertilizer_products.csv`~~ — still genuinely `TODO(data)` (re-verified
+  2026-09-27), but no longer a blocker either: see S4's entry above for the resolution.
 - Smaller gaps that don't block anything yet, worth tracking: `seasonal_weather.csv` has only
   2 of 12 months and no lat/lng columns (blocks the seasonal-weather fallback beyond mock mode);
   `stcr_equations.csv`'s wheat N/P equations have no `target_yield_default_q_ha`, so STCR never
@@ -146,8 +152,15 @@ her call whether to retire, skip, or repoint them.
 - **Josh:** the contract now has a few fields his backend schema needs to pick up —
   `irrigation` (optional, defaults to `irrigated`), nullable `apply_by` + `timing_note`,
   `cost.breakdown` + `prices_as_of`, `explanation.data_notes`. Listed in PR #1's description.
+  **Behavior change, no field added/renamed (2026-09-27):** `recommendation.schedule` can now
+  legitimately contain a product that never appears in `cost.breakdown` (an unpriced-but-needed
+  product, e.g. MOP) — don't assume every `schedule` line has a matching `breakdown` line when
+  summing or displaying cost; `data_notes` says which product's cost is missing and why. Also
+  new: a `413` can now happen (request body over 64KB) — not part of the documented 422/503
+  taxonomy, worth checking `mlService.js` doesn't choke on an unrecognized status code.
 - **Darsh:** same fields as above need showing on screen (`timing_note` when `apply_by` is
-  null, `data_notes` list, the cost breakdown).
+  null, `data_notes` list, the cost breakdown). Same note as Josh's: a scheduled product with
+  no cost-breakdown line is expected now, not a bug — show it with its dose, cost "unavailable".
 
 ## Richa's second data delivery, verified (not just the summary taken at face value)
 
@@ -224,11 +237,10 @@ entry above.
 
 ## Not started yet
 
-S8 (formula sanity gate, final test evaluation) onward per the pack. S3, S4 (bar the
-MOP-price potash path), S5, S6 and S7 are all done and re-verified end to end as of
-2026-09-27: a real classifier is registered (`fertilizer-classifier-0.1.0`), `/health` reports
-`ok` with its version, the fixture demo in real mode validates against the contract,
-`/risk-score` works, p95 latency over 50 calls is 64.9ms (well inside NFR1's 3s), and the API
-is hardened with contract tests, a request-size limit, structured logging and a global
-error-shape handler. The one still-open gap is S4's potash path, genuinely blocked on MOP's
-price (Richa's lane, re-confirmed as recently as today).
+S8 (formula sanity gate, final test evaluation) onward per the pack. S3, S4, S5, S6 and S7 are
+all done, unblocked and re-verified end to end as of 2026-09-27: a real classifier is
+registered (`fertilizer-classifier-0.1.0`), `/health` reports `ok` with its version, the
+fixture demo in real mode validates against the contract for both the potash and no-potash
+paths, `/risk-score` works, p95 latency over 50 calls is 64.9ms (well inside NFR1's 3s), and
+the API is hardened with contract tests, a request-size limit, structured logging and a global
+error-shape handler. No open gaps left in my area right now.
