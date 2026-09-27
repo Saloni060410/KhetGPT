@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import PlanRiskChecker from '../components/farms/PlanRiskChecker.jsx'
+import NutrientStrataSkeleton from '../components/three/NutrientStrataSkeleton.jsx'
+
+const NutrientStrataContainer = lazy(() => import('../components/three/NutrientStrataContainer.jsx'))
 import {
   Sparkles,
   Calendar,
@@ -125,13 +128,16 @@ function normalizeRecommendation(raw) {
       const mapNutrient = (item, defaultMethod) => {
         if (!item) return null
         return {
-          cropDemandKgHa: Number(item.cropDemandKgHa ?? item.crop_demand_kg_ha ?? 0),
-          soilSupplyKgHa: Number(item.soilSupplyKgHa ?? item.soil_supply_kg_ha ?? 0),
+          cropDemandKgHa: Number(item.cropDemandKgHa ?? item.crop_demand_kg_ha ?? item.standardDoseKgHa ?? 0),
+          soilSupplyKgHa: Number(item.soilSupplyKgHa ?? item.soil_supply_kg_ha ?? item.soilAdjustmentKgHa ?? 0),
+          standardDoseKgHa: Number(item.standardDoseKgHa ?? item.cropDemandKgHa ?? item.crop_demand_kg_ha ?? 0),
+          soilAdjustmentKgHa: Number(item.soilAdjustmentKgHa ?? item.soilSupplyKgHa ?? item.soil_supply_kg_ha ?? 0),
+          soilRating: item.soilRating || item.soil_rating || 'medium',
           deficitKgHa: Number(item.deficitKgHa ?? item.deficit_kg_ha ?? 0),
           useEfficiency: Number(item.useEfficiency ?? item.use_efficiency ?? 0.5),
           priorCreditKgHa: Number(item.priorCreditKgHa ?? item.prior_credit_kg_ha ?? 0),
           fertilizerNeededKgHa: Number(item.fertilizerNeededKgHa ?? item.fertilizer_needed_kg_ha ?? 0),
-          methodUsed: item.methodUsed || item.method_used || defaultMethod,
+          methodUsed: item.methodUsed || item.method_used || item.method || defaultMethod,
         }
       }
       return {
@@ -231,6 +237,8 @@ export default function Recommendation() {
   const [showSpinner, setShowSpinner] = useState(false)
   const [apiError, setApiError] = useState(null)
   const [weatherData, setWeatherData] = useState(null)
+  const [soilRatings, setSoilRatings] = useState(null)
+  const [soilTest, setSoilTest] = useState(null)
 
   const [searchParams] = useSearchParams()
   const [viewMode, setViewMode] = useState(
@@ -255,12 +263,24 @@ export default function Recommendation() {
       }, 300)
 
       try {
-        // Fetch field metadata and weather in parallel
+        // Fetch field metadata, weather, soil ratings & soil tests in parallel
         fetchField(targetFieldId).catch(() => {})
         endpoints
           .getFieldWeather(targetFieldId)
           .then((res) => setWeatherData(res))
           .catch(() => setWeatherData(null))
+
+        endpoints
+          .getReferenceSoilRatings()
+          .then((res) => setSoilRatings(res))
+          .catch(() => {})
+
+        endpoints
+          .getSoilTests(targetFieldId)
+          .then((res) => {
+            if (res && res.length > 0) setSoilTest(res[0])
+          })
+          .catch(() => {})
 
         if (simulate502) {
           await generateRecommendation('sim-502', { simulate502: true })
@@ -1008,6 +1028,17 @@ export default function Recommendation() {
             </div>
 
             {/* 4. The Working: Nutrient Balance & Formula (The number is never a black box) */}
+            {/* Interactive 3D / 2D Explorable Nutrient Strata Visualization (Lazy-loaded with Suspense) */}
+            <Suspense fallback={<NutrientStrataSkeleton />}>
+              <NutrientStrataContainer
+                nutrientBalance={rec.nutrientBalance}
+                soilTest={soilTest}
+                soilRatings={soilRatings}
+                risk={rec.risk}
+                formula={rec.formula}
+              />
+            </Suspense>
+
             <div className="bg-bg-surface border border-border-default rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
