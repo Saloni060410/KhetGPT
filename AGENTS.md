@@ -52,7 +52,28 @@ pip install -r requirements.txt
 uvicorn src.api.main:app --reload --port 8001
 ```
 
-`docker-compose up` at the repo root brings up backend, ml and Postgres together.
+### One-command local stack (docker-compose)
+
+```bash
+# from the repo root, on a clean clone:
+cp backend/.env.example backend/.env
+# generate two real secrets and paste them into backend/.env:
+openssl rand -hex 32   # JWT_ACCESS_SECRET
+openssl rand -hex 32   # JWT_REFRESH_SECRET
+cp ml/.env.example ml/.env   # optional -- PREDICT_MODE=real is already the default
+
+docker compose up --build
+```
+
+Brings up Postgres, ml and backend, healthy, from nothing but `docker compose up` --
+`backend/Dockerfile`'s own entrypoint runs `prisma migrate deploy` on every container start, so
+migrations are never a separate manual step here. `ml`'s
+`/health` reports `degraded` (not unhealthy -- the stack still comes up) until a model has been
+trained locally (`python -m src.models.train`, bind-mounted in read-only via
+`./ml/models_artifacts`) -- the calculator alone still answers `/recommend` correctly without
+one. Add `--profile web` to also build and serve the frontend (`localhost:5173`, nginx serving
+the Vite build) -- most local frontend development instead runs `npm run dev` directly against
+the compose backend, which reloads faster than a container rebuild.
 
 ## Team
 
