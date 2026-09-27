@@ -106,8 +106,46 @@ Pack reference: `docs/prompt-packs/saloni.md`. Step ids below (S0, S1, ...) matc
 - **Darsh:** same fields as above need showing on screen (`timing_note` when `apply_by` is
   null, `data_notes` list, the cost breakdown).
 
+## Richa's second data delivery, verified (not just the summary taken at face value)
+
+Merged, adapted and pushed (`5011dce`, `75fd17d`). Actually verified, not just relayed:
+
+- **Real, sourced doses for maize, cotton, sugarcane, barley** (all previously
+  `ReferenceDataIncomplete` for every nutrient) — confirmed present in `reference_doses.csv`.
+- **Wheat's STCR now genuinely fires** for `variety="wh_542"` (target yield sourced, 50 q/ha)
+  — confirmed by running it. Generic wheat still uses the flat reference dose (STCR has no
+  `variety_id="generic"` row), so the fixture demo numbers are unaffected.
+- **Season window fixed properly**: `feature_engineering.season_length_days()` gives a real
+  season length from `growth_stages.csv` where one exists (wheat, barley); everything else
+  falls back to `credit_window_days` explicitly, with a warning, never silently. Adopted the
+  same function in `cost.py`'s `compare_to_history` (was reusing `credit_window_days` as a
+  flagged interim proxy since S5 — now resolved for real).
+- **N/P/K added as classifier features**, NaN for the real 99-row dataset's rows (genuinely
+  not kg/ha — Richa found empirical proof, not just an unstated unit) and real kg/ha for
+  synthetic rows and every live request. Required adding a `SimpleImputer` to the
+  `logistic_regression` baseline's pipeline (XGBoost handles NaN natively already).
+- **Synthetic dataset**: `data/raw/fertilizer_prediction_synthetic.csv`, 2,800 rows, additive
+  not a replacement, confined to `train` only (real `test`/`val` unaffected), weighted toward
+  the 4 priced products as asked.
+- Caught and fixed three real breaks the merge caused: `assess_recommendation()` gained a
+  required leading `crop_id` param (updated the S6 call site); two S4 tests were coupled to
+  real data's current gaps and needed rewriting against isolated synthetic tables so they
+  can't go stale the same way again; the regenerated `sample_train.csv` happened to leave two
+  classes at 1 row each, which the trainer's static `excluded_classes` list didn't cover —
+  made class exclusion for unlearnable classes automatic, not just config-driven.
+- 196 tests pass, ruff clean.
+
+**One important correction to her summary's framing:** the synthetic file does **not**, on
+its own, unblock building a real `train.csv`. I ran her own suggested command
+(`python -m src.data_pipeline.ingest && python -m src.data_pipeline.build_dataset`) and it
+still fails — `clean.py`'s `_load_raw()` unconditionally reads the real 99-row file first;
+the synthetic file is only ever combined with it, never a substitute. **The real Kaggle raw
+file is still genuinely required and still absent from this machine.** S3 is not closeable
+yet on that basis alone; the fallback-sample training result reported earlier in this
+conversation still stands as the only one that has actually been run.
+
 ## Not started yet
 
 S7 (API hardening and contract tests) onward per the pack. S6 is done, but its output quality
-is only as good as S3's model (not yet trained on real data) and S4's calculator (potash
-blocked on MOP's price) — see the open items above.
+is only as good as S3's model (not yet trained on real data — see above) and S4's calculator
+(potash still blocked on MOP's price, re-confirmed by Richa as genuinely unresolved).
