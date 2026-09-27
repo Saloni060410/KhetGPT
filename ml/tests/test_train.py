@@ -21,6 +21,28 @@ def config():
 
 
 @pytest.fixture(autouse=True)
+def no_real_train_csv():
+    """These tests assume data/processed/train.csv (and clean.csv) don't exist, so the
+    fallback path is exercised. That's the normal state on this machine (the real Kaggle
+    file is absent), but running the full test suite can leave a real train.csv behind --
+    other tests exercise the real clean.py/build_dataset.py pipeline directly against the
+    real data/processed/ directory now that Richa's synthetic supplement makes it completable
+    without the real file. Removed before and after each test here so these tests are
+    correct regardless of what ran before or after them in the same session; never touches
+    the committed sample_train.csv, which the fallback path itself needs."""
+    processed_dir = train_module.PROCESSED_DIR
+    targets = [processed_dir / "train.csv", processed_dir / "clean.csv", processed_dir / "validation_report.json"]
+    saved = {p: p.read_bytes() for p in targets if p.exists()}
+    for p in targets:
+        p.unlink(missing_ok=True)
+    yield
+    for p in targets:
+        p.unlink(missing_ok=True)
+    for p, content in saved.items():
+        p.write_bytes(content)
+
+
+@pytest.fixture(autouse=True)
 def isolated_artifacts(tmp_path_factory, monkeypatch):
     """Every test writes registry/artifacts/runs to its own fresh scratch directory, never
     the real one. Uses tmp_path_factory (always a brand-new directory) rather than tmp_path,
@@ -46,14 +68,84 @@ def test_seed_everything_is_repeatable():
 
 
 def test_config_loads_and_has_the_expected_models(config):
-    assert set(config["models"]) == {"majority", "stratified", "logistic_regression", "xgboost"}
-    assert config["candidate"] == "xgboost"
+    assert set(config["models"]) == {
+        "majority",
+        "stratified",
+        "logistic_regression",
+        "xgboost",
+        "random_forest",
+    }
+    assert config["candidate"] == "random_forest"
     assert "npk_10_26_26" in config["excluded_classes"]
 
 
 def test_build_pipeline_rejects_an_unknown_kind():
     with pytest.raises(ValueError, match="Unknown model kind"):
         build_pipeline("linear_regression", 42, {})
+
+
+@pytest.mark.parametrize(
+    "kind,params",
+    [
+        ("random_forest", {"n_estimators": 5, "max_depth": 3}),
+        ("extra_trees", {"n_estimators": 5, "max_depth": 3}),
+        ("gradient_boosting", {"n_estimators": 5, "max_depth": 2}),
+        ("knn", {"n_neighbors": 3}),
+        ("linear_svm", {"C": 1.0, "dual": False}),
+        ("gaussian_nb", {}),
+        ("xgboost", {"n_estimators": 5, "max_depth": 2, "tree_method": "hist"}),
+    ],
+)
+def test_every_model_kind_fits_and_predicts_on_data_with_nan(kind, params):
+    # n/p/k are NaN for real training rows by design (feature_engineering.py). Every model
+    # kind must handle that, either via a native NaN-tolerant algorithm (xgboost) or the
+    # imputer build_pipeline adds for the ones that need it.
+    X = pd.DataFrame(
+        {
+            "crop_id__wheat": [1.0, 0.0, 1.0, 0.0, 1.0, 0.0],
+            "temperature_c": [20.0, 22.0, 21.0, 23.0, 19.0, 24.0],
+            "n": [100.0, float("nan"), 150.0, float("nan"), 120.0, 130.0],
+        }
+    )
+    # Integer-encoded, not raw strings ("a"/"b") -- this is what every model kind actually
+    # receives in real usage: train.py's run() label-encodes y once, up front, for every
+    # candidate (see its LabelEncoder call), not just for xgboost. xgboost 3.2.0's sklearn API
+    # specifically requires this (it no longer auto-encodes string labels the way older
+    # versions did) -- verified directly against a bare XGBClassifier, not assumed.
+    y = pd.Series([0, 1, 0, 1, 0, 1])
+    pipeline = build_pipeline(kind, 42, dict(params))
+    pipeline.fit(X, y)
+    predictions = pipeline.predict(X)
+    assert len(predictions) == len(y)
+
+
+def test_xgboost_tree_method_defaults_to_exact_but_is_overridable():
+    exact = build_pipeline("xgboost", 42, {"n_estimators": 2})
+    hist = build_pipeline("xgboost", 42, {"n_estimators": 2, "tree_method": "hist"})
+    assert exact.named_steps["clf"].get_params()["tree_method"] == "exact"
+    assert hist.named_steps["clf"].get_params()["tree_method"] == "hist"
+
+
+def test_sample_weight_kwargs_is_empty_without_the_balanced_flag():
+    assert train_module._sample_weight_kwargs({"n_estimators": 5}, pd.Series(["a", "a", "b"])) == {}
+
+
+def test_sample_weight_kwargs_upweights_the_rare_class_when_balanced():
+    y = pd.Series(["a", "a", "a", "b"])
+    kwargs = train_module._sample_weight_kwargs({"balanced": True}, y)
+    assert "clf__sample_weight" in kwargs
+    weights = kwargs["clf__sample_weight"]
+    assert weights[3] > weights[0]  # the single "b" row is upweighted relative to "a"
+
+
+def test_a_model_with_the_balanced_flag_actually_fits_with_sample_weight():
+    # End-to-end: balanced: true must reach the estimator's .fit(), not just be computed
+    # and discarded.
+    X = pd.DataFrame({"x": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]})
+    y = pd.Series(["a"] * 6 + ["b"] * 2)
+    pipeline = build_pipeline("gaussian_nb", 42, {})
+    weights = train_module._sample_weight_kwargs({"balanced": True}, y)
+    pipeline.fit(X, y, **weights)  # must not raise
 
 
 def test_load_train_and_val_falls_back_to_the_sample_when_train_csv_is_missing(config):

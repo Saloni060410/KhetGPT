@@ -35,6 +35,7 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
+from sklearn.utils.class_weight import compute_sample_weight
 
 from src.data_pipeline.feature_engineering import (
     CLASSIFIER_TARGET,
@@ -91,11 +92,18 @@ def _filtered(df: pd.DataFrame, target: pd.Series, excluded_classes: list[str], 
 
 def load_real_split(split: str) -> tuple[pd.DataFrame, pd.Series] | None:
     """Richa's load_training_frame (contract C4). None if data/processed/train.csv doesn't
-    exist yet -- the caller decides how to handle "train"/"val" (fallback) vs "test" (refuse)."""
+    exist yet, or exists but genuinely has zero rows for this split (the real, current state
+    with no raw Kaggle file present: synthetic rows are confined to train by design, so val
+    and test are legitimately empty, not an error) -- the caller decides how to handle
+    "train"/"val" (fallback or proceed with fewer rows) vs "test" (always refuse)."""
     try:
         df = load_training_frame(split)
     except FileNotFoundError:
         return None
+    except ValueError as error:
+        if "not found in train.csv" in str(error):
+            return None
+        raise
     return df, df[CLASSIFIER_TARGET]
 
 
@@ -173,7 +181,8 @@ def cv_scores(name: str, pipeline_kind: str, params: dict, seed: int, folds: int
 
     for train_idx, test_idx in splitter.split(X, y):
         pipeline = build_pipeline(pipeline_kind, seed, params)
-        pipeline.fit(X.iloc[train_idx], y.iloc[train_idx])
+        fit_kwargs = _sample_weight_kwargs(params, y.iloc[train_idx])
+        pipeline.fit(X.iloc[train_idx], y.iloc[train_idx], **fit_kwargs)
         pred = pipeline.predict(X.iloc[test_idx])
         y_test = y.iloc[test_idx]
         fold_scores.append(
@@ -203,6 +212,17 @@ def cv_scores(name: str, pipeline_kind: str, params: dict, seed: int, folds: int
         summary["max_feature_importance_share"] = float(mean_importance.max() / total) if total > 0 else 0.0
         summary["top_feature"] = str(X.columns[int(mean_importance.argmax())])
     return summary
+
+
+def _sample_weight_kwargs(model_config: dict, y_train: pd.Series) -> dict:
+    """model_config["balanced"]: true computes inverse-frequency sample weights for this
+    fold's training labels and passes them at fit time -- universal (every classifier's
+    .fit() accepts sample_weight), unlike a class_weight constructor kwarg (XGBClassifier
+    has none for multiclass; not every estimator supports the same string values)."""
+    if not model_config.get("balanced"):
+        return {}
+    weights = compute_sample_weight("balanced", y_train)
+    return {"clf__sample_weight": weights}
 
 
 def print_comparison_table(results: dict[str, dict]) -> None:
@@ -322,7 +342,7 @@ def run(config_path: Path, final_test: bool) -> int:
     # artifact later (Saloni's S6 recommendation engine) decodes a prediction back to a
     # product id -- see the note in the registry entry below.
     pipeline = build_pipeline(config["models"][candidate]["kind"], config["seed"], config["models"][candidate])
-    pipeline.fit(X, y_encoded)
+    pipeline.fit(X, y_encoded, **_sample_weight_kwargs(config["models"][candidate], y_encoded))
 
     registry = json.loads(REGISTRY_PATH.read_text()) if REGISTRY_PATH.exists() else {"models": []}
     model_name = config["model_name"]
