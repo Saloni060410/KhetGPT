@@ -321,6 +321,94 @@ entry above.
   API needs. Worth a follow-up (a slimmer serving-only requirements file) but out of scope
   for "install the pinned requirements" as written.
 
+## External code review response (2026-09-27) -- verified and fixed, my territory only
+
+A teammate reviewed everything I own (`src/api`, `src/engine`, `src/models`, `Dockerfile`,
+`configs/`, `tests/`) by reading the code, running the suite, and spinning up the service live
+-- not just skimming. Every finding was verified myself before fixing (not taken on trust),
+and nothing outside my area was touched (no `data_pipeline/`, `weather/`, `degradation/`,
+`evaluation/`, and `docker-compose.yml` stayed Josh's).
+
+**Critical, both verified live before fixing:**
+- **`/recommend` silently returned a fake "nothing needed" plan for a crop with no
+  `split_schedule.csv` rows.** Verified: `crop_type: "barley"` returned `200`, `fertilizer_type:
+  "none"`, an empty schedule -- while `explanation.nutrient_balance` correctly showed a real
+  61.8 kg/ha N need. Root cause: `to_products()`'s `ReferenceDataIncomplete` guard only lived
+  inside the `if p_lines`/`if k_lines`/`if n_lines` branches; a crop with zero schedule rows at
+  all makes every one of those lists empty, so every branch is skipped and it returns
+  `schedule=[]` -- exactly `ready_crops()`'s own "not ready" condition ("no split_schedule
+  rows"), reaching `/recommend` as a confident wrong answer instead of a 503. Fixed:
+  `to_products()` now checks `tables.split_schedule` for the crop *unfiltered by stage* right
+  at the top and raises `ReferenceDataIncomplete` if there's nothing at all -- left untouched
+  is the legitimate case a later stage has already passed its only split (existing test
+  `test_a_later_growth_stage_drops_the_basal_stage`).
+- **`/reference/crops` listed crops `ready_crops()` says aren't ready** -- including barley,
+  the same one above. `ready_crops()`'s own docstring says "Saloni's /reference/crops lists
+  only the ready ones," but `src/api/reference_data.py::load_crops()` still had a stale
+  "readiness filtering... added when the shared loader lands" comment describing a filter that
+  was never actually wired in, even though that loader (`ready_crops()`) has existed since S8.
+  Fixed with `_ready_crop_ids()`, a local readiness check mirroring `ready_crops()`'s exact
+  criteria (generic reference dose, no `TODO(data)` nutrient cells, at least one
+  `split_schedule` row) -- not a call to `ready_crops()` itself, because it only reads from
+  the fixed `soil_data_loader.EXTERNAL_DIR`, not the `directory` this module is parameterized
+  by (this module's own tests point it at a different `tmp_path`); documented in code why, and
+  to switch to the real function if `load_reference_tables()` ever takes a directory argument.
+
+**High:** local `.env` on this machine only had `MODEL_ARTIFACT_DIR` -- never regenerated
+after S6 changed `.env.example` to add `PREDICT_MODE=real`/`DATA_EXTERNAL_DIR`. The ML service
+had been running in mock mode locally without me noticing (`/health` still said `"ok"`, just
+with the mock model_version). Fixed locally (`.env` is gitignored, nothing to commit);
+confirmed `/health` now returns the real classifier's version.
+
+**Medium, both fixed in `npk_calculator.py`:**
+- **`region` is a real `reference_doses.csv`/`stcr_equations.csv` column never used to
+  disambiguate a lookup.** `_reference_dose_row()`/`_stcr_dose()` matched on crop/variety/
+  irrigation (or nutrient) only, silently taking the first match. Harmless today because every
+  combination happens to have exactly one region -- not a guarantee once a second region exists
+  for the same crop. No request field for region to filter on (contract C1 has none, and adding
+  one is a contract change I'm not making unilaterally), so instead: both functions now raise
+  `ReferenceDataIncomplete` if more than one usable row matches for a given variety candidate,
+  naming the ambiguous regions, rather than picking one silently.
+- **`train.py --final-test`'s recorded confidence intervals for v0.1.0 weren't reproducible by
+  anyone, including me.** They came from a one-off `enrich_test_metrics.py` script whose
+  source only lived in the gitignored `models_artifacts/runs/.../` directory (done carefully --
+  it verified point estimates matched before enriching -- but not by code anyone could rerun).
+  Fixed: `evaluate_classifier` (Richa's, contract C7 -- bootstrap 95% CIs, per-class precision/
+  recall/F1, a confusion matrix) is now called directly inside `run()`'s `--final-test` branch,
+  so every future version gets the same enrichment from the same committed code, automatically.
+
+**Low, all fixed:**
+- `src/models/predict.py` was a dead 2-line stub (`MODEL_VERSION = "unloaded"`) nothing
+  imported, left over from before S6 wired all real loading through
+  `recommendation_engine.py`. Deleted; `ml/AGENTS.md`'s folder map updated to stop describing
+  a file that did nothing.
+- `to_products()` only ever used `p_lines[0]`/`k_lines[0]`, correct today (every crop's
+  `split_schedule.csv` gives P and K one basal stage) but nothing enforced it -- a future data
+  change splitting P or K across stages would have silently dropped every stage but the first.
+  Now raises `ReferenceDataIncomplete` if more than one P or K line exists, instead of guessing
+  which one matters.
+- `beats_baseline()`'s baseline set only ever included "dummy" kinds, never
+  `logistic_regression` -- the ml-ds-standards "simple model" baseline, sitting in the same
+  config, described that way in this file's own comments, but never actually part of the gate.
+  `random_forest` does beat it (separately verified: 0.394-0.024=0.370 mean-std vs
+  0.301+0.010=0.311 mean+std on the post-split-fix numbers), but that was true by the numbers,
+  not because the check was looking. Extracted into `_baseline_model_names()` and fixed to
+  include it.
+- **Investigated, deliberately left as-is:** `Engine()` is constructed twice in `main.py` --
+  once eagerly at import time, once again in the lifespan hook. The obvious "fix" (skip the
+  second build if `app.state.engine` already exists) would break `client_without_classifier`
+  and every other test that monkeypatches something (`REGISTRY_PATH`, `EXTERNAL_DIR`) *before*
+  entering `with TestClient(app)`, deliberately relying on the lifespan hook rebuilding a fresh
+  `Engine()` that reflects the patch -- confirmed by reading how those S7 fixtures actually
+  work, not assumed. The real-world cost is one redundant `Engine()` build at process startup
+  (not per-request), which is genuinely low-stakes. Left alone rather than risk a regression to
+  fix a startup-time inefficiency.
+
+8 new regression tests added (`test_npk_calculator.py` x4, `test_mock_and_reference.py` x1,
+`test_recommendation_engine.py` x1, `test_train.py` x2) -- one per verified finding, so none of
+these can silently reappear. Full suite: 290 passed, same 6 pre-existing environment-only
+failures (absent real Kaggle file), unrelated to any of this.
+
 ## Not started yet
 
 S10 (model card) and S11 (demo readiness) per the pack -- both gated on inputs I don't have
