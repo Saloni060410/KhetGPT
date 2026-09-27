@@ -32,9 +32,13 @@ def test_health_says_when_it_is_in_mock_mode():
     assert "mock" in body["detail"]
 
 
-def test_health_in_real_mode_reports_the_unloaded_model(use_settings):
+def test_health_in_real_mode_is_degraded_with_no_classifier_registered(use_settings):
+    # S6: real mode is implemented now. With no classifier registered (the normal state on a
+    # fresh checkout -- see ml/PROGRESS.md), health degrades but still reports a model_version.
     use_settings(predict_mode="real")
-    assert client.get("/health").json() == {"status": "ok", "model_version": "unloaded", "detail": None}
+    body = client.get("/health").json()
+    assert body["status"] == "degraded"
+    assert body["model_version"].startswith("unloaded+rules-")
 
 
 def test_fixtures_match_the_schemas():
@@ -44,14 +48,23 @@ def test_fixtures_match_the_schemas():
     RiskScoreResponse.model_validate(load("risk_score_response.json"))
 
 
-def test_recommend_in_real_mode_is_not_implemented_until_the_engine_exists(use_settings):
+def test_recommend_in_real_mode_is_implemented_and_surfaces_the_real_mop_price_gap(use_settings):
+    # S6: real mode is implemented now. The fixture's soil.k=90 genuinely needs potash, and
+    # MOP has no price yet in the merged fertilizer_products.csv (see ml/PROGRESS.md) -- the
+    # engine correctly refuses with 503 rather than a silent wrong answer.
     use_settings(predict_mode="real")
-    assert client.post("/recommend", json=load("recommend_request.json")).status_code == 501
+    response = client.post("/recommend", json=load("recommend_request.json"))
+    assert response.status_code == 503
+    assert "mop" in response.json()["detail"]
 
 
-def test_risk_score_in_real_mode_is_not_implemented_until_the_analyzer_exists(use_settings):
+def test_risk_score_in_real_mode_is_implemented(use_settings):
+    # S6: real mode is implemented now. /risk-score never calls to_products(), so it isn't
+    # affected by the MOP-price gap that blocks /recommend for this same field.
     use_settings(predict_mode="real")
-    assert client.post("/risk-score", json=load("risk_score_request.json")).status_code == 501
+    response = client.post("/risk-score", json=load("risk_score_request.json"))
+    assert response.status_code == 200
+    assert response.json()["risk"]["level"] in {"low", "medium", "high"}
 
 
 def test_invalid_soil_is_rejected():

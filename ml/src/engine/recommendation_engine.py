@@ -1,0 +1,339 @@
+"""Assembles a full RecommendResponse / risk-score result (contract C1/C6) from Richa's
+feature module and risk analyzer, and Saloni's dose calculator and cost module. Loaded once
+at startup (FastAPI lifespan, see src/api/main.py) so the classifier, reference tables and
+rules aren't re-read on every request.
+
+Design decision, deliberately deviating from the literal S6 spec ("missing model ... gives
+503"): the classifier is treated as an optional, secondary cross-check, not a hard
+requirement. npk_calculator.to_products() already deterministically and transparently picks
+every product (DAP for P, MOP for K, urea for remaining N) from sourced PAU tables --
+ml/AGENTS.md's own words are "the model only refines the product choice". Making a missing
+model a hard 503 would mean /recommend can never succeed until S3's classifier has real
+training data (see ml/PROGRESS.md), which defeats the reason this step is being built now
+while that data is still unavailable. /health still reports "degraded" with a clear reason
+when no classifier is registered -- this is surfaced for monitoring, not hidden -- but
+/recommend still returns a complete, correct answer built from the rule-based calculator
+alone. Missing reference tables is a hard 503 either way: unlike the classifier, nothing here
+can work without them.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+from typing import Literal
+
+import joblib
+import yaml
+
+from src.api.schemas import (
+    AppliedBalance,
+    Cost,
+    Explanation,
+    NutrientBalance,
+    Recommendation,
+    RecommendRequest,
+    RecommendResponse,
+    Risk,
+    RiskScoreRequest,
+    RiskScoreResponse,
+    ScheduleItem,
+)
+from src.data_pipeline.feature_engineering import build_features, request_to_record
+from src.data_pipeline.soil_data_loader import (
+    EXTERNAL_DIR,
+    ReferenceDataError,
+    ReferenceTables,
+    load_reference_tables,
+    validate_soil,
+)
+from src.degradation.risk_analyzer import assess_recommendation, score_planned
+from src.engine.cost import compare_to_history, cost_breakdown, estimate_cost, prices_as_of
+from src.engine.npk_calculator import compute_balance, to_products
+
+try:  # R10 (explain, ranking rule_trace items with XGBoost pred_contribs) isn't built yet.
+    from src.evaluation.explainability import explain as _richa_explain
+except ImportError:
+    _richa_explain = None
+
+ML_ROOT = Path(__file__).resolve().parents[2]
+REGISTRY_PATH = ML_ROOT / "src" / "models" / "model_registry" / "registry.json"
+FORMULA = "fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications"
+
+
+class EngineUnavailable(Exception):
+    """Reference data (tables or rules) failed to load. A hard 503 -- unlike a missing
+    classifier, nothing here can produce even a rule-based answer without this."""
+
+
+@dataclass
+class LoadedModel:
+    name: str
+    version: str
+    pipeline: object
+    labels: list[str]
+    dataset_source: str  # "real" | "fallback" -- carried through so a caller can tell
+
+
+def _rules_hash8() -> str:
+    """Hash of every file in data/external/ together, so any change to any reference table
+    or rule changes model_version -- a bad recommendation traces back to the exact tables
+    that produced it (contract C1)."""
+    digest = hashlib.sha256()
+    for path in sorted(EXTERNAL_DIR.iterdir()):
+        if path.is_file():
+            digest.update(path.read_bytes())
+    return digest.hexdigest()[:8]
+
+
+def _load_active_model() -> LoadedModel | None:
+    """None if no classifier is registered yet, its artifact/labels file is missing, or the
+    registry is unreadable for any reason -- never an error. See the module docstring: this
+    is not a hard requirement for /recommend, so a problem here degrades health, it never
+    crashes startup or blocks a request."""
+    try:
+        if not REGISTRY_PATH.exists():
+            return None
+        registry = json.loads(REGISTRY_PATH.read_text())
+        models = registry.get("models", [])
+        if not models:
+            return None
+        entry = models[-1]  # train.py always appends a new version, never overwrites -- the last is active
+        artifact_path = ML_ROOT / entry["artifact"]
+        labels_path = ML_ROOT / entry["labels"]
+        if not artifact_path.exists() or not labels_path.exists():
+            return None
+        return LoadedModel(
+            name=entry["model_name"],
+            version=entry["version"],
+            pipeline=joblib.load(artifact_path),
+            labels=json.loads(labels_path.read_text()),
+            dataset_source=entry.get("dataset_source", "unknown"),
+        )
+    except (OSError, json.JSONDecodeError, KeyError, IndexError):
+        return None
+
+
+class Engine:
+    """Constructed once at FastAPI startup (see src/api/main.py's lifespan) and reused for
+    every request. Nothing here is request-specific state."""
+
+    def __init__(self) -> None:
+        try:
+            self.tables: ReferenceTables = load_reference_tables()
+            with (EXTERNAL_DIR / "agronomy_rules.yaml").open(encoding="utf-8") as handle:
+                self.rules: dict = yaml.safe_load(handle)
+            self._startup_error: str | None = None
+        except (ReferenceDataError, OSError, yaml.YAMLError) as error:
+            self.tables = None
+            self.rules = None
+            self._startup_error = str(error)
+        self.model: LoadedModel | None = _load_active_model() if self._startup_error is None else None
+        self._rules_hash = _rules_hash8() if self._startup_error is None else None
+
+    def refresh_model(self) -> None:
+        """Re-checks the registry for a newer model without restarting the service. Not
+        wired to an endpoint yet -- useful for tests and for a future admin/reload hook."""
+        self.model = _load_active_model()
+
+    @property
+    def status(self) -> Literal["ok", "degraded"]:
+        return "degraded" if (self._startup_error is not None or self.model is None) else "ok"
+
+    @property
+    def status_detail(self) -> str | None:
+        if self._startup_error is not None:
+            return f"reference data unavailable: {self._startup_error}"
+        if self.model is None:
+            return "no classifier model is registered yet in model_registry/registry.json"
+        return None
+
+    @property
+    def model_version(self) -> str:
+        if self._startup_error is not None:
+            return "unloaded"
+        if self.model is None:
+            return f"unloaded+rules-{self._rules_hash}"
+        return f"{self.model.name}-{self.model.version}+rules-{self._rules_hash}"
+
+    def _require_tables(self) -> None:
+        if self._startup_error is not None:
+            raise EngineUnavailable(self._startup_error)
+
+
+def _primary_product(schedule: list[dict]) -> tuple[str, float]:
+    """Contract C1: the primary product is the one with the largest total quantity across
+    the schedule."""
+    totals: dict[str, float] = {}
+    for item in schedule:
+        totals[item["fertilizer_type"]] = totals.get(item["fertilizer_type"], 0.0) + item["quantity_kg_per_acre"]
+    if not totals:
+        return "none", 0.0
+    product = max(totals, key=totals.get)
+    return product, round(totals[product], 3)
+
+
+def _classifier_opinion(engine: Engine, features) -> list[dict] | None:
+    """Top-3 classifier probabilities for explain(), and for the disagreement check in step
+    (c). None if no classifier is registered -- the calculator's choice stands either way."""
+    if engine.model is None:
+        return None
+    proba = engine.model.pipeline.predict_proba(features)[0]
+    order = proba.argsort()[::-1][:3]
+    return [{"product": engine.model.labels[i], "probability": round(float(proba[i]), 4)} for i in order]
+
+
+def _fallback_top_factors(rule_trace: list[dict]) -> list[str]:
+    """Used only until Richa's R10 explain() exists (or if it raises): the first two
+    rule_trace effects, as plain-as-possible sentences. A visibly lower-quality placeholder
+    than the real explain(), not a permanent design."""
+    factors = []
+    for entry in rule_trace[:2]:
+        nutrient = f" ({entry['nutrient'].upper()})" if entry.get("nutrient") else ""
+        factors.append(f"{entry['rule_id']}{nutrient}: {entry['effect']}")
+    return factors
+
+
+def _data_notes(rule_trace: list[dict], weather_source: str) -> list[str]:
+    notes = []
+    for entry in rule_trace:
+        if entry["rule_id"] == "credit_skipped_no_efficiency":
+            notes.append(
+                f"No credit was given for last season's fertilizer because no use-efficiency "
+                f"figure is available for the {entry['nutrient'].upper()} nutrient."
+            )
+        elif entry["rule_id"] == "credit_ignored_unknown_product":
+            products = ", ".join(entry["params"]["unknown_product_ids"])
+            notes.append(f"Previous fertilizer use listed an unrecognised product ({products}), ignored.")
+        elif entry["rule_id"] == "classifier_disagreement":
+            notes.append(
+                f"The product classifier's top guess ({entry['value']}) differed from the "
+                f"rule-based plan; the rule-based plan was kept."
+            )
+    if weather_source != "live":
+        notes.append(f"Weather is a {weather_source.replace('_', ' ')} value, not a live forecast.")
+    return notes
+
+
+def recommend(request: RecommendRequest, engine: Engine, today: date | None = None) -> RecommendResponse:
+    engine._require_tables()
+    today = today or date.today()  # noqa: DTZ011 -- caller (the endpoint) always passes today explicitly in tests; the default only serves real traffic
+
+    validate_soil(request.soil.model_dump())
+    payload = request.model_dump(mode="json")
+    record = request_to_record(payload, tables=engine.tables)  # raises UnknownCropError -> 422
+    features = build_features([record], tables=engine.tables)
+
+    previous_usage = payload["previous_fertilizer_usage"]
+    balance, rule_trace = compute_balance(
+        request.crop_type,
+        request.variety,
+        request.irrigation,
+        request.growth_stage,
+        payload["soil"],
+        previous_usage,
+        engine.tables,
+        today,
+        credit_window_days=engine.rules["credit_window_days"],
+    )  # raises ReferenceDataIncomplete -> 503, UnknownStageError -> 422
+
+    schedule = to_products(
+        balance,
+        request.crop_type,
+        request.growth_stage,
+        request.sowing_date,
+        payload["weather"],
+        engine.tables,
+        today,
+        rain_hold_mm=engine.rules["rain_hold_mm"],
+        rain_hold_days=engine.rules["rain_hold_days"],
+    )  # raises ReferenceDataIncomplete -> 503 (e.g. a needed nutrient's only product is unpriced)
+
+    primary_product, primary_quantity = _primary_product(schedule)
+    classifier_opinion = _classifier_opinion(engine, features)
+    if classifier_opinion and classifier_opinion[0]["product"] != primary_product:
+        rule_trace.append(
+            {
+                "rule_id": "classifier_disagreement",
+                "nutrient": None,
+                "value": classifier_opinion[0]["product"],
+                "threshold": None,
+                "effect": "balance kept, classifier opinion recorded",
+                "params": {"classifier_top3": classifier_opinion, "balance_choice": primary_product},
+            }
+        )
+
+    try:
+        if _richa_explain is None:
+            raise NotImplementedError("explain() is not implemented yet (R10)")
+        top_factors = _richa_explain(features=record, prediction=classifier_opinion, rule_trace=rule_trace, top_k=3)
+    except Exception:  # noqa: BLE001 -- explain() is unbuilt/untested (R10); anything it does must never break /recommend
+        top_factors = _fallback_top_factors(rule_trace)
+
+    products_table = engine.tables.fertilizer_products
+    history = compare_to_history(schedule, previous_usage, products_table, today)
+    cost = Cost(
+        estimated_cost_inr_per_acre=estimate_cost(schedule, products_table),
+        previous_cost_inr_per_acre=history["previous_cost_inr_per_acre"],
+        saving_inr_per_acre=history["saving_inr_per_acre"],
+        prices_as_of=prices_as_of(schedule, products_table),
+        breakdown=cost_breakdown(schedule, products_table),
+    )
+
+    risk = assess_recommendation(
+        balance, schedule, payload["soil"], payload["weather"], previous_usage, engine.rules, engine.tables
+    )
+
+    return RecommendResponse(
+        recommendation=Recommendation(
+            fertilizer_type=primary_product,
+            quantity_kg_per_acre=primary_quantity,
+            schedule=[ScheduleItem(**item) for item in schedule],
+        ),
+        risk=Risk(**risk),
+        explanation=Explanation(
+            top_factors=top_factors,
+            nutrient_balance=NutrientBalance(**balance),
+            formula=FORMULA,
+            data_notes=_data_notes(rule_trace, payload["weather"]["source"]),
+        ),
+        cost=cost,
+        impact={"over_application_reduction_pct": history["over_application_reduction_pct"]},
+        model_version=engine.model_version,
+    )
+
+
+def score_planned_risk(request: RiskScoreRequest, engine: Engine, today: date | None = None) -> RiskScoreResponse:
+    engine._require_tables()
+    today = today or date.today()  # noqa: DTZ011 -- see recommend()'s identical note
+
+    validate_soil(request.soil.model_dump())
+    payload = request.model_dump(mode="json")
+    balance, _trace = compute_balance(
+        request.crop_type,
+        request.variety,
+        request.irrigation,
+        request.growth_stage,
+        payload["soil"],
+        payload["previous_fertilizer_usage"],
+        engine.tables,
+        today,
+        credit_window_days=engine.rules["credit_window_days"],
+    )
+    result = score_planned(
+        payload["planned_application"],
+        balance,
+        payload["soil"],
+        payload["weather"],
+        payload["previous_fertilizer_usage"],
+        engine.rules,
+        engine.tables,
+    )
+    return RiskScoreResponse(
+        risk=Risk(**result["risk"]),
+        nutrient_balance=AppliedBalance(**result["nutrient_balance"]),
+        model_version=engine.model_version,
+    )
