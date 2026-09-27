@@ -192,9 +192,10 @@
         "risk_level": "low",
         "risk_reason_kind": "healthy -- applied/needed close across all nutrients",
         "recommended_products": ["dap", "mop", "urea"],
-        "note_on_p_and_k": "P and K get no prior-usage credit in ANY scenario right now, not just this one -- nutrient_efficiency.csv has no sourced fertilizer_use_efficiency for P or K (only N is sourced), so the standard P/K dose is still recommended in full even though the farmer already applied some. The engine surfaces this honestly via data_notes rather than silently crediting or silently saying nothing.",
-        "mop_unpriced_note": "MOP is still recommended and dosed (needed for K), but excluded from the cost breakdown with a data_notes entry, since MOP has no verified price yet (see ml/data/external/fertilizer_products.csv) -- per docs/api-contract.md's missing-data policy, this is not a blocker.",
-        "saving_inr_per_acre": 312.139
+        "note_on_p_and_k": "P and K now DO get prior-usage credit -- nutrient_efficiency.csv's default P (0.20) and K (0.55) rows were sourced (PIB Release ID 2237709, 10 Mar 2026) after this scenario was first written, so the DAP already applied genuinely credits against the new P dose now. This is a real behavior change from the scenario's original version, not a rerun with the same story.",
+        "mop_priced_note": "MOP now has a real verified price (PIB Release ID 2237470, 10 Mar 2026) and is included in the cost breakdown like any other product -- it used to be excluded with a data_notes caveat. data_notes is now empty for this scenario.",
+        "saving_inr_per_acre": -126.327,
+        "saving_note": "Now NEGATIVE -- the recommended plan (which now includes MOP's real cost) costs more than what the farmer previously applied (urea+dap only, no MOP logged). This is the honest number, not the old positive one."
       },
       "seed": {
         "farm": {
@@ -238,11 +239,12 @@
       "recommend_response": {
         "recommendation": {
           "fertilizer_type": "dap",
-          "quantity_kg_per_acre": 52.168,
+          "quantity_kg_per_acre": 42.168,
           "schedule": [
-            { "stage": "sowing", "fertilizer_type": "dap", "quantity_kg_per_acre": 52.168, "apply_by": "2026-06-15", "timing_note": null },
+            { "stage": "sowing", "fertilizer_type": "dap", "quantity_kg_per_acre": 42.168, "apply_by": "2026-06-15", "timing_note": null },
             { "stage": "sowing", "fertilizer_type": "mop", "quantity_kg_per_acre": 20.032, "apply_by": "2026-06-15", "timing_note": null },
-            { "stage": "knee_high", "fertilizer_type": "urea", "quantity_kg_per_acre": 18.081, "apply_by": null, "timing_note": "At Knee-high Stage" },
+            { "stage": "sowing", "fertilizer_type": "urea", "quantity_kg_per_acre": 2.747, "apply_by": "2026-06-15", "timing_note": null },
+            { "stage": "knee_high", "fertilizer_type": "urea", "quantity_kg_per_acre": 19.248, "apply_by": null, "timing_note": "At Knee-high Stage" },
             { "stage": "pre_tasseling", "fertilizer_type": "urea", "quantity_kg_per_acre": 19.305, "apply_by": null, "timing_note": "At Pre-tasseling Stage" }
           ]
         },
@@ -261,26 +263,24 @@
           ],
           "nutrient_balance": {
             "n": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 123.6, "soil_adjustment_kg_ha": 0.0, "prior_credit_kg_ha": 57.898, "fertilizer_needed_kg_ha": 65.702 },
-            "p": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 59.3, "soil_adjustment_kg_ha": 0.0, "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 59.3 },
+            "p": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 59.3, "soil_adjustment_kg_ha": 0.0, "prior_credit_kg_ha": 11.367, "fertilizer_needed_kg_ha": 47.933 },
             "k": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 29.7, "soil_adjustment_kg_ha": 0.0, "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 29.7 }
           },
           "formula": "fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications",
-          "data_notes": [
-            "No credit was given for last season's fertilizer because no use-efficiency figure is available for the P nutrient.",
-            "mop's cost is unavailable (no verified price yet); it is not included in the cost breakdown."
-          ]
+          "data_notes": []
         },
         "cost": {
-          "estimated_cost_inr_per_acre": 1629.861,
+          "estimated_cost_inr_per_acre": 2068.327,
           "previous_cost_inr_per_acre": 1942.0,
-          "saving_inr_per_acre": 312.139,
+          "saving_inr_per_acre": -126.327,
           "prices_as_of": "2025-01-01",
           "breakdown": [
-            { "fertilizer_type": "dap", "quantity_kg_per_acre": 52.168, "cost_inr_per_acre": 1408.536 },
-            { "fertilizer_type": "urea", "quantity_kg_per_acre": 37.386, "cost_inr_per_acre": 221.325 }
+            { "fertilizer_type": "dap", "quantity_kg_per_acre": 42.168, "cost_inr_per_acre": 1138.536 },
+            { "fertilizer_type": "mop", "quantity_kg_per_acre": 20.032, "cost_inr_per_acre": 685.295 },
+            { "fertilizer_type": "urea", "quantity_kg_per_acre": 41.3, "cost_inr_per_acre": 244.496 }
           ]
         },
-        "impact": { "over_application_reduction_pct": 19.738 }
+        "impact": { "over_application_reduction_pct": 25.635 }
       }
     }
   ]

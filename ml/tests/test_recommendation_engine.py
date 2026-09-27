@@ -123,15 +123,23 @@ def test_recommend_maps_an_unknown_growth_stage_to_422(client, no_potash_request
     assert response.status_code == 422
 
 
-def test_recommend_still_recommends_the_unpriced_mop_but_excludes_its_cost(client):
+def test_recommend_now_prices_mop_since_a_real_price_was_sourced(client):
+    # MOP used to be genuinely unpriced (TODO(data)), and this test locked in that the engine
+    # still recommends it while excluding its cost. A real dated retail price was found on a
+    # third sourcing pass (PIB Release ID 2237470, 10 Mar 2026: "The average retail prices for
+    # other key grades... Muriate of Potash (MOP): Rs.1710.54" per 50kg bag) -- MOP now behaves
+    # like any other priced product. The "unpriced product still recommended, cost excluded"
+    # capability itself is still covered generically at the unit level
+    # (test_cost.py's ssp-based tests, ssp still genuinely TODO(data)).
     payload = load("recommend_request.json")  # real soil.k=90 -- genuinely needs potash
     response = client.post("/recommend", json=payload)
     assert response.status_code == 200
     body = response.json()
     mop_line = next(item for item in body["recommendation"]["schedule"] if item["fertilizer_type"] == "mop")
     assert mop_line["quantity_kg_per_acre"] > 0
-    assert "mop" not in {line["fertilizer_type"] for line in body["cost"]["breakdown"]}
-    assert any("mop" in note.lower() for note in body["explanation"]["data_notes"])
+    mop_cost_line = next(line for line in body["cost"]["breakdown"] if line["fertilizer_type"] == "mop")
+    assert mop_cost_line["cost_inr_per_acre"] > 0
+    assert not any("mop" in note.lower() for note in body["explanation"]["data_notes"])
 
 
 def test_recommend_for_barley_now_returns_a_real_plan_not_a_503(client):
