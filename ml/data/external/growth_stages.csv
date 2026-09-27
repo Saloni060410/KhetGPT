@@ -20,3 +20,5 @@ sugarcane,first_n_topdress,First Nitrogen Top-dress (post-germination),पहल
 sugarcane,grand_growth,Grand Growth (second N top-dress),वृद्धि अवस्था,3,TODO(data),TODO(data),"PAU POP Kharif 2026 p.83: 'remaining half dose of nitrogen...in May or June' -- exact DAS not stated in this source"
 chickpea,sowing,Sowing,बुवाई,1,0,0,"PAU POP Rabi 2025-26 p.36: 'Drill all fertilizers at sowing' (desi and kabuli gram)"
 chickpea,flowering_pod_filling,Flowering / Pod Filling,फूल एवं फली भरने की अवस्था,2,90,110,"PAU POP Rabi 2025-26 p.35-36: foliar 2% urea spray recommended at 90 and 110 days of sowing to boost yield"
+barley,sowing,Sowing,बुवाई,1,0,0,"PAU POP Rabi 2025-26 p.24: fertilizer drilled at sowing (Time of Sowing: Oct 15-Nov 15)"
+barley,maturity,Maturity / Harvest,परिपक्वता अवस्था,2,137,146,"PAU POP Rabi 2025-26 p.31-32: notified variety maturity range across PL 942/DWRB 123/PL 891/PL 807/DWRUB 52 is 137-146 days"

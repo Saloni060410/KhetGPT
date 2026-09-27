@@ -6,19 +6,25 @@ from src.data_pipeline.clean import CleaningError, harmonise, map_labels, run
 
 def test_run_produces_a_validation_report_with_expected_shape():
     report = run()
-    assert report["raw_row_count"] == 99
+    # raw_row_count is the real 99-row Kaggle file plus the synthetic supplement (if
+    # generate_synthetic_data.py has been run) -- not a fixed 99, since data_source combines
+    # the two. clean_row_count + dropped_row_count must still reconcile exactly either way.
+    assert report["raw_row_count"] >= 99
     assert report["clean_row_count"] > 0
     assert report["clean_row_count"] + report["dropped_row_count"] == report["raw_row_count"]
     assert set(report["class_balance_crop_id"]) <= {
-        "wheat", "rice", "maize", "cotton", "sugarcane", "chickpea",
+        "wheat", "rice", "maize", "cotton", "sugarcane", "chickpea", "barley",
     }
 
 
 def test_out_of_vocab_crop_labels_are_dropped_not_kept():
     report = run()
-    # Pulses is a known gap (generic label, not chickpea-specific) -- must be dropped.
+    # Pulses is a known gap (generic label, not chickpea-specific) -- must be dropped, from
+    # the REAL file specifically. chickpea can legitimately appear in the combined
+    # class_balance now (via the synthetic supplement, which generates chickpea rows
+    # directly rather than mapping them from "Pulses") -- that's not the same claim.
     assert "Pulses" in report["dropped_crop_labels"]
-    assert "chickpea" not in report["class_balance_crop_id"]
+    assert "chickpea" not in report["real_class_balance_crop_id"]
 
 
 def test_no_missing_values_in_the_cleaned_output():

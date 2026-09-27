@@ -82,26 +82,40 @@ def run() -> dict:
     if clean.duplicated().any():
         raise ValueError(f"{clean.duplicated().sum()} duplicate row(s) in clean.csv -- fix before building train.csv")
 
+    if "data_source" not in clean.columns:
+        raise ValueError("clean.csv has no data_source column -- clean.py must tag every row real/synthetic")
+
+    # Test and val are drawn from REAL rows only, never synthetic -- synthetic rows are
+    # assigned to train unconditionally. This mirrors the exact frozen-test-ids logic that
+    # already existed here, just scoped to the real subset, so test_ids.json's semantics
+    # ("frozen real test rows") stay correct even though clean.csv may now also contain a
+    # synthetic supplement (generate_synthetic_data.py) that must never be evaluated on.
+    real = clean[clean["data_source"] == "real"].copy()
+    synthetic = clean[clean["data_source"] != "real"].copy()
+
     test_ids_path = EXTERNAL_DIR / "test_ids.json"
     if test_ids_path.exists():
         frozen_test_ids = set(json.loads(test_ids_path.read_text(encoding="utf-8"))["test_row_ids"])
-        clean["split"] = ["test" if i in frozen_test_ids else None for i in clean.index]
+        real["split"] = ["test" if i in frozen_test_ids else None for i in real.index]
 
         # Split the non-test remainder into train/val only, at the *same relative*
         # proportions the original 70/15/15 implied (70/85 : 15/85), not a fresh 70/15/15 --
         # otherwise train/val sizes drift on every rerun even though test stays frozen.
-        remainder = clean[clean["split"].isna()]
+        remainder = real[real["split"].isna()]
         remainder_ratios = {
             "train": SPLIT_RATIOS["train"] / (SPLIT_RATIOS["train"] + SPLIT_RATIOS["val"]),
             "val": SPLIT_RATIOS["val"] / (SPLIT_RATIOS["train"] + SPLIT_RATIOS["val"]),
         }
-        clean.loc[remainder.index, "split"] = _stratified_split(remainder, CLASSIFIER_TARGET, SEED, remainder_ratios)
+        real.loc[remainder.index, "split"] = _stratified_split(remainder, CLASSIFIER_TARGET, SEED, remainder_ratios)
     else:
-        clean["split"] = _stratified_split(clean, CLASSIFIER_TARGET, SEED, SPLIT_RATIOS)
+        real["split"] = _stratified_split(real, CLASSIFIER_TARGET, SEED, SPLIT_RATIOS)
         test_ids_path.write_text(
-            json.dumps({"test_row_ids": sorted(clean.index[clean["split"] == "test"].tolist())}, indent=2),
+            json.dumps({"test_row_ids": sorted(real.index[real["split"] == "test"].tolist())}, indent=2),
             encoding="utf-8",
         )
+
+    synthetic["split"] = "train"
+    clean = pd.concat([real, synthetic]).sort_index()
 
     # de-duplicated across splits by construction: each row index is assigned to exactly one
     # split value, so the same row can never appear twice.
