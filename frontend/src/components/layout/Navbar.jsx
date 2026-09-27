@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { Menu, X, LogOut } from 'lucide-react'
 import { useUserStore } from '../../store/useUserStore.js'
+import { useT } from '../../i18n/useT.js'
 import LanguageToggle from '../ui/LanguageToggle.jsx'
 import { WheatIcon } from '../icons/CropIcons.jsx'
 import {
@@ -14,21 +15,22 @@ import {
   HistoryIcon,
 } from '../icons/NavIcons.jsx'
 
-const NAV_ITEMS = [
-  { to: '/', label: 'Home', icon: HomeIcon, exact: true },
-  { to: '/dashboard', label: 'Ledger', icon: DashboardIcon },
-  { to: '/fields/1', label: 'Fields', icon: FieldProfileIcon },
-  { to: '/fields/1/soil', label: 'Soil Test', icon: SoilTestIcon },
-  { to: '/fields/1/recommendation', label: 'Prescription', icon: PrescriptionIcon },
-  { to: '/fields/1/schedule', label: 'Schedule', icon: ScheduleIcon },
-  { to: '/fields/1/history', label: 'History', icon: HistoryIcon },
-]
-
 export default function Navbar() {
+  const { isHindi } = useT()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useUserStore()
+
+  const navItems = [
+    { to: '/', label: isHindi ? 'होम' : 'Home', icon: HomeIcon, exact: true },
+    { to: '/dashboard', label: isHindi ? 'लेजर' : 'Ledger', icon: DashboardIcon },
+    { to: '/fields/1', label: isHindi ? 'खेत' : 'Fields', icon: FieldProfileIcon },
+    { to: '/fields/1/soil', label: isHindi ? 'मृदा परीक्षण' : 'Soil Test', icon: SoilTestIcon },
+    { to: '/fields/1/recommendation', label: isHindi ? 'सिफारिश' : 'Prescription', icon: PrescriptionIcon },
+    { to: '/fields/1/schedule', label: isHindi ? 'अनुसूची' : 'Schedule', icon: ScheduleIcon },
+    { to: '/fields/1/history', label: isHindi ? 'इतिहास' : 'History', icon: HistoryIcon },
+  ]
 
   const [prevPathname, setPrevPathname] = useState(location.pathname)
   if (prevPathname !== location.pathname) {
@@ -59,14 +61,14 @@ export default function Navbar() {
                 Khet<span className="text-[#B8791E]">GPT</span>
               </span>
               <span className="text-[10px] font-sans text-[#A89F91] hidden 2xl:inline uppercase tracking-wider">
-                ਪੰਜਾਬ ਖੇਤੀ
+                {isHindi ? 'उर्वरक अनुकूलक' : 'ਪੰਜਾਬ ਖੇਤੀ'}
               </span>
             </div>
           </Link>
 
           {/* Desktop Navigation Links with Bespoke Agricultural Icons */}
           <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 text-xs font-sans font-medium min-w-0">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -107,14 +109,14 @@ export default function Navbar() {
                     {user?.name || 'Ramesh Patel'}
                   </div>
                   <div className="text-[10px] text-[#B8791E] font-medium uppercase tracking-wider">
-                    Farmer
+                    {isHindi ? 'किसान' : 'Farmer'}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={handleLogout}
                   className="p-1 sm:p-1.5 rounded-lg text-[#C5BBAA] hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
-                  title="Log out"
+                  title={isHindi ? 'लॉग आउट' : 'Log out'}
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -125,7 +127,7 @@ export default function Navbar() {
                   to="/login"
                   className="px-3.5 py-1.5 text-xs font-medium text-white bg-[#2D5430] hover:bg-[#234226] rounded-lg transition-all shadow-xs"
                 >
-                  Sign in
+                  {isHindi ? 'लॉग इन' : 'Sign in'}
                 </Link>
               </div>
             )}
@@ -149,7 +151,7 @@ export default function Navbar() {
         {/* Mobile Dropdown */}
         {isDrawerOpen && (
           <div className="lg:hidden border-t border-[#3E382E] mt-3 pt-3 space-y-1 font-sans animate-in fade-in duration-150">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -181,7 +183,9 @@ export default function Navbar() {
                 <>
                   <div>
                     <div className="text-xs font-semibold text-[#FAF8F5]">{user?.name || 'Ramesh Patel'}</div>
-                    <div className="text-[10px] text-[#B8791E] font-medium uppercase tracking-wider">Farmer</div>
+                    <div className="text-[10px] text-[#B8791E] font-medium uppercase tracking-wider">
+                      {isHindi ? 'किसान' : 'Farmer'}
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -189,7 +193,7 @@ export default function Navbar() {
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-xs text-[#FAF8F5] hover:bg-white/20 transition-colors"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    <span>Log out</span>
+                    <span>{isHindi ? 'लॉग आउट' : 'Log out'}</span>
                   </button>
                 </>
               ) : (
@@ -197,7 +201,7 @@ export default function Navbar() {
                   to="/login"
                   className="w-full text-center py-2 rounded-lg bg-[#2D5430] text-xs font-medium text-white"
                 >
-                  Sign in
+                  {isHindi ? 'लॉग इन' : 'Sign in'}
                 </Link>
               )}
             </div>
