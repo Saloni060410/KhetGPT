@@ -157,9 +157,11 @@
       "test": 0.15
     },
     "split_sizes": {
-      "train": 2800
+      "train": 1958,
+      "val": 421,
+      "test": 421
     },
-    "content_hash": "ac48ceafd308a53c",
+    "content_hash": "ba354f74ea178bc4",
     "feature_schema_hash": "70655708beb3033f",
     "feature_columns": [
       "crop_id",

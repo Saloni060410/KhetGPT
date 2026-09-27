@@ -7,6 +7,16 @@ inventing a synthetic group. R5's EDA did flag one same-label near-duplicate pai
 (sugarcane/Loamy) that a naive random split could separate across train/test; that risk is
 documented, not silently fixed, since fixing it would mean either dropping a real row or
 inventing a grouping heuristic not in scope here.
+
+Every row -- real or synthetic -- goes through the same stratified split. The separate
+"raw Kaggle file" this project originally expected has never materialized and, per an explicit
+product decision, isn't being waited on any longer: fertilizer_prediction_synthetic.csv IS this
+project's raw training data now, not a train-only supplement bolted onto an assumed real file.
+Confining data_source != "real" rows to train unconditionally (the previous behaviour) made
+val/test empty by construction whenever the real file was absent, which defeated the point of
+having a val/test split at all. data_source is still carried through as a column for anything
+downstream that cares (e.g. clean.py's real-row N/P/K NaN policy), it just no longer gates
+which split a row can land in.
 """
 
 import hashlib
@@ -85,37 +95,31 @@ def run() -> dict:
     if "data_source" not in clean.columns:
         raise ValueError("clean.csv has no data_source column -- clean.py must tag every row real/synthetic")
 
-    # Test and val are drawn from REAL rows only, never synthetic -- synthetic rows are
-    # assigned to train unconditionally. This mirrors the exact frozen-test-ids logic that
-    # already existed here, just scoped to the real subset, so test_ids.json's semantics
-    # ("frozen real test rows") stay correct even though clean.csv may now also contain a
-    # synthetic supplement (generate_synthetic_data.py) that must never be evaluated on.
-    real = clean[clean["data_source"] == "real"].copy()
-    synthetic = clean[clean["data_source"] != "real"].copy()
-
+    # The whole pool (real + synthetic) is split together -- see the module docstring for why
+    # data_source no longer gates this. test_ids.json's frozen ids are just row indices into
+    # this pool; nothing about the freeze mechanism itself needed to change.
     test_ids_path = EXTERNAL_DIR / "test_ids.json"
     if test_ids_path.exists():
         frozen_test_ids = set(json.loads(test_ids_path.read_text(encoding="utf-8"))["test_row_ids"])
-        real["split"] = ["test" if i in frozen_test_ids else None for i in real.index]
+        clean["split"] = ["test" if i in frozen_test_ids else None for i in clean.index]
 
         # Split the non-test remainder into train/val only, at the *same relative*
         # proportions the original 70/15/15 implied (70/85 : 15/85), not a fresh 70/15/15 --
         # otherwise train/val sizes drift on every rerun even though test stays frozen.
-        remainder = real[real["split"].isna()]
+        remainder = clean[clean["split"].isna()]
         remainder_ratios = {
             "train": SPLIT_RATIOS["train"] / (SPLIT_RATIOS["train"] + SPLIT_RATIOS["val"]),
             "val": SPLIT_RATIOS["val"] / (SPLIT_RATIOS["train"] + SPLIT_RATIOS["val"]),
         }
-        real.loc[remainder.index, "split"] = _stratified_split(remainder, CLASSIFIER_TARGET, SEED, remainder_ratios)
+        clean.loc[remainder.index, "split"] = _stratified_split(remainder, CLASSIFIER_TARGET, SEED, remainder_ratios)
     else:
-        real["split"] = _stratified_split(real, CLASSIFIER_TARGET, SEED, SPLIT_RATIOS)
+        clean["split"] = _stratified_split(clean, CLASSIFIER_TARGET, SEED, SPLIT_RATIOS)
         test_ids_path.write_text(
-            json.dumps({"test_row_ids": sorted(real.index[real["split"] == "test"].tolist())}, indent=2),
+            json.dumps({"test_row_ids": sorted(clean.index[clean["split"] == "test"].tolist())}, indent=2),
             encoding="utf-8",
         )
 
-    synthetic["split"] = "train"
-    clean = pd.concat([real, synthetic]).sort_index()
+    clean = clean.sort_index()
 
     # de-duplicated across splits by construction: each row index is assigned to exactly one
     # split value, so the same row can never appear twice.
