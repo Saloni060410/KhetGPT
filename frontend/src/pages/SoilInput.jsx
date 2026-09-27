@@ -332,10 +332,14 @@ export default function SoilInput() {
                 onChange={(e) => setPrevCrop(e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-lg border border-[#DCD6C7] bg-white focus:outline-none focus:ring-2 focus:ring-[#2D5430] cursor-pointer"
               >
-                <option value="rice">Rice / Paddy (PR 126)</option>
-                <option value="cotton">Cotton (Bt Cotton)</option>
-                <option value="legume">Moong / Legume (Nitrogen Fixing)</option>
-                <option value="maize">Kharif Maize</option>
+                <option value="rice">Rice / Paddy (ਝੋਨਾ · PR 126)</option>
+                <option value="cotton">Cotton (ਨਰਮਾ · Bt Cotton)</option>
+                <option value="maize">Kharif Maize (ਮੱਕੀ)</option>
+                <option value="sugarcane">Sugarcane (ਗੰਨਾ)</option>
+                <option value="wheat">Rabi Wheat (ਕਣਕ)</option>
+                <option value="barley">Winter Barley (ਜੌਂ)</option>
+                <option value="chickpea">Chickpea / Gram (ਛੋਲੇ · N-Fixing)</option>
+                <option value="legume">Moong / Summer Legume (N-Fixing)</option>
                 <option value="fallow">Summer Fallow</option>
               </select>
               <span className="text-[11px] text-[#756F63] mt-1 block">Rotational carryover reference</span>

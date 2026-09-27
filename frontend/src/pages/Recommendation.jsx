@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -406,10 +406,21 @@ const CROP_PRESCRIPTIONS = {
 
 export default function Recommendation() {
   const { fieldId = '1' } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   useDocumentTitle('Agronomic Prescription Docket — KhetGPT');
 
-  const [selectedCropId, setSelectedCropId] = useState('wheat');
+  const cropQuery = searchParams.get('crop')?.toLowerCase();
+  const [selectedCropId, setSelectedCropId] = useState(
+    cropQuery && CROP_PRESCRIPTIONS[cropQuery] ? cropQuery : 'wheat'
+  );
+
+  useEffect(() => {
+    if (cropQuery && CROP_PRESCRIPTIONS[cropQuery] && cropQuery !== selectedCropId) {
+      setSelectedCropId(cropQuery);
+    }
+  }, [cropQuery]);
+
   const [inspectModalCrop, setInspectModalCrop] = useState(null);
 
   // PRD Could-Have #16: Agronomist Assistant Drawer state

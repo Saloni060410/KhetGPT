@@ -84,13 +84,38 @@ export default function Dashboard() {
       name: newPlotName.trim(),
       plotLabel: `Plot ${String.fromCharCode(65 + plots.length)}`,
       crop: newCrop,
-      variety: newCrop === 'Wheat' ? 'PBW 824' : newCrop === 'Rice' ? 'PR 126' : 'Hybrid',
+      variety:
+        newCrop === 'Wheat' ? 'PBW 824 (ਕਣਕ · गेहूं)' :
+        newCrop === 'Barley' ? 'PL 891 / DWRB 123 (ਜੌਂ · जौ)' :
+        newCrop === 'Rice' ? 'PR 126 / Pusa 1121 (ਝੋਨਾ · धान)' :
+        newCrop === 'Maize' ? 'PMH 13 / DKC 9108 (ਮੱਕੀ · मक्का)' :
+        newCrop === 'Cotton' ? 'Bt Cotton RCH 659 (ਨਰਮਾ · कपास)' :
+        newCrop === 'Sugarcane' ? 'CoJ 88 / CoPb 96 (ਗੰਨਾ · गन्ना)' :
+        newCrop === 'Chickpea' ? 'PBG 8 / GPF 2 (ਛੋਲੇ · चना)' : 'Hybrid Variety',
       acres: parseFloat(newAcres) || 4.0,
-      stage: 'Vegetative Stage (Day 25)',
-      nextAction: '1.0 Bag Urea/Acre Scheduled',
-      timing: 'University benchmark timing',
+      stage:
+        newCrop === 'Wheat' ? 'Crown Root Stage (Day 28)' :
+        newCrop === 'Barley' ? 'Tillering Stage (Day 30)' :
+        newCrop === 'Rice' ? 'Active Tillering (Day 35)' :
+        newCrop === 'Maize' ? 'Knee-High Stage (Day 30)' :
+        newCrop === 'Cotton' ? 'Early Vegetative (Day 42)' :
+        newCrop === 'Sugarcane' ? 'Formative Phase (Day 60)' :
+        newCrop === 'Chickpea' ? 'Branching / Pre-Flowering (Day 40)' : 'Vegetative Stage (Day 25)',
+      nextAction:
+        newCrop === 'Wheat' ? '10 Bags Urea Due' :
+        newCrop === 'Barley' ? '4 Bags Urea Due with Irrigation' :
+        newCrop === 'Rice' ? '4 Bags Urea Due' :
+        newCrop === 'Maize' ? '3 Bags Urea Side-Dress Due' :
+        newCrop === 'Cotton' ? 'Basal Done · 5 Bags Urea in 14 days' :
+        newCrop === 'Sugarcane' ? 'Top-Dress 6 Bags Urea + Earthing Up' :
+        newCrop === 'Chickpea' ? 'Foliar Spray 2% Urea / DAP at Podding' : '1.0 Bag Urea/Acre Scheduled',
+      timing:
+        newCrop === 'Barley' ? 'Apply with first nodal irrigation' :
+        newCrop === 'Chickpea' ? 'Apply in evening before light irrigation' :
+        newCrop === 'Sugarcane' ? 'Broadcast along furrows before watering' :
+        'University benchmark timing',
       weatherStatus: 'Clear conditions',
-      isActionDue: false,
+      isActionDue: newCrop === 'Wheat' || newCrop === 'Rice' || newCrop === 'Barley' || newCrop === 'Sugarcane',
     };
 
     setPlots([...plots, added]);
@@ -206,7 +231,7 @@ export default function Dashboard() {
 
                   <button
                     type="button"
-                    onClick={() => navigate(`/fields/${plot.fieldId}/recommendation`)}
+                    onClick={() => navigate(`/fields/${plot.fieldId}/recommendation?crop=${plot.crop.toLowerCase()}`)}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#2D5430] hover:bg-[#234226] text-white text-xs font-medium transition-all cursor-pointer shadow-2xs active:scale-95"
                   >
                     <span>View Plan</span>
@@ -293,10 +318,12 @@ export default function Dashboard() {
                     className="w-full px-3 py-2 text-sm rounded-lg border border-[#D8CEBC] bg-white focus:outline-none focus:ring-2 focus:ring-[#2D5430]"
                   >
                     <option value="Wheat">Wheat (ਕਣਕ)</option>
+                    <option value="Barley">Barley (ਜੌਂ)</option>
                     <option value="Rice">Rice (ਝੋਨਾ)</option>
-                    <option value="Cotton">Cotton (ਨਰਮਾ)</option>
                     <option value="Maize">Maize (ਮੱਕੀ)</option>
+                    <option value="Cotton">Cotton (ਨਰਮਾ)</option>
                     <option value="Sugarcane">Sugarcane (ਗੰਨਾ)</option>
+                    <option value="Chickpea">Chickpea (ਛੋਲੇ)</option>
                   </select>
                 </div>
 
