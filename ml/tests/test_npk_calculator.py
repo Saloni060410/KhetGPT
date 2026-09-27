@@ -149,11 +149,29 @@ def test_an_old_application_outside_the_credit_window_is_not_credited():
     assert result["n"]["prior_credit_kg_ha"] == 0.0
 
 
-def test_a_missing_efficiency_skips_the_credit_with_a_trace_entry():
-    # rice/p and rice/k only have a "default" nutrient_efficiency.csv row, and it is
-    # TODO(data) for both -- so a P application must not be credited, and must say why.
+def test_p_credit_now_uses_the_sourced_national_average_efficiency():
+    # nutrient_efficiency.csv's default/p row used to be TODO(data), so a P application was
+    # never credited. Now sourced (PIB Release ID 2237709, 10 Mar 2026, citing ICAR: national
+    # NUE for P is 15-25%, 0.20 used as the range's midpoint) -- P applications are credited
+    # like N's already were.
     usage = [{"type": "dap", "quantity_kg_per_acre": 80.0, "applied_on": "2026-11-10"}]
     result, trace = balance("rice", soil={**FIXTURE_SOIL, "p": 5.0}, prior_usage=usage)  # p "low", dose applies
+    expected_credit = 80.0 * 0.46 * ACRES_PER_HECTARE * 0.20
+    assert result["p"]["prior_credit_kg_ha"] == pytest.approx(expected_credit, rel=1e-3)
+    assert any(entry["rule_id"] == "prior_credit" and entry["nutrient"] == "p" for entry in trace)
+
+
+def test_a_missing_efficiency_skips_the_credit_with_a_trace_entry():
+    # General, crop-and-nutrient-agnostic version of the coverage the P-specific test above
+    # used to provide before nutrient_efficiency.csv's P gap closed -- kept independent of any
+    # one real row so it can't go stale the same way again. Strips every P row (crop-specific
+    # and default) from a copy of TABLES to simulate "no efficiency data exists at all".
+    no_p_efficiency = [row for row in TABLES.nutrient_efficiency if row["nutrient"] != "p"]
+    synthetic_tables = dataclasses.replace(TABLES, nutrient_efficiency=no_p_efficiency)
+    usage = [{"type": "dap", "quantity_kg_per_acre": 80.0, "applied_on": "2026-11-10"}]
+    result, trace = compute_balance(
+        "rice", None, "irrigated", "nursery_sowing", {**FIXTURE_SOIL, "p": 5.0}, usage, synthetic_tables, TODAY,
+    )
     assert result["p"]["prior_credit_kg_ha"] == 0.0
     assert any(entry["rule_id"] == "credit_skipped_no_efficiency" and entry["nutrient"] == "p" for entry in trace)
 
