@@ -100,9 +100,7 @@ export default function App() {
             path="/fields/:fieldId/recommendation"
             element={
               <RequireAuth>
-                <Shell>
-                  <Recommendation />
-                </Shell>
+                <Recommendation />
               </RequireAuth>
             }
           />
