@@ -214,6 +214,23 @@ def test_formula_conformity_stcr_method_matches_hand_computation():
     assert result["conformity_rate"] == 1.0
 
 
+def test_formula_conformity_stcr_uses_the_sourced_default_target_yield_when_omitted():
+    # stcr_equations.csv's target_yield_default_q_ha for wheat/wh_542 used to be TODO(data),
+    # meaning STCR could never resolve without a per-field target supplied -- now sourced
+    # (50 q/ha, the middle of the equation's own documented 45-55 q/ha target range, p.92).
+    # expected = max(0, 5.65*50 - 1.34*100 - 0) = 148.5, same as the explicit-target test above.
+    rec = {
+        "crop_id": "wheat", "variety_id": "wh_542", "irrigation": "irrigated", "region": "Haryana",
+        "nutrient_balance": {
+            "n": {"method": "stcr", "soil_test_value": 100.0,
+                  "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 148.5},
+        },
+    }
+    result = formula_conformity([rec], TABLES, tol=0.1)
+    assert result["conformity_rate"] == 1.0
+    assert result["violators"] == []
+
+
 def test_formula_conformity_stcr_missing_soil_test_value_is_a_violator():
     rec = {
         "crop_id": "wheat", "variety_id": "wh_542", "irrigation": "irrigated", "region": "Haryana",
