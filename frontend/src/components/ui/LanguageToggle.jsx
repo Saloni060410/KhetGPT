@@ -6,9 +6,49 @@ import { useLanguageStore } from '../../store/useLanguageStore.js'
  * LanguageToggle Component (PRD Feature 11)
  * Accessible English / Hindi toggle button with persistent state.
  */
-export default function LanguageToggle({ className = '', compact = false }) {
+export default function LanguageToggle({ className = '', dark = false, compact = false }) {
   const { language, setLanguage } = useLanguageStore()
   const isHindi = language === 'hi'
+
+  if (dark) {
+    return (
+      <div
+        role="group"
+        aria-label="Language selector / भाषा चुनें"
+        className={`inline-flex items-center p-0.5 rounded-lg bg-[#25231F] border border-[#3E382E] shrink-0 select-none ${className}`}
+      >
+        {/* English Option */}
+        <button
+          type="button"
+          onClick={() => setLanguage('en')}
+          aria-pressed={!isHindi}
+          title="Switch to English"
+          className={`px-2 py-0.5 rounded-md text-xs font-bold transition-all min-h-[26px] flex items-center justify-center cursor-pointer ${
+            !isHindi
+              ? 'bg-[#2D5430] text-white shadow-xs font-black'
+              : 'text-[#A89F91] hover:text-[#FAF8F5]'
+          }`}
+        >
+          <span>EN</span>
+        </button>
+
+        {/* Hindi Option */}
+        <button
+          type="button"
+          onClick={() => setLanguage('hi')}
+          aria-pressed={isHindi}
+          title="हिंदी में बदलें (Switch to Hindi)"
+          className={`px-2 py-0.5 rounded-md text-xs font-bold transition-all min-h-[26px] flex items-center justify-center cursor-pointer ${
+            isHindi
+              ? 'bg-[#2D5430] text-white shadow-xs font-black'
+              : 'text-[#A89F91] hover:text-[#FAF8F5]'
+          }`}
+        >
+          <span>हिन्दी</span>
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div

@@ -27,3 +27,4 @@ ml/.ipynb_checkpoints/
 # --- editors / OS ---
 .vscode/
 .DS_Store
+*.mp4

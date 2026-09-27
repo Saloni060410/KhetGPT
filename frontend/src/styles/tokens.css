@@ -1,5 +1,13 @@
 /* Design Tokens for KhetGPT - Vibrant Agri-Tech */
 :root {
+  /* KhetGPT Biophilic Organic Palette */
+  --color-khet-paper: #F6F1E4;
+  --color-khet-ink: #221F19;
+  --color-khet-leaf: #33512E;
+  --color-khet-turmeric: #B8791E;
+  --color-khet-sky: #3F6273;
+  --color-khet-terracotta: #9C4530;
+
   /* Colors - Canvas & Surfaces */
   --color-bg-base: #F8FAF6;
   --color-bg-surface: #FFFFFF;
@@ -51,7 +59,7 @@
   --color-info-border: #BAE6FD;
 
   /* Typography */
-  --font-sans: 'Plus Jakarta Sans', 'Noto Sans Devanagari', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', 'Plus Jakarta Sans', 'Noto Sans Devanagari', system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Spacing Scale */

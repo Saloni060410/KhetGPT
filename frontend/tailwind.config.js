@@ -68,10 +68,21 @@ export default {
           text: 'var(--color-info-text)',
           border: 'var(--color-info-border)',
         },
+        khet: {
+          paper: '#F6F1E4',
+          ink: '#221F19',
+          leaf: '#33512E',
+          turmeric: '#B8791E',
+          sky: '#3F6273',
+          terracotta: '#9C4530',
+        },
       },
       fontFamily: {
-        sans: ['var(--font-sans)'],
-        mono: ['var(--font-mono)'],
+        display: ['DM Serif Display', 'Georgia', 'serif'],
+        serif: ['DM Serif Display', 'Georgia', 'serif'],
+        body: ['Outfit', 'Noto Sans Devanagari', 'system-ui', 'sans-serif'],
+        sans: ['Outfit', 'Noto Sans Devanagari', 'system-ui', 'sans-serif'],
+        mono: ['ui-monospace', 'monospace'],
       },
       minHeight: {
         touch: '44px',

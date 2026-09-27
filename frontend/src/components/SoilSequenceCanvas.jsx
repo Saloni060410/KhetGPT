@@ -268,6 +268,16 @@ export default function SoilSequenceCanvas({ recoveryProgress = 0.72 }) {
         }}
       />
 
+      {/* Loading Progress Pill (only when initializing keyframe buffer) */}
+      {loadPercent < 25 && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 z-20">
+          <div className="w-8 h-8 border-2 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin mb-3" />
+          <span className="text-xs font-mono text-emerald-400">
+            Buffering Core Strata: {loadPercent}%
+          </span>
+          <span className="text-[10px] font-mono text-stone-500 mt-1">High-Resolution Sequence</span>
+        </div>
+      )}
 
       {/* Floating HUD Badges */}
       <div className="absolute top-4 left-4 pointer-events-none flex flex-col space-y-1.5 z-10">

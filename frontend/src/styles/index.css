@@ -17,6 +17,7 @@
     -webkit-tap-highlight-color: transparent;
     max-width: 100%;
     overflow-x: clip;
+    scroll-behavior: smooth;
   }
   html[lang="hi"] {
     font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -30,16 +31,41 @@
     overflow-wrap: break-word;
     text-rendering: optimizeLegibility;
   }
+}
 
-  /* Accessibility: Respect prefers-reduced-motion */
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    ::before,
-    ::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
+@layer utilities {
+  @keyframes revealUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
+
+  .animate-reveal {
+    animation: revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .delay-1 { animation-delay: 80ms; }
+  .delay-2 { animation-delay: 160ms; }
+  .delay-3 { animation-delay: 240ms; }
+  .delay-4 { animation-delay: 320ms; }
+  .delay-5 { animation-delay: 400ms; }
+
+  .bg-soil-atmosphere {
+    background-color: #F8F5EE;
+    background-image: 
+      radial-gradient(circle at 12% 15%, rgba(184, 121, 30, 0.05) 0%, transparent 45%),
+      radial-gradient(circle at 88% 85%, rgba(45, 84, 48, 0.06) 0%, transparent 50%),
+      radial-gradient(#D5CBB9 0.75px, transparent 0.75px);
+    background-size: 100% 100%, 100% 100%, 28px 28px;
+  }
+
+  .ledger-border {
+    border: 1px solid rgba(216, 206, 188, 0.75);
+  }
 }
+

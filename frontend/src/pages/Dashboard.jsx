@@ -1,494 +1,342 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import {
-  Sprout,
-  Plus,
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { 
+  Plus, 
+  Sun, 
+  X, 
+  ArrowRight, 
+  Printer, 
   Trash2,
-  MapPin,
   Calendar,
-  Layers,
-  FlaskConical,
-  Sparkles,
-  ChevronRight,
-  AlertTriangle,
-  RotateCcw,
-  CloudSun,
-} from 'lucide-react'
-import Button from '../components/ui/Button.jsx'
-import Card from '../components/ui/Card.jsx'
-import Badge from '../components/ui/Badge.jsx'
-import Skeleton from '../components/ui/Skeleton.jsx'
-import EmptyState from '../components/ui/EmptyState.jsx'
-import Toast from '../components/ui/Toast.jsx'
-import useDocumentTitle from '../hooks/useDocumentTitle.js'
-import { useFarmStore } from '../store/useFarmStore.js'
-import CreateFarmModal from '../components/farms/CreateFarmModal.jsx'
-import CreateFieldModal from '../components/farms/CreateFieldModal.jsx'
-import DeleteFarmModal from '../components/farms/DeleteFarmModal.jsx'
+  CheckCircle2
+} from 'lucide-react';
+import useDocumentTitle from '../hooks/useDocumentTitle.js';
+
+const DEMO_PLOTS = [
+  {
+    id: 'plot-1',
+    fieldId: '1',
+    number: '01',
+    name: 'Ludhiana North Farm',
+    plotLabel: 'Plot A',
+    crop: 'Wheat',
+    variety: 'HD 3086 (ਕਣਕ · गेहूं)',
+    acres: 8.5,
+    stage: 'Crown Root Stage (Day 28)',
+    nextAction: '10 Bags Urea Due',
+    timing: 'Broadcast before 1st canal irrigation',
+    weatherStatus: 'Safe to apply · 0.0mm rain next 48h',
+    isActionDue: true,
+  },
+  {
+    id: 'plot-2',
+    fieldId: '1',
+    number: '02',
+    name: 'Bathinda South Farm',
+    plotLabel: 'Plot B',
+    crop: 'Cotton',
+    variety: 'Bt Cotton RCH 659 (ਨਰਮਾ · कपास)',
+    acres: 6.0,
+    stage: 'Early Vegetative (Day 42)',
+    nextAction: 'Basal Done · 5 Bags Urea in 14 days',
+    timing: 'Prepare for squaring split irrigation',
+    weatherStatus: 'Clear sunny conditions',
+    isActionDue: false,
+  },
+  {
+    id: 'plot-3',
+    fieldId: '1',
+    number: '03',
+    name: 'Sangrur Central Farm',
+    plotLabel: 'Plot C',
+    crop: 'Rice',
+    variety: 'Basmati Pusa 1121 (ਝੋਨਾ · धान)',
+    acres: 4.0,
+    stage: 'Active Tillering (Day 35)',
+    nextAction: '4 Bags Urea Due',
+    timing: 'Broadcast after water layer is drained thin',
+    weatherStatus: 'Safe to apply',
+    isActionDue: true,
+  },
+];
 
 export default function Dashboard() {
-  useDocumentTitle('Farms & Fields — KhetGPT')
+  useDocumentTitle('Field Operations Ledger — KhetGPT');
+  const navigate = useNavigate();
 
-  const {
-    farms,
-    fields,
-    isLoading,
-    error,
-    fetchFarms,
-    fetchFields,
-    clearError,
-  } = useFarmStore()
+  const [plots, setPlots] = useState(DEMO_PLOTS);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newPlotName, setNewPlotName] = useState('');
+  const [newCrop, setNewCrop] = useState('Wheat');
+  const [newAcres, setNewAcres] = useState('5.0');
 
-  // Modals state
-  const [isCreateFarmOpen, setIsCreateFarmOpen] = useState(false)
-  const [isCreateFieldOpen, setIsCreateFieldOpen] = useState(false)
-  const [selectedFarmForField, setSelectedFarmForField] = useState('')
-  const [farmToDelete, setFarmToDelete] = useState(null)
+  const totalAcres = plots.reduce((acc, p) => acc + p.acres, 0);
 
-  // Notification Toast state
-  const [toast, setToast] = useState(null) // { variant: 'success'|'error', title, message }
+  const handleAddPlot = (e) => {
+    e.preventDefault();
+    if (!newPlotName.trim()) return;
 
-  const showToast = useCallback((variant, title, message) => {
-    setToast({ variant, title, message })
-    setTimeout(() => {
-      setToast((curr) => (curr?.title === title ? null : curr))
-    }, 4500)
-  }, [])
+    const num = String(plots.length + 1).padStart(2, '0');
+    const added = {
+      id: `plot-${Date.now()}`,
+      fieldId: '1',
+      number: num,
+      name: newPlotName.trim(),
+      plotLabel: `Plot ${String.fromCharCode(65 + plots.length)}`,
+      crop: newCrop,
+      variety: newCrop === 'Wheat' ? 'PBW 824' : newCrop === 'Rice' ? 'PR 126' : 'Hybrid',
+      acres: parseFloat(newAcres) || 4.0,
+      stage: 'Vegetative Stage (Day 25)',
+      nextAction: '1.0 Bag Urea/Acre Scheduled',
+      timing: 'University benchmark timing',
+      weatherStatus: 'Clear conditions',
+      isActionDue: false,
+    };
 
-  // Initial load
-  const loadData = useCallback(async () => {
-    try {
-      const loadedFarms = await fetchFarms()
-      // Fetch all fields across loaded farms
-      await Promise.all(
-        loadedFarms.map((farm) => fetchFields(farm.id).catch(() => []))
-      )
-    } catch {
-      // Error handled by store
-    }
-  }, [fetchFarms, fetchFields])
+    setPlots([...plots, added]);
+    setIsAddOpen(false);
+    setNewPlotName('');
+  };
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  // Helpers to calculate stats
-  const totalFarms = farms.length
-  const totalFields = fields.length
-  const totalAcres = fields.reduce((acc, f) => acc + (Number(f.areaAcres) || 0), 0)
-
-  const handleOpenCreateField = (farmId) => {
-    setSelectedFarmForField(farmId || (farms[0]?.id ?? ''))
-    setIsCreateFieldOpen(true)
-  }
+  const handleDelete = (id) => {
+    if (plots.length <= 1) return;
+    setPlots(plots.filter((p) => p.id !== id));
+  };
 
   return (
-    <div className="space-y-6 py-2 max-w-7xl mx-auto">
-      {/* Toast Notification Alert */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 max-w-md w-full animate-in fade-in slide-in-from-top-4 duration-fast shadow-xl">
-          <Toast
-            variant={toast.variant}
-            title={toast.title}
-            message={toast.message}
-            onClose={() => setToast(null)}
-          />
-        </div>
-      )}
-
-      {/* 1. Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border-default pb-5">
+    <div className="space-y-8 font-sans text-[#1C1B18]">
+      
+      {/* 1. High-Impact Page Header with Staggered Reveal */}
+      <div className="animate-reveal flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-[#E8E2D5]">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="p-1.5 rounded-lg bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300">
-              <Sprout className="w-5 h-5" />
-            </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-400">
-              Farm & Field Management
-            </span>
+          <div className="text-xs font-semibold uppercase tracking-widest text-[#B8791E] mb-1">
+            ਪੰਜਾਬ ਖੇਤੀ ਲੇਜ਼ਰ · Punjab Agromet Portal
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-ink-primary tracking-tight">
-            My Land & Fields
+          <h1 className="font-serif text-3xl sm:text-4xl text-[#1C1B18] tracking-tight">
+            Field Operations Ledger
           </h1>
-          <p className="text-sm text-ink-secondary mt-1 max-w-2xl leading-relaxed">
-            Manage your farms, configure field plot coordinates for Open-Meteo weather tracking, and access precision fertilizer recommendations.
+          <p className="text-sm text-[#756F63] mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>{plots.length} Registered Plots</span>
+            <span className="text-[#C5BBAA]">·</span>
+            <span>{totalAcres.toFixed(1)} Total Acres</span>
+            <span className="text-[#C5BBAA]">·</span>
+            <span className="inline-flex items-center gap-1.5 text-[#2D5430] font-medium bg-[#DCFCE7]/70 px-2.5 py-0.5 rounded-full text-xs">
+              <Sun className="w-3.5 h-3.5" />
+              Weather Window Clear (0.0mm rain next 48h)
+            </span>
           </p>
         </div>
 
-        {/* Global Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Button
+        <div className="flex items-center gap-3 shrink-0">
+          <button
             type="button"
-            variant="secondary"
-            onClick={() => setIsCreateFarmOpen(true)}
-            className="flex items-center gap-1.5"
+            onClick={() => window.print()}
+            className="px-4 py-2 text-xs font-medium text-[#615C52] hover:text-[#1C1B18] border border-[#DCD6C7] rounded-lg bg-white/80 hover:bg-white transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print Dealer Slip</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsAddOpen(true)}
+            className="px-4 py-2 text-xs font-medium text-white bg-[#2D5430] hover:bg-[#234226] rounded-lg transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Farm</span>
-          </Button>
-
-          <Button
-            type="button"
-            variant="primary"
-            disabled={farms.length === 0}
-            onClick={() => handleOpenCreateField()}
-            className="flex items-center gap-1.5"
-          >
-            <Layers className="w-4 h-4" />
-            <span>Add Field Plot</span>
-          </Button>
+            <span>Register Plot</span>
+          </button>
         </div>
       </div>
 
-      {/* 2. Global Error Banner */}
-      {error && (
-        <div className="p-4 rounded-xl bg-risk-high-bg border border-risk-high-border text-sm text-risk-high-text flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <AlertTriangle className="w-5 h-5 shrink-0" />
-            <span className="font-medium">{error}</span>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              clearError()
-              loadData()
-            }}
-            className="shrink-0"
-          >
-            <RotateCcw className="w-3.5 h-3.5 mr-1" />
-            <span>Retry</span>
-          </Button>
-        </div>
-      )}
-
-      {/* 3. Summary Statistics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="p-4 rounded-xl border border-border-default bg-bg-surface space-y-1">
-          <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider block">
-            Total Farms
-          </span>
-          <div className="text-2xl sm:text-3xl font-black text-ink-primary">
-            {isLoading ? <Skeleton className="h-8 w-12" /> : totalFarms}
-          </div>
-          <span className="text-[11px] text-ink-muted">Registered agricultural holdings</span>
+      {/* 2. Bespoke Operations Ledger (Clean tabular list with craft detailing) */}
+      <div className="space-y-3 animate-reveal delay-1">
+        <div className="flex items-center justify-between text-xs font-medium text-[#756F63] uppercase tracking-wider px-2">
+          <span>Field Specification</span>
+          <span className="hidden md:inline">Prescribed Action &amp; Weather</span>
         </div>
 
-        <div className="p-4 rounded-xl border border-border-default bg-bg-surface space-y-1">
-          <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider block">
-            Field Plots
-          </span>
-          <div className="text-2xl sm:text-3xl font-black text-primary-600 dark:text-primary-400">
-            {isLoading ? <Skeleton className="h-8 w-12" /> : totalFields}
-          </div>
-          <span className="text-[11px] text-ink-muted">Tracked plots with coordinates</span>
-        </div>
-
-        <div className="p-4 rounded-xl border border-border-default bg-bg-surface space-y-1">
-          <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider block">
-            Total Area
-          </span>
-          <div className="text-2xl sm:text-3xl font-black text-ink-primary">
-            {isLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              `${totalAcres.toFixed(1)} `
-            )}
-            <span className="text-sm font-normal text-ink-muted">Acres</span>
-          </div>
-          <span className="text-[11px] text-ink-muted">Combined cultivation area</span>
-        </div>
-
-        <div className="p-4 rounded-xl border border-border-default bg-bg-surface space-y-1">
-          <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider block">
-            Weather Tracking
-          </span>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-            <CloudSun className="w-6 h-6 text-emerald-500" />
-            <span>Open-Meteo</span>
-          </div>
-          <span className="text-[11px] text-ink-muted">Live micro-forecast enabled</span>
-        </div>
-      </div>
-
-      {/* 4. Loading State Skeleton */}
-      {isLoading && farms.length === 0 && (
-        <div className="space-y-6">
-          <div className="p-6 rounded-2xl border border-border-default bg-bg-surface space-y-4">
-            <div className="flex justify-between items-center">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-8 w-24" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Skeleton className="h-36 rounded-xl" />
-              <Skeleton className="h-36 rounded-xl" />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Empty State: No farms */}
-      {!isLoading && farms.length === 0 && (
-        <EmptyState
-          icon={Sprout}
-          title="No farms registered yet"
-          description="Create your first farm profile to organize your land plots, monitor soil health, and receive precision fertilizer recommendations."
-          action={
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => setIsCreateFarmOpen(true)}
-              className="flex items-center gap-2"
+        <div className="border border-[#D8CEBC] rounded-2xl bg-white/80 backdrop-blur-xs divide-y divide-[#EAE4D5] shadow-xs overflow-hidden">
+          {plots.map((plot) => (
+            <div
+              key={plot.id}
+              className="p-5 sm:p-6 hover:bg-[#FAF8F5] transition-colors flex flex-col md:flex-row md:items-center justify-between gap-6"
             >
-              <Plus className="w-4 h-4" />
-              <span>Create First Farm</span>
-            </Button>
-          }
-        />
-      )}
+              {/* Left: Serial & Field Details */}
+              <div className="flex items-start gap-4">
+                <span className="font-serif text-2xl text-[#B8791E] shrink-0 font-medium">
+                  {plot.number}
+                </span>
 
-      {/* 6. Farms and Fields List */}
-      {!isLoading && farms.length > 0 && (
-        <div className="space-y-8">
-          {farms.map((farm) => {
-            const farmFields = fields.filter((f) => String(f.farmId) === String(farm.id))
-
-            return (
-              <Card
-                key={farm.id}
-                className={`
-                  p-5 sm:p-6 space-y-5 transition-all
-                  ${farm._isOptimistic ? 'opacity-85 border-primary-300' : ''}
-                `}
-              >
-                {/* Farm Card Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-default pb-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2.5">
-                      <h2 className="text-xl font-bold text-ink-primary tracking-tight">
-                        {farm.name}
-                      </h2>
-                      {farm._isOptimistic && (
-                        <span className="text-[11px] font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                          Saving...
-                        </span>
-                      )}
-                      <Badge variant="subtle">
-                        {farmFields.length} {farmFields.length === 1 ? 'Field Plot' : 'Field Plots'}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-ink-muted flex items-center gap-2">
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>
-                        Registered{' '}
-                        {farm.createdAt
-                          ? new Date(farm.createdAt).toLocaleDateString('en-IN', {
-                              month: 'short',
-                              year: 'numeric',
-                            })
-                          : 'Recently'}
-                      </span>
-                    </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2.5">
+                    <h2 className="font-serif text-xl text-[#1C1B18]">
+                      {plot.name}
+                    </h2>
+                    <span className="text-[11px] font-sans font-medium px-2 py-0.5 rounded bg-[#F0EADB] text-[#615C52]">
+                      {plot.plotLabel}
+                    </span>
                   </div>
 
-                  {/* Farm Level Actions */}
-                  <div className="flex items-center gap-2 self-start sm:self-auto">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenCreateField(farm.id)}
-                      className="flex items-center gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Field</span>
-                    </Button>
+                  <div className="text-sm text-[#756F63]">
+                    <span className="font-semibold text-[#1C1B18]">{plot.crop}</span> · {plot.variety} · <span className="font-medium text-[#1C1B18]">{plot.acres} Acres</span>
+                  </div>
 
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Delete ${farm.name}`}
-                      onClick={() => setFarmToDelete(farm)}
-                      className="text-ink-muted hover:text-risk-high-text"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                  <div className="text-xs text-[#8A8477]">
+                    Growth Stage: {plot.stage}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Prescribed Dose & Direct Action */}
+              <div className="flex flex-col sm:flex-row md:flex-col md:items-end justify-between sm:items-center gap-3">
+                <div className="md:text-right">
+                  <div className={`font-serif text-lg ${plot.isActionDue ? 'text-[#9E6015]' : 'text-[#2D5430]'}`}>
+                    {plot.nextAction}
+                  </div>
+                  <div className="text-xs text-[#756F63]">
+                    {plot.timing}
                   </div>
                 </div>
 
-                {/* Fields Grid inside this Farm */}
-                {farmFields.length === 0 ? (
-                  <div className="p-6 text-center border border-dashed border-border-default rounded-xl bg-bg-surface/40 space-y-2">
-                    <p className="text-sm font-semibold text-ink-primary">
-                      No field plots added to this farm yet.
-                    </p>
-                    <p className="text-xs text-ink-secondary max-w-md mx-auto">
-                      Add a field plot with coordinates to calculate soil nutrient deficits and dated application schedules.
-                    </p>
-                    <div className="pt-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleOpenCreateField(farm.id)}
-                        className="inline-flex items-center gap-1.5"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add First Field to {farm.name}</span>
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {farmFields.map((field) => {
-                      const hasCoords = field.latitude != null && field.longitude != null
+                <div className="flex items-center gap-3 pt-1">
+                  <span className="text-xs text-[#2D5430] flex items-center gap-1 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#2D5430]" />
+                    {plot.weatherStatus}
+                  </span>
 
-                      return (
-                        <div
-                          key={field.id}
-                          className={`
-                            group rounded-xl border border-border-default bg-bg-surface hover:border-primary-400
-                            hover:shadow-md transition-all duration-normal flex flex-col justify-between overflow-hidden
-                            ${field._isOptimistic ? 'opacity-80 border-primary-200' : ''}
-                          `}
-                        >
-                          {/* Top Card Info */}
-                          <div className="p-4 space-y-3">
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <h3 className="text-base font-bold text-ink-primary group-hover:text-primary-700 dark:group-hover:text-primary-400 transition-colors">
-                                  {field.name}
-                                </h3>
-                                <div className="text-xs text-ink-secondary font-medium mt-0.5">
-                                  {field.areaAcres ? `${field.areaAcres} Acres` : 'Area not set'}
-                                  {field.pincode && (
-                                    <span className="text-ink-muted"> • Pin: {field.pincode}</span>
-                                  )}
-                                </div>
-                              </div>
-                              <span className="p-1 rounded-lg bg-bg-subtle text-ink-muted group-hover:text-primary-600 transition-colors">
-                                <ChevronRight className="w-4 h-4" />
-                              </span>
-                            </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/fields/${plot.fieldId}/recommendation`)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#2D5430] hover:bg-[#234226] text-white text-xs font-medium transition-all cursor-pointer shadow-2xs active:scale-95"
+                  >
+                    <span>View Plan</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
 
-                            {/* Crop & Stage Badges */}
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <Badge variant="neutral">
-                                <Sprout className="w-3 h-3 mr-1 text-primary-600" />
-                                <span className="capitalize">{field.cropType || 'Wheat'}</span>
-                                {field.cropVariety && (
-                                  <span className="text-ink-muted"> ({field.cropVariety})</span>
-                                )}
-                              </Badge>
+                  {plots.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(plot.id)}
+                      className="p-1.5 text-[#A39E93] hover:text-[#B91C1C] rounded-md transition-colors cursor-pointer"
+                      title="Remove plot entry"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
-                              <Badge variant="subtle">
-                                <span className="capitalize">
-                                  {field.growthStage?.replace(/_/g, ' ') || 'Sowing'}
-                                </span>
-                              </Badge>
-                            </div>
+      {/* 3. Soil Calibration Quick Callout (Clean Editorial Docket) */}
+      <div className="animate-reveal delay-2 p-6 rounded-2xl border border-[#D8CEBC] bg-white/60 backdrop-blur-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="font-serif text-lg text-[#1C1B18]">
+            Recalibrate Doses with Recent Soil Test
+          </div>
+          <div className="text-sm text-[#756F63]">
+            Adjust exact fertilizer bag counts based on your latest Punjab government soil health card.
+          </div>
+        </div>
 
-                            {/* Location & Weather Coordinates */}
-                            <div className="p-2.5 rounded-lg bg-bg-subtle/80 border border-border-default text-xs space-y-1">
-                              <div className="flex items-center justify-between text-ink-secondary">
-                                <span className="flex items-center gap-1 text-[11px] font-medium">
-                                  <MapPin className="w-3.5 h-3.5 text-primary-600" />
-                                  <span>Coordinates:</span>
-                                </span>
-                                {hasCoords ? (
-                                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
-                                    Weather Ready
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] text-amber-600 font-semibold">
-                                    Needs Location
-                                  </span>
-                                )}
-                              </div>
-                              <div className="font-mono text-[11px] text-ink-primary">
-                                {hasCoords
-                                  ? `${Number(field.latitude).toFixed(3)}° N, ${Number(field.longitude).toFixed(3)}° E`
-                                  : 'Coordinates missing'}
-                              </div>
-                            </div>
-                          </div>
+        <Link
+          to="/fields/1/soil"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FAF8F5] border border-[#D8CEBC] hover:border-[#1C1B18] text-xs font-medium text-[#1C1B18] transition-all self-start sm:self-auto cursor-pointer shadow-2xs"
+        >
+          <span>Enter Soil Values</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
 
-                          {/* Card Footer Actions */}
-                          <div className="px-4 py-3 bg-bg-subtle/50 border-t border-border-default flex items-center justify-between gap-2">
-                            <Link
-                              to={`/fields/${field.id}`}
-                              className="text-xs font-bold text-primary-700 dark:text-primary-300 hover:text-primary-800 hover:underline flex items-center gap-1"
-                            >
-                              <span>Field Profile</span>
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            </Link>
+      {/* Add Plot Modal */}
+      {isAddOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FAF8F5] rounded-2xl border border-[#D8CEBC] max-w-md w-full p-6 shadow-2xl space-y-5 animate-reveal">
+            <div className="flex items-center justify-between border-b border-[#E8E2D5] pb-3">
+              <h2 className="font-serif text-2xl text-[#1C1B18]">
+                Register New Field Plot
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsAddOpen(false)}
+                className="p-1 rounded-md text-[#756F63] hover:text-[#1C1B18]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-                            <div className="flex items-center gap-2">
-                              <Link
-                                to={`/fields/${field.id}/soil`}
-                                title="Soil Health Analysis"
-                                className="p-1.5 rounded-md text-ink-muted hover:text-ink-primary hover:bg-bg-surface border border-transparent hover:border-border-default transition-all"
-                              >
-                                <FlaskConical className="w-4 h-4" />
-                              </Link>
-                              <Link
-                                to={`/fields/${field.id}/recommendation`}
-                                title="Fertilizer Recommendation"
-                                className="p-1.5 rounded-md text-primary-600 hover:text-primary-700 hover:bg-bg-surface border border-transparent hover:border-primary-200 transition-all"
-                              >
-                                <Sparkles className="w-4 h-4" />
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </Card>
-            )
-          })}
+            <form onSubmit={handleAddPlot} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#615C52] mb-1">
+                  Plot Designation
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Canal Block North"
+                  value={newPlotName}
+                  onChange={(e) => setNewPlotName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#D8CEBC] bg-white focus:outline-none focus:ring-2 focus:ring-[#2D5430]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[#615C52] mb-1">
+                    Target Crop
+                  </label>
+                  <select
+                    value={newCrop}
+                    onChange={(e) => setNewCrop(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#D8CEBC] bg-white focus:outline-none focus:ring-2 focus:ring-[#2D5430]"
+                  >
+                    <option value="Wheat">Wheat (ਕਣਕ)</option>
+                    <option value="Rice">Rice (ਝੋਨਾ)</option>
+                    <option value="Cotton">Cotton (ਨਰਮਾ)</option>
+                    <option value="Maize">Maize (ਮੱਕੀ)</option>
+                    <option value="Sugarcane">Sugarcane (ਗੰਨਾ)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[#615C52] mb-1">
+                    Land Area (Acres)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    max="100"
+                    required
+                    value={newAcres}
+                    onChange={(e) => setNewAcres(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#D8CEBC] bg-white focus:outline-none focus:ring-2 focus:ring-[#2D5430]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E8E2D5]">
+                <button
+                  type="button"
+                  onClick={() => setIsAddOpen(false)}
+                  className="px-4 py-2 text-xs font-medium text-[#615C52] hover:text-[#1C1B18] rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-medium text-white bg-[#2D5430] hover:bg-[#234226] rounded-lg transition-colors shadow-xs"
+                >
+                  Register Plot
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* Modals */}
-      <CreateFarmModal
-        isOpen={isCreateFarmOpen}
-        onClose={() => setIsCreateFarmOpen(false)}
-        onSuccess={(newFarm) => {
-          showToast('success', 'Farm Created', `Farm "${newFarm.name}" added successfully.`)
-        }}
-        onError={(errMsg) => {
-          showToast('error', 'Action Rolled Back', errMsg)
-        }}
-      />
-
-      <CreateFieldModal
-        isOpen={isCreateFieldOpen}
-        onClose={() => setIsCreateFieldOpen(false)}
-        initialFarmId={selectedFarmForField}
-        farms={farms}
-        onSuccess={(newField) => {
-          showToast('success', 'Field Registered', `Field "${newField.name}" created with weather coordinates.`)
-        }}
-        onError={(errMsg) => {
-          showToast('error', 'Action Rolled Back', errMsg)
-        }}
-      />
-
-      <DeleteFarmModal
-        isOpen={!!farmToDelete}
-        farm={farmToDelete}
-        onClose={() => setFarmToDelete(null)}
-        onSuccess={(msg) => {
-          showToast('success', 'Farm Deleted', msg)
-        }}
-        onError={(errMsg) => {
-          showToast('error', 'Deletion Failed', errMsg)
-        }}
-      />
     </div>
-  )
+  );
 }

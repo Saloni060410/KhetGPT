@@ -38,7 +38,7 @@ export default function SoilScroll() {
   const [isReady, setIsReady] = useState(false);
   const [loadedPercent, setLoadedPercent] = useState(0);
 
-  // Map vertical scroll progress across the 400vh container
+  // Map vertical scroll progress across the 320vh container
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ['start start', 'end end'],
@@ -76,7 +76,7 @@ export default function SoilScroll() {
     }
 
     const imgAspect = 1280 / 720;
-    const destH = Math.round(Math.min(physH * 0.90, physW / imgAspect));
+    const destH = Math.round(Math.min(physH * 0.92, physW / imgAspect));
     const destW = Math.round(destH * imgAspect);
     const destX = Math.round((physW - destW) / 2);
     const destY = Math.round((physH - destH) / 2);
@@ -279,9 +279,9 @@ export default function SoilScroll() {
       const is30 = clamped >= 0.25 && clamped < 0.65;
       const is75 = clamped >= 0.65;
 
-      labelSurfaceRef.current.className = isSurf ? 'text-white font-medium' : 'text-stone-600';
-      label30cmRef.current.className = is30 ? 'text-white font-medium' : 'text-stone-600';
-      label75cmRef.current.className = is75 ? 'text-white font-medium' : 'text-stone-600';
+      labelSurfaceRef.current.className = isSurf ? 'text-[#BFE272] font-bold' : 'text-[#5C7F68] font-medium';
+      label30cmRef.current.className = is30 ? 'text-[#BFE272] font-bold' : 'text-[#5C7F68] font-medium';
+      label75cmRef.current.className = is75 ? 'text-[#BFE272] font-bold' : 'text-[#5C7F68] font-medium';
     }
 
     // Update active stage ONLY when the stage actually changes
@@ -320,9 +320,9 @@ export default function SoilScroll() {
   }, [updateProgress]);
 
   return (
-    <section ref={containerRef} className="relative w-full h-[400vh] bg-[#000000]">
+    <section ref={containerRef} className="relative w-full h-[320vh] bg-black">
       {/* Sticky Full-Screen Viewport Container */}
-      <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center bg-[#000000]">
+      <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center bg-black">
         
         {/* Full-Screen Scrollytelling Canvas with Hardware Acceleration */}
         <canvas
@@ -341,15 +341,15 @@ export default function SoilScroll() {
             <motion.div
               initial={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
-              className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#000000]"
+              transition={{ duration: 0.3 }}
+              className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black"
             >
-              <div className="font-mono text-xs uppercase tracking-widest text-stone-400 mb-2">
-                Loading Strata Sequence
+              <div className="font-mono text-[11px] uppercase tracking-widest text-[#BFE272] mb-2 font-bold">
+                Loading Soil Sequence
               </div>
-              <div className="w-32 h-[2px] bg-stone-900 overflow-hidden relative rounded-full">
+              <div className="w-28 h-1 bg-stone-900 overflow-hidden relative rounded-full">
                 <div 
-                  className="h-full bg-emerald-400 transition-all duration-200"
+                  className="h-full bg-[#BFE272] transition-all duration-200"
                   style={{ width: `${Math.max(5, loadedPercent)}%` }}
                 />
               </div>
@@ -357,34 +357,34 @@ export default function SoilScroll() {
           )}
         </AnimatePresence>
 
-        {/* Minimalist Depth & Timeline Axis (Right Side) */}
-        <div className="absolute right-6 sm:right-10 top-1/2 -translate-y-1/2 z-20 pointer-events-none hidden sm:flex flex-col items-end space-y-6 text-stone-500 font-mono text-[11px]">
+        {/* Minimalist Depth Meter Axis (Right Side) */}
+        <div className="absolute right-6 sm:right-10 top-1/2 -translate-y-1/2 z-20 pointer-events-none hidden sm:flex flex-col items-end space-y-6 font-mono text-[11px]">
           <div className="flex items-center space-x-2">
-            <span ref={labelSurfaceRef} className="text-white font-medium">Surface</span>
-            <div className="w-3 h-[1px] bg-stone-700" />
+            <span ref={labelSurfaceRef} className="text-[#B8791E] font-medium">Surface (0 cm)</span>
+            <div className="w-2.5 h-[1px] bg-[#3E382E]" />
           </div>
           <div className="flex items-center space-x-2">
-            <span ref={label30cmRef} className="text-stone-600">-30 cm</span>
-            <div className="w-3 h-[1px] bg-stone-700" />
+            <span ref={label30cmRef} className="text-[#8C8474] font-medium">Root Zone (-30 cm)</span>
+            <div className="w-2.5 h-[1px] bg-[#3E382E]" />
           </div>
           <div className="flex items-center space-x-2">
-            <span ref={label75cmRef} className="text-stone-600">-75 cm</span>
-            <div className="w-3 h-[1px] bg-stone-700" />
+            <span ref={label75cmRef} className="text-[#8C8474] font-medium">Subsoil (-75 cm)</span>
+            <div className="w-2.5 h-[1px] bg-[#3E382E]" />
           </div>
 
-          {/* Minimalist Progress Meter */}
-          <div className="w-[2px] h-24 bg-stone-900 relative mt-2 rounded-full overflow-hidden">
+          {/* Minimalist Progress Meter Bar */}
+          <div className="w-1 h-20 bg-[#1A1813] relative mt-1 rounded-full overflow-hidden border border-[#3E382E]">
             <div 
               ref={meterBarRef}
-              className="w-full bg-stone-300 transition-none"
+              className="w-full bg-[#B8791E] transition-none rounded-full"
               style={{ height: '0%' }}
             />
           </div>
         </div>
 
-        {/* ================= EDITORIAL STORY OVERLAYS (CRISP, ZERO GPU READBACK) ================= */}
+        {/* ================= EDITORIAL STORY OVERLAYS (RESTRAINED, FRAUNCES + IBM PLEX MONO) ================= */}
 
-        {/* STAGE 1: 0% – 28% (Top-Left Editorial Typography) */}
+        {/* STAGE 1: 0% – 28% (Top-Left Clean Editorial Card) */}
         <AnimatePresence>
           {activeStage === 1 && (
             <motion.div
@@ -392,41 +392,25 @@ export default function SoilScroll() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute top-24 sm:top-28 left-6 sm:left-14 max-w-lg z-20 pointer-events-auto"
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute top-20 sm:top-24 left-6 sm:left-12 max-w-sm sm:max-w-md z-20 pointer-events-auto"
             >
-              {/* High-contrast solid container: eliminated backdrop-blur GPU stall */}
-              <div className="relative p-6 sm:p-8 rounded-2xl bg-[#060a0d]/92 border border-white/10 shadow-2xl">
-                
-                <div className="font-mono text-[10px] tracking-[0.25em] text-stone-400 uppercase mb-3">
-                  01 / Soil Stratigraphy Baseline
-                </div>
-
-                <h2 className="text-3xl sm:text-4xl font-medium tracking-tight text-white mb-3">
-                  The Living Horizon
-                </h2>
-
-                <p className="text-sm text-stone-300 font-normal leading-relaxed mb-6 max-w-md">
-                  Porous granular loam under balanced microbial equilibrium. Roots penetrate freely beyond 60 centimeters, establishing mycorrhizal networks that naturally cycle phosphorus and retain moisture.
+              <div className="p-6 sm:p-7 rounded-2xl bg-[#221F19]/95 border border-[#3E382E] text-[#F6F1E4] shadow-2xl">
+                <span className="inline-block px-3 py-1 rounded-full bg-[#33512E] text-[#F6F1E4] text-[11px] font-mono tracking-wider uppercase mb-3">
+                  01 · Living Surface (0 cm)
+                </span>
+                <h3 className="text-2xl sm:text-3xl font-display font-medium text-[#F6F1E4] tracking-tight mb-2">
+                  The Root Horizon
+                </h3>
+                <p className="text-xs sm:text-sm text-[#D8D0BF] leading-relaxed font-sans font-normal">
+                  Porous topsoil where beneficial microbes and feeder roots cycle phosphorus and nitrogen under balanced soil moisture.
                 </p>
-
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10 text-xs font-mono">
-                  <div>
-                    <span className="text-stone-500 block text-[10px] uppercase tracking-wider">Organic Matter</span>
-                    <span className="text-stone-200 font-medium">4.8% · High Carbon</span>
-                  </div>
-                  <div>
-                    <span className="text-stone-500 block text-[10px] uppercase tracking-wider">Compaction</span>
-                    <span className="text-stone-200 font-medium">None · Aerated</span>
-                  </div>
-                </div>
-
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* STAGE 2: 35% – 66% (Top-Right Editorial Typography) */}
+        {/* STAGE 2: 35% – 66% (Top-Right Clean Editorial Card) */}
         <AnimatePresence>
           {activeStage === 2 && (
             <motion.div
@@ -434,40 +418,25 @@ export default function SoilScroll() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute top-24 sm:top-28 right-6 sm:right-14 max-w-lg z-20 pointer-events-auto text-left"
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute top-20 sm:top-24 right-6 sm:right-12 max-w-sm sm:max-w-md z-20 pointer-events-auto text-left"
             >
-              <div className="relative p-6 sm:p-8 rounded-2xl bg-[#060a0d]/92 border border-white/10 shadow-2xl">
-                
-                <div className="font-mono text-[10px] tracking-[0.25em] text-amber-400/90 uppercase mb-3">
-                  02 / 45 Days Post-Application
-                </div>
-
-                <h2 className="text-3xl sm:text-4xl font-medium tracking-tight text-white mb-3">
-                  Compaction & Salt Burn
-                </h2>
-
-                <p className="text-sm text-stone-300 font-normal leading-relaxed mb-6 max-w-md">
-                  Unabsorbed synthetic nitrogen oxidizes humic aggregates, forming a dense subsoil hardpan. Lateral feeder roots desiccate and withdraw, while heavy nitrates wash down into the regional watershed.
+              <div className="p-6 sm:p-7 rounded-2xl bg-[#221F19]/95 border border-[#9C4530]/60 text-[#F6F1E4] shadow-2xl">
+                <span className="inline-block px-3 py-1 rounded-full bg-[#9C4530] text-[#F6F1E4] text-[11px] font-mono tracking-wider uppercase mb-3">
+                  02 · Chemical Risk (-30 cm)
+                </span>
+                <h3 className="text-2xl sm:text-3xl font-display font-medium text-[#F6F1E4] tracking-tight mb-2">
+                  Unabsorbed Hardpan
+                </h3>
+                <p className="text-xs sm:text-sm text-[#D8D0BF] leading-relaxed font-sans font-normal">
+                  Excess synthetic urea acidifies soil carbon, creating dense compaction that halts root penetration and causes deep nitrate leaching.
                 </p>
-
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10 text-xs font-mono">
-                  <div>
-                    <span className="text-stone-500 block text-[10px] uppercase tracking-wider">Nitrogen Loss</span>
-                    <span className="text-amber-300 font-medium">38% Volatilized</span>
-                  </div>
-                  <div>
-                    <span className="text-stone-500 block text-[10px] uppercase tracking-wider">Water Holding</span>
-                    <span className="text-stone-200 font-medium">-42% Retention</span>
-                  </div>
-                </div>
-
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* STAGE 3: 75% – 100% (Bottom Action Section) */}
+        {/* STAGE 3: 75% – 100% (Bottom Clean Action Card) */}
         <AnimatePresence>
           {activeStage === 3 && (
             <motion.div
@@ -475,53 +444,41 @@ export default function SoilScroll() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 15 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute bottom-10 left-6 right-6 sm:left-auto sm:right-auto sm:max-w-xl z-30 pointer-events-auto"
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute bottom-10 left-6 right-6 sm:left-12 sm:right-auto sm:max-w-md z-30 pointer-events-auto"
             >
-              <div className="p-7 sm:p-8 rounded-2xl bg-[#060a0d]/95 border border-white/15 text-white shadow-2xl">
-                
-                <div className="font-mono text-[10px] tracking-[0.25em] text-emerald-400 uppercase mb-2">
-                  03 / Agronomic Resolution
-                </div>
-
-                <h2 className="text-2xl sm:text-3xl font-medium tracking-tight text-white mb-2">
-                  Precision Variable-Rate Delivery
-                </h2>
-
-                <p className="text-xs sm:text-sm text-stone-300 font-normal leading-relaxed mb-6">
-                  Calibrate your fertilizer blend to root absorption kinetics and local rainfall windows. Eliminate wasteful synthetic runoff while protecting seasonal bushel yields.
+              <div className="p-6 sm:p-7 rounded-2xl bg-[#221F19]/95 border border-[#3E382E] text-[#F6F1E4] shadow-2xl">
+                <span className="inline-block px-3 py-1 rounded-full bg-[#B8791E] text-[#F6F1E4] text-[11px] font-mono tracking-wider uppercase mb-3">
+                  03 · Calibrated Solution (-75 cm)
+                </span>
+                <h3 className="text-2xl sm:text-3xl font-display font-medium text-[#F6F1E4] tracking-tight mb-2">
+                  Precision Uptake
+                </h3>
+                <p className="text-xs sm:text-sm text-[#D8D0BF] leading-relaxed mb-5 font-sans font-normal">
+                  PAU split dosing delivers nutrients in sync with vegetative demand, allowing 60+ cm deep root penetration with zero wasted bags.
                 </p>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-white/10">
-                  <div className="font-mono text-xs text-stone-400">
-                    <span className="text-white font-medium">$48.20 / acre</span> average cost savings
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigate('/dashboard');
-                        window.scrollTo({ top: 0, behavior: 'instant' });
-                      }}
-                      className="px-4 py-2.5 rounded-full border border-stone-700 hover:border-white text-stone-200 hover:text-white font-mono text-xs font-medium tracking-wide transition-all active:scale-95 cursor-pointer"
-                    >
-                      KhetGPT Dashboard
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigate('/optimizer');
-                        window.scrollTo({ top: 0, behavior: 'instant' });
-                      }}
-                      className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-full bg-emerald-400 text-black hover:bg-emerald-300 font-mono text-xs font-semibold tracking-wide transition-all active:scale-95 cursor-pointer shadow-sm shadow-emerald-400/20"
-                    >
-                      <span>Launch Optimizer</span>
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById('formula-story');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="px-5 py-2.5 rounded-full bg-[#B8791E] hover:bg-[#9E6515] text-[#F6F1E4] font-medium font-sans text-xs tracking-wide transition-all active:scale-95 cursor-pointer shadow-md"
+                  >
+                    How Formula Works ↓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigate('/dashboard');
+                      window.scrollTo({ top: 0, behavior: 'instant' });
+                    }}
+                    className="px-4 py-2.5 rounded-full border border-[#DECFAF]/60 hover:border-[#F6F1E4] text-[#F6F1E4] text-xs font-sans font-medium tracking-wide transition-all active:scale-95 cursor-pointer"
+                  >
+                    Farmer Dashboard →
+                  </button>
                 </div>
-
               </div>
             </motion.div>
           )}

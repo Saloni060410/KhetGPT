@@ -1,98 +1,38 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import {
-  Menu,
-  X,
-  Sprout,
-  LayoutDashboard,
-  FlaskConical,
-  Sparkles,
-  Calendar,
-  History as HistoryIcon,
-  LogOut,
-  LogIn,
-  Layers,
-} from 'lucide-react'
+import { Menu, X, LogOut } from 'lucide-react'
 import { useUserStore } from '../../store/useUserStore.js'
-import { useT } from '../../i18n/useT.js'
-import Button from '../ui/Button.jsx'
-import Badge from '../ui/Badge.jsx'
 import LanguageToggle from '../ui/LanguageToggle.jsx'
+import { WheatIcon } from '../icons/CropIcons.jsx'
+import {
+  HomeIcon,
+  DashboardIcon,
+  FieldProfileIcon,
+  SoilTestIcon,
+  PrescriptionIcon,
+  ScheduleIcon,
+  HistoryIcon,
+} from '../icons/NavIcons.jsx'
 
 const NAV_ITEMS = [
-  { to: '/dashboard', key: 'nav.dashboard', icon: LayoutDashboard, protected: true },
-  { to: '/fields/1', key: 'nav.fieldProfile', icon: Sprout, protected: true },
-  { to: '/fields/1/soil', key: 'nav.soilTest', icon: FlaskConical, protected: true },
-  { to: '/fields/1/recommendation', key: 'nav.recommendation', icon: Sparkles, protected: true },
-  { to: '/fields/1/schedule', key: 'nav.schedule', icon: Calendar, protected: true },
-  { to: '/fields/1/history', key: 'nav.history', icon: HistoryIcon, protected: true },
+  { to: '/', label: 'Home', icon: HomeIcon, exact: true },
+  { to: '/dashboard', label: 'Ledger', icon: DashboardIcon },
+  { to: '/fields/1', label: 'Fields', icon: FieldProfileIcon },
+  { to: '/fields/1/soil', label: 'Soil Test', icon: SoilTestIcon },
+  { to: '/fields/1/recommendation', label: 'Prescription', icon: PrescriptionIcon },
+  { to: '/fields/1/schedule', label: 'Schedule', icon: ScheduleIcon },
+  { to: '/fields/1/history', label: 'History', icon: HistoryIcon },
 ]
 
 export default function Navbar() {
-  const { t } = useT()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-  const drawerRef = useRef(null)
-  const menuButtonRef = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
-
   const { user, isAuthenticated, logout } = useUserStore()
 
-  const [prevPathname, setPrevPathname] = useState(location.pathname)
-  if (prevPathname !== location.pathname) {
-    setPrevPathname(location.pathname)
-    setIsDrawerOpen(false)
-  }
-
-  // Scroll lock and Escape listener when drawer is open
   useEffect(() => {
-    function handleKeyDown(e) {
-      if (e.key === 'Escape' && isDrawerOpen) {
-        setIsDrawerOpen(false)
-        menuButtonRef.current?.focus()
-      }
-    }
-
-    if (isDrawerOpen) {
-      document.body.style.overflow = 'hidden'
-      window.addEventListener('keydown', handleKeyDown)
-
-      // Focus trap within drawer
-      const focusableElements = drawerRef.current?.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      )
-      if (focusableElements && focusableElements.length > 0) {
-        focusableElements[0].focus()
-      }
-    } else {
-      document.body.style.overflow = ''
-    }
-
-    return () => {
-      document.body.style.overflow = ''
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isDrawerOpen])
-
-  // Focus trap Tab handling
-  const handleDrawerKeyDown = (e) => {
-    if (e.key !== 'Tab') return
-    const focusable = drawerRef.current?.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    )
-    if (!focusable || focusable.length === 0) return
-
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault()
-      last.focus()
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault()
-      first.focus()
-    }
-  }
+    setIsDrawerOpen(false)
+  }, [location.pathname])
 
   const handleLogout = async () => {
     await logout()
@@ -100,218 +40,168 @@ export default function Navbar() {
   }
 
   return (
-    <>
-      <header className="sticky top-0 z-40 bg-bg-surface/95 backdrop-blur-md border-b border-border-default shadow-xs">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-2">
-            {/* Logo */}
-            <Link
-              to={isAuthenticated ? '/dashboard' : '/'}
-              className="flex items-center gap-2 min-h-touch rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 shrink-0"
-            >
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary-600 text-ink-inverse flex items-center justify-center shadow-xs shrink-0">
-                <Sprout className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.4]" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-extrabold text-lg sm:text-xl tracking-tight text-ink-primary leading-none">
-                  Khet<span className="text-primary-600">GPT</span>
-                </span>
-                <span className="text-[9px] sm:text-[10px] font-semibold text-ink-muted uppercase tracking-wider mt-0.5 hidden xs:inline-block">
-                  {t('nav.tagline')}
-                </span>
-              </div>
-            </Link>
-
-            {/* Desktop Navigation Links */}
-            <nav className="hidden lg:flex items-center gap-1">
-              {NAV_ITEMS.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) => `
-                    px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-fast flex items-center gap-2
-                    min-h-touch focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600
-                    ${
-                      isActive
-                        ? 'bg-primary-50 text-primary-700 font-semibold'
-                        : 'text-ink-secondary hover:text-ink-primary hover:bg-bg-subtle'
-                    }
-                  `}
-                >
-                  <item.icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>{t(item.key)}</span>
-                </NavLink>
-              ))}
-            </nav>
-
-            {/* Desktop Auth / User Controls & Language Toggle */}
-            <div className="hidden sm:flex items-center gap-3">
-              <LanguageToggle />
-
-              {isAuthenticated ? (
-                <div className="flex items-center gap-3">
-                  <div className="flex flex-col text-right">
-                    <span className="text-sm font-bold text-ink-primary leading-none">
-                      {user?.name || t('nav.role')}
-                    </span>
-                    <span className="text-xs text-primary-600 font-medium">
-                      {user?.role || t('nav.role')}
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    leftIcon={LogOut}
-                    onClick={handleLogout}
-                    aria-label={t('nav.logout')}
-                  >
-                    {t('nav.logout')}
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Link to="/login">
-                    <Button variant="ghost" size="sm" leftIcon={LogIn}>
-                      {t('nav.login')}
-                    </Button>
-                  </Link>
-                  <Link to="/register">
-                    <Button variant="primary" size="sm">
-                      {t('nav.register')}
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* Mobile Controls: Language Toggle & Hamburger */}
-            <div className="flex items-center lg:hidden shrink-0 ml-auto gap-2">
-              <LanguageToggle />
-
-              <button
-                ref={menuButtonRef}
-                type="button"
-                onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                aria-expanded={isDrawerOpen}
-                aria-controls="mobile-navigation-drawer"
-                aria-label={isDrawerOpen ? t('nav.closeMenu') : t('nav.openMenu')}
-                className="min-h-touch min-w-touch p-2 inline-flex items-center justify-center rounded-lg text-ink-secondary hover:text-ink-primary hover:bg-bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 cursor-pointer"
-              >
-                {isDrawerOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Mobile Off-Canvas Drawer */}
-      {isDrawerOpen && (
-        <div
-          id="mobile-navigation-drawer"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Navigation Menu"
-          className="fixed inset-0 z-50 lg:hidden flex justify-end"
-          onKeyDown={handleDrawerKeyDown}
-        >
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-ink-primary/50 backdrop-blur-xs transition-opacity duration-normal"
-            onClick={() => setIsDrawerOpen(false)}
-            aria-hidden="true"
-          />
-
-          {/* Drawer Panel */}
-          <div
-            ref={drawerRef}
-            className="relative w-full max-w-xs bg-bg-surface h-full shadow-2xl flex flex-col justify-between p-5 border-l border-border-default animate-in slide-in-from-right duration-fast"
+    <div className="sticky top-4 z-40 px-3 sm:px-6 max-w-6xl mx-auto w-full">
+      <header className="bg-[#1C1B18]/95 backdrop-blur-md text-[#FAF8F5] rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-lg border border-[#3E382E]">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 w-full">
+          
+          {/* Brand Mark with DM Serif Display */}
+          <Link
+            to="/"
+            className="flex items-center gap-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D5430] shrink-0 group"
           >
-            <div>
-              {/* Drawer Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-border-subtle mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary-600 text-ink-inverse flex items-center justify-center">
-                    <Sprout className="w-4 h-4 stroke-[2.4]" />
+            <div className="w-8 h-8 rounded-lg bg-[#2D5430] text-[#FAF8F5] flex items-center justify-center shadow-xs">
+              <WheatIcon size={22} accentColor="#FAF8F5" inkColor="#1C1B18" />
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-serif text-xl sm:text-2xl tracking-tight text-[#FAF8F5]">
+                Khet<span className="text-[#B8791E]">GPT</span>
+              </span>
+              <span className="text-[10px] font-sans text-[#A89F91] hidden 2xl:inline uppercase tracking-wider">
+                ਪੰਜਾਬ ਖੇਤੀ
+              </span>
+            </div>
+          </Link>
+
+          {/* Desktop Navigation Links with Bespoke Agricultural Icons */}
+          <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 text-xs font-sans font-medium min-w-0">
+            {NAV_ITEMS.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.exact}
+                className={({ isActive }) => `
+                  px-2 py-1.5 xl:px-2.5 xl:py-1.5 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer text-[11px] xl:text-xs
+                  ${
+                    isActive
+                      ? 'bg-[#2D5430] text-[#FAF8F5] font-semibold shadow-xs'
+                      : 'text-[#C5BBAA] hover:text-[#FAF8F5] hover:bg-white/10'
+                  }
+                `}
+              >
+                {({ isActive }) => (
+                  <>
+                    <item.icon
+                      size={14}
+                      className={isActive ? 'text-[#FAF8F5]' : 'text-[#8C8474] group-hover:text-white'}
+                    />
+                    <span>{item.label}</span>
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </nav>
+
+          {/* Desktop Right Controls (Language + User Profile + Logout) */}
+          <div className="hidden sm:flex items-center gap-2 sm:gap-3 shrink-0">
+            <LanguageToggle dark={true} />
+
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-[#3E382E] shrink-0">
+                <div className="text-right leading-tight max-w-[85px] sm:max-w-[100px] xl:max-w-[120px]">
+                  <div 
+                    className="text-xs font-semibold text-[#FAF8F5] truncate"
+                    title={user?.name || 'Ramesh Patel'}
+                  >
+                    {user?.name || 'Ramesh Patel'}
                   </div>
-                  <span className="font-bold text-lg text-ink-primary">KhetGPT</span>
+                  <div className="text-[10px] text-[#B8791E] font-medium uppercase tracking-wider">
+                    Farmer
+                  </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsDrawerOpen(false)}
-                  aria-label="Close menu"
-                  className="min-h-touch min-w-touch -mr-2 inline-flex items-center justify-center rounded-lg text-ink-muted hover:text-ink-primary hover:bg-bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600"
+                  onClick={handleLogout}
+                  className="p-1 sm:p-1.5 rounded-lg text-[#C5BBAA] hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                  title="Log out"
                 >
-                  <X className="w-5 h-5" />
+                  <LogOut className="w-4 h-4" />
                 </button>
               </div>
-
-              {/* User Profile Card if Logged In */}
-              {isAuthenticated && (
-                <div className="p-3 bg-bg-subtle border border-border-subtle rounded-xl mb-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-bold text-ink-primary leading-tight">
-                        {user?.name || t('nav.role')}
-                      </p>
-                      <p className="text-xs text-ink-secondary">{user?.email}</p>
-                    </div>
-                    <Badge variant="primary" size="sm">{user?.role || t('nav.role')}</Badge>
-                  </div>
-                </div>
-              )}
-
-              {/* Navigation Links */}
-              <nav className="flex flex-col gap-1">
-                {NAV_ITEMS.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) => `
-                      px-3.5 py-3 rounded-xl text-base font-medium transition-colors flex items-center gap-3
-                      min-h-touch focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600
-                      ${
-                        isActive
-                          ? 'bg-primary-50 text-primary-700 font-bold'
-                          : 'text-ink-secondary hover:text-ink-primary hover:bg-bg-subtle'
-                      }
-                    `}
-                  >
-                    <item.icon className="w-5 h-5 shrink-0" aria-hidden="true" />
-                    <span>{t(item.key)}</span>
-                  </NavLink>
-                ))}
-              </nav>
-            </div>
-
-            {/* Drawer Footer Actions */}
-            <div className="pt-4 border-t border-border-subtle space-y-2">
-              {isAuthenticated ? (
-                <Button
-                  variant="outline"
-                  className="w-full justify-center"
-                  leftIcon={LogOut}
-                  onClick={handleLogout}
+            ) : (
+              <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-[#3E382E] shrink-0">
+                <Link
+                  to="/login"
+                  className="px-3.5 py-1.5 text-xs font-medium text-white bg-[#2D5430] hover:bg-[#234226] rounded-lg transition-all shadow-xs"
                 >
-                  {t('nav.logout')}
-                </Button>
+                  Sign in
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Controls (Language + Hamburger) */}
+          <div className="flex items-center lg:hidden gap-2 shrink-0">
+            <LanguageToggle dark={true} />
+            <button
+              type="button"
+              onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+              className="p-2 rounded-lg text-[#C5BBAA] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              aria-label="Toggle navigation menu"
+            >
+              {isDrawerOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+
+        </div>
+
+        {/* Mobile Dropdown */}
+        {isDrawerOpen && (
+          <div className="lg:hidden border-t border-[#3E382E] mt-3 pt-3 space-y-1 font-sans animate-in fade-in duration-150">
+            {NAV_ITEMS.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.exact}
+                className={({ isActive }) => `
+                  flex items-center gap-2.5 px-3 py-2 text-xs rounded-lg whitespace-nowrap transition-colors
+                  ${
+                    isActive
+                      ? 'bg-[#2D5430] text-[#FAF8F5] font-semibold shadow-xs'
+                      : 'text-[#C5BBAA] hover:text-white hover:bg-white/10'
+                  }
+                `}
+              >
+                {({ isActive }) => (
+                  <>
+                    <item.icon
+                      size={16}
+                      className={isActive ? 'text-[#FAF8F5]' : 'text-[#8C8474]'}
+                    />
+                    <span>{item.label}</span>
+                  </>
+                )}
+              </NavLink>
+            ))}
+
+            {/* Mobile Auth Bar */}
+            <div className="pt-2 mt-2 border-t border-[#3E382E] flex items-center justify-between px-3">
+              {isAuthenticated ? (
+                <>
+                  <div>
+                    <div className="text-xs font-semibold text-[#FAF8F5]">{user?.name || 'Ramesh Patel'}</div>
+                    <div className="text-[10px] text-[#B8791E] font-medium uppercase tracking-wider">Farmer</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-xs text-[#FAF8F5] hover:bg-white/20 transition-colors"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Log out</span>
+                  </button>
+                </>
               ) : (
-                <div className="space-y-2">
-                  <Link to="/login" className="block w-full">
-                    <Button variant="outline" className="w-full justify-center" leftIcon={LogIn}>
-                      {t('nav.login')}
-                    </Button>
-                  </Link>
-                  <Link to="/register" className="block w-full">
-                    <Button variant="primary" className="w-full justify-center">
-                      {t('nav.register')}
-                    </Button>
-                  </Link>
-                </div>
+                <Link
+                  to="/login"
+                  className="w-full text-center py-2 rounded-lg bg-[#2D5430] text-xs font-medium text-white"
+                >
+                  Sign in
+                </Link>
               )}
             </div>
           </div>
-        </div>
-      )}
-    </>
+        )}
+      </header>
+    </div>
   )
 }

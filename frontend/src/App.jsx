@@ -63,7 +63,7 @@ export default function App() {
             }
           />
 
-          {/* Protected App Routes */}
+          {/* Core Authenticated App Pages for Farmers Who Log In */}
           <Route
             path="/dashboard"
             element={
