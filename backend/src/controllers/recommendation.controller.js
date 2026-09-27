@@ -38,6 +38,9 @@ export async function createRecommendation(req, res, next) {
     if (!field.cropType) {
       return res.status(409).json({ error: 'Field has no crop type set' })
     }
+    if (!field.growthStage) {
+      return res.status(409).json({ error: 'Field has no growth stage set' })
+    }
 
     const soilTest = await prisma.soilTest.findFirst({
       where: { fieldId: field.id },
@@ -60,7 +63,7 @@ export async function createRecommendation(req, res, next) {
       field_id: field.id,
       crop_type: field.cropType,
       variety: field.cropVariety ?? null,
-      irrigation: null,
+      irrigation: field.irrigation ?? 'irrigated',
       growth_stage: field.growthStage,
       sowing_date: field.sowingDate ? isoDate(field.sowingDate) : null,
       soil: {

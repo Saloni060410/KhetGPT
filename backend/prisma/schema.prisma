@@ -64,6 +64,7 @@ model Field {
   cropType        String?
   cropVariety     String?
   growthStage     String?
+  irrigation      String?
   sowingDate      DateTime?
   soilTests       SoilTest[]
   recommendations Recommendation[]

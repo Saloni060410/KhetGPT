@@ -17,8 +17,8 @@ after(async () => {
 
 beforeEach(async () => {
   await prisma.fertilizerLog.deleteMany()
-  await prisma.soilTest.deleteMany()
   await prisma.recommendation.deleteMany()
+  await prisma.soilTest.deleteMany()
   await prisma.field.deleteMany()
   await prisma.farm.deleteMany()
   await prisma.refreshToken.deleteMany()
@@ -104,7 +104,7 @@ test('another user gets 404 on someone else\'s farm, field, soil tests and logs'
   )
 })
 
-test('invalid soil test body returns 400 with details', async () => {
+test('invalid soil test body returns 422 with details', async () => {
   const user = await registerUser('invalid@test.dev')
   const farm = await prisma.farm.create({ data: { name: 'Farm', ownerId: user.user.id } })
   const field = await prisma.field.create({
@@ -117,11 +117,11 @@ test('invalid soil test body returns 400 with details', async () => {
     body: JSON.stringify({ n: 210, p: 9, k: 90, ph: 15, organicCarbon: 0.42, moisture: 18 }),
   })
   const data = await res.json()
-  assert.equal(res.status, 400)
+  assert.equal(res.status, 422)
   assert.ok(Array.isArray(data.details))
 })
 
-test('fertilizer log with a future date returns 400', async () => {
+test('fertilizer log with a future date returns 422', async () => {
   const user = await registerUser('future@test.dev')
   const farm = await prisma.farm.create({ data: { name: 'Farm', ownerId: user.user.id } })
   const field = await prisma.field.create({
@@ -134,5 +134,5 @@ test('fertilizer log with a future date returns 400', async () => {
     headers: { 'Content-Type': 'application/json', ...authed(user.accessToken) },
     body: JSON.stringify({ type: 'urea', quantityKgPerAcre: 50, appliedOn: future }),
   })
-  assert.equal(res.status, 400)
+  assert.equal(res.status, 422)
 })

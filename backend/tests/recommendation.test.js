@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import http from 'node:http'
 import { readFileSync } from 'node:fs'
 
-let mlServer, server, baseUrl, prisma, fixtureResponse
+let mlServer, weatherServer, server, baseUrl, prisma, fixtureResponse
 
 before(async () => {
   fixtureResponse = JSON.parse(
@@ -16,13 +16,38 @@ before(async () => {
   await new Promise((resolve) => mlServer.listen(0, resolve))
   process.env.ML_SERVICE_URL = `http://localhost:${mlServer.address().port}`
 
-  const appModule = await import('../src/app.js')
+weatherServer = http.createServer((req, res) => {
+  if (req.url.startsWith('/v1/forecast')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({
+      current: {
+        temperature_2m: 28,
+        relative_humidity_2m: 70,
+      },
+      daily: {
+        precipitation_sum: [2, 3, 1, 0, 4],
+      },
+    }))
+    return
+  }
+
+  res.writeHead(404)
+  res.end()
+})
+
+await new Promise((resolve) => weatherServer.listen(0, resolve))
+
+process.env.WEATHER_API_URL =
+  `http://localhost:${weatherServer.address().port}/v1`
+
+const appModule = await import('../src/app.js')
   const dbModule = await import('../src/config/db.js')
   prisma = dbModule.prisma
   server = appModule.default.listen(0)
   baseUrl = `http://localhost:${server.address().port}/api`
 
   await prisma.fertilizerLog.deleteMany()
+  await prisma.recommendation.deleteMany()
   await prisma.soilTest.deleteMany()
   await prisma.field.deleteMany()
   await prisma.farm.deleteMany()
@@ -31,8 +56,9 @@ before(async () => {
 })
 
 after(async () => {
-  server.close()
-  mlServer.close()
+  server?.close()
+  mlServer?.close()
+  weatherServer?.close()
   await prisma.$disconnect()
 })
 
@@ -75,17 +101,41 @@ test('POST /fields/:id/recommendations returns a plan and persists it', async ()
 })
 
 test('POST /fields/:id/recommendations returns 409 with no soil test', async () => {
-  const { signAccessToken } = await import('../src/services/tokenService.js')
-  const user = await prisma.user.findFirst()
-  const farm = await prisma.farm.findFirst()
-  const field = await prisma.field.create({
-    data: { name: 'No Soil Field', farmId: farm.id, cropType: 'wheat', growthStage: 'sowing' },
+  const regRes = await fetch(`${baseUrl}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: 'rec-nossoil@test.dev',
+      password: 'a-strong-password',
+      name: 'No Soil Tester',
+      role: 'FARMER',
+    }),
   })
-  const token = signAccessToken(user)
+
+  const reg = await regRes.json()
+
+  const farm = await prisma.farm.create({
+    data: {
+      name: 'No Soil Farm',
+      ownerId: reg.user.id,
+    },
+  })
+
+  const field = await prisma.field.create({
+    data: {
+      name: 'No Soil Field',
+      farmId: farm.id,
+      cropType: 'wheat',
+      growthStage: 'sowing',
+    },
+  })
 
   const res = await fetch(`${baseUrl}/fields/${field.id}/recommendations`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${reg.accessToken}`,
+    },
   })
+
   assert.equal(res.status, 409)
 })
