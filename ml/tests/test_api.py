@@ -32,9 +32,14 @@ def test_health_says_when_it_is_in_mock_mode():
     assert "mock" in body["detail"]
 
 
-def test_health_in_real_mode_is_degraded_with_no_classifier_registered(use_settings):
-    # S6: real mode is implemented now. With no classifier registered (the normal state on a
-    # fresh checkout -- see ml/PROGRESS.md), health degrades but still reports a model_version.
+def test_health_in_real_mode_is_degraded_with_no_classifier_registered(use_settings, monkeypatch, tmp_path):
+    # S6: real mode is implemented now. Forces the "no classifier registered" scenario
+    # explicitly rather than relying on it being the ambient state -- a registered classifier
+    # is the normal, demo-ready local state now (S3's random_forest), not the absence of one.
+    import src.engine.recommendation_engine as engine_module
+
+    monkeypatch.setattr(engine_module, "REGISTRY_PATH", tmp_path / "registry.json")
+    monkeypatch.setattr(app.state, "engine", engine_module.Engine())
     use_settings(predict_mode="real")
     body = client.get("/health").json()
     assert body["status"] == "degraded"

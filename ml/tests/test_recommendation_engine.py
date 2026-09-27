@@ -39,6 +39,24 @@ def client():
 
 
 @pytest.fixture
+def client_without_classifier(monkeypatch, tmp_path):
+    """Isolates the "no classifier registered" HTTP scenario from whatever registry.json
+    actually exists on the machine running these tests. A registered classifier is now the
+    normal, demo-ready local state (S3's random_forest is trained and registered as part of
+    routine work here), so this can no longer rely on its ambient absence the way it could
+    when "no classifier" was simply true on every fresh checkout -- forces it explicitly,
+    the same way test_engine_model_version_when_no_model_is_registered already does at the
+    unit level below."""
+    import src.engine.recommendation_engine as engine_module
+
+    monkeypatch.setattr(engine_module, "REGISTRY_PATH", tmp_path / "registry.json")
+    with TestClient(app) as test_client:
+        app.dependency_overrides[get_settings] = lambda: Settings(_env_file=None, predict_mode="real")
+        yield test_client
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
 def no_potash_request():
     payload = load("recommend_request.json")
     payload["soil"] = {**payload["soil"], "k": 300.0}  # avoid the real, genuine MOP-unpriced gap
@@ -48,8 +66,8 @@ def no_potash_request():
 # ---------- health ----------
 
 
-def test_health_is_degraded_with_no_classifier_registered(client):
-    body = client.get("/health").json()
+def test_health_is_degraded_with_no_classifier_registered(client_without_classifier):
+    body = client_without_classifier.get("/health").json()
     assert body["status"] == "degraded"
     assert "no classifier model" in body["detail"]
     assert body["model_version"].startswith("unloaded+rules-")
@@ -70,10 +88,10 @@ def test_recommend_is_deterministic(client, no_potash_request):
     assert first == second
 
 
-def test_recommend_succeeds_with_no_classifier_registered(client, no_potash_request):
+def test_recommend_succeeds_with_no_classifier_registered(client_without_classifier, no_potash_request):
     # Deliberate design decision: the calculator alone is enough for a complete, correct
     # answer. A missing classifier degrades /health but never blocks /recommend.
-    response = client.post("/recommend", json=no_potash_request)
+    response = client_without_classifier.post("/recommend", json=no_potash_request)
     assert response.status_code == 200
     body = response.json()
     assert body["recommendation"]["fertilizer_type"] in {"urea", "dap"}
