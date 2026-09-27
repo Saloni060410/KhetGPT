@@ -1,0 +1,37 @@
+# Rule-layer parameters for the NPK calculator / dosage-adjustment engine (contract C5,
+# Richa + Saloni). Formula: fertilizer needed = standard dose (reference_doses.csv) +
+# soil-test adjustment (soil_adjustments.csv) - credit from recent applications (this file's
+# credit_window_days, plus nutrient_efficiency.csv's fertilizer_use_efficiency). Every key
+# below has a source comment or the words "team assumption".
+
+credit_window_days: 60
+  # team assumption -- placeholder. Number of days a previous fertilizer application is
+  # still credited against (subtracted from) the current recommendation's nutrient need.
+  # credit_kg_ha = prior_application_kg_ha * nutrient_efficiency.csv's fertilizer_use_efficiency.
+
+rain_hold_mm: 20
+  # team assumption -- placeholder. Forecast rainfall (mm) above which nitrogen top-dressing
+  # is held to avoid runoff loss (see PAU POP rice/wheat guidance: "apply split N when water
+  # is not standing in the field" -- PAU POP Kharif 2026 p.9, PAU POP Rabi 2025-26 p.10 --
+  # confirms the practice qualitatively; the mm threshold itself is a team assumption).
+
+rain_hold_days: 2
+  # team assumption -- placeholder. Number of days to delay a scheduled split after a
+  # rain-hold trigger.
+
+over_application_ratio_medium: 1.25
+  # team assumption -- placeholder. Actual-to-computed-need nutrient ratio above which
+  # risk.level is flagged "medium".
+
+over_application_ratio_high: 1.5
+  # team assumption -- placeholder. Actual-to-computed-need nutrient ratio above which
+  # risk.level is flagged "high".
+
+under_application_ratio: 0.75
+  # team assumption -- placeholder. Actual-to-computed-need nutrient ratio below which the
+  # recommendation flags under-application (yield-risk direction, not just over-use/runoff).
+
+formula_tolerance_pct: 10
+  # team assumption -- placeholder. Percent tolerance band used by the sanity test /
+  # evaluation.formula_conformity() to count a computed recommendation as consistent with
+  # the reference_doses.csv + soil_adjustments.csv + nutrient_efficiency.csv formula output.

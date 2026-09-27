@@ -1,0 +1,86 @@
+# Plain-language explanation templates (contract C6). template_id -> {en, hi} sentence with
+# {placeholders}. Saloni's rule_trace emits rule_id values; Richa's explain() (R10) maps them
+# here. R8 (risk_analyzer.py) adds the risk.* keys below; the full rule_trace set (every
+# rule_id the NPK calculator emits) lands in R10. Sentences never blame the farmer and always
+# include the numbers that drove the result.
+
+low_k_soil_test_adjustment:
+  en: "Soil potassium is low ({value} kg/ha), so {adjustment} kg/ha of extra potash was added to the standard dose."
+  hi: "मिट्टी में पोटैशियम की मात्रा कम है ({value} किग्रा/हेक्टेयर), इसलिए मानक खुराक में {adjustment} किग्रा/हेक्टेयर अतिरिक्त पोटाश जोड़ा गया है।"
+
+# risk.* -- R8 (ml/src/degradation/risk_analyzer.py). Consequence claims (acidification,
+# leaching, nutrient antagonism, water-holding capacity, availability curves) are general soil
+# science, not crop/region-specific PAU numbers -- e.g. Havlin et al., "Soil Fertility and
+# Fertilizers" (standard agronomy reference); ICAR-IISS extension material makes the same
+# points for Indian soils specifically. The *numbers* quoted in each sentence come from the
+# request/computation, never invented.
+
+risk.over_application.reason:
+  en: "Applied {nutrient_label} is {applied} kg/ha, {ratio_pct}% of the {needed} kg/ha the crop needs."
+  hi: "लगाया गया {nutrient_label} {applied} किग्रा/हेक्टेयर है, जो फसल की आवश्यकता {needed} किग्रा/हेक्टेयर का {ratio_pct}% है।"
+risk.over_application.soil_health_impact:
+  en: "Nitrogen applied well beyond crop need can acidify the soil over time and leach into groundwater rather than being taken up by the plant."
+  hi: "फसल की आवश्यकता से कहीं अधिक नाइट्रोजन डालने से समय के साथ मिट्टी अम्लीय हो सकती है और यह पौधे द्वारा अवशोषित होने के बजाय भूजल में मिल सकती है।"
+risk.over_application.yield_impact:
+  en: "Extra fertilizer beyond what the crop can use adds cost without adding yield -- money spent for no extra grain."
+  hi: "फसल की जरूरत से अधिक उर्वरक डालने पर उपज बढ़े बिना ही लागत बढ़ जाती है -- अतिरिक्त अनाज के बिना पैसा खर्च होता है।"
+
+risk.under_application.reason:
+  en: "Soil {nutrient_label} tests low, and only {applied} kg/ha was applied against the {needed} kg/ha needed ({ratio_pct}%)."
+  hi: "मिट्टी में {nutrient_label} की मात्रा कम है, और आवश्यक {needed} किग्रा/हेक्टेयर के मुकाबले केवल {applied} किग्रा/हेक्टेयर ({ratio_pct}%) डाला गया।"
+risk.under_application.soil_health_impact:
+  en: "Consistently under-supplying a nutrient the soil is already low in draws down soil fertility further over successive seasons."
+  hi: "जिस पोषक तत्व की मिट्टी में पहले से कमी है, उसे लगातार कम मात्रा में देने से आने वाले मौसमों में मिट्टी की उर्वरता और घटती जाती है।"
+risk.under_application.yield_impact:
+  en: "A nutrient shortfall this large is likely to limit crop growth and reduce yield below what the field could otherwise produce."
+  hi: "इतनी बड़ी पोषक तत्व की कमी से फसल की बढ़वार सीमित हो सकती है और खेत जितनी उपज दे सकता था, उससे कम उपज मिल सकती है।"
+
+risk.imbalance.reason:
+  en: "{high_nutrient_label} is well above what's needed ({high_ratio_pct}%) while {low_nutrient_label} is well below ({low_ratio_pct}%)."
+  hi: "{high_nutrient_label} आवश्यकता से कहीं अधिक ({high_ratio_pct}%) है जबकि {low_nutrient_label} आवश्यकता से कहीं कम ({low_ratio_pct}%) है।"
+risk.imbalance.soil_health_impact:
+  en: "An imbalanced nutrient supply can interfere with how efficiently the crop takes up the nutrients that are already short."
+  hi: "असंतुलित पोषक तत्व आपूर्ति उन पोषक तत्वों के अवशोषण की क्षमता को प्रभावित कर सकती है जिनकी पहले से ही कमी है।"
+risk.imbalance.yield_impact:
+  en: "Yield is often limited by the scarcest nutrient, not the most abundant one -- the surplus nutrient doesn't compensate for the shortfall."
+  hi: "उपज अक्सर सबसे कम पोषक तत्व से सीमित होती है, सबसे अधिक वाले से नहीं -- अतिरिक्त पोषक तत्व कमी की भरपाई नहीं करता।"
+
+risk.low_organic_carbon.reason:
+  en: "Soil organic carbon tests low ({value}%)."
+  hi: "मिट्टी में जैविक कार्बन की मात्रा कम है ({value}%)।"
+risk.low_organic_carbon.soil_health_impact:
+  en: "Low organic carbon reduces the soil's water-holding capacity and nutrient-retention ability, making the soil more vulnerable to degradation over time."
+  hi: "कम जैविक कार्बन मिट्टी की जल धारण क्षमता और पोषक तत्व बनाए रखने की क्षमता को कम करता है, जिससे मिट्टी समय के साथ अधिक कमजोर हो सकती है।"
+risk.low_organic_carbon.yield_impact:
+  en: "Soils low in organic carbon typically respond less efficiently to applied fertilizer, so the same dose may deliver less yield benefit."
+  hi: "कम जैविक कार्बन वाली मिट्टी आमतौर पर डाले गए उर्वरक का कम प्रभावी उपयोग करती है, इसलिए वही खुराक कम उपज लाभ दे सकती है।"
+
+risk.ph_out_of_band.reason:
+  en: "Soil pH is {value}, outside the {low_below}-{high_above} range most nutrients are readily available in."
+  hi: "मिट्टी का pH {value} है, जो {low_below}-{high_above} की उस सीमा से बाहर है जिसमें अधिकांश पोषक तत्व आसानी से उपलब्ध होते हैं।"
+risk.ph_out_of_band.soil_health_impact:
+  en: "At this pH, some nutrients become chemically less available to the crop even if enough is present in the soil."
+  hi: "इस pH पर, कुछ पोषक तत्व मिट्टी में पर्याप्त मात्रा में होने के बावजूद फसल के लिए रासायनिक रूप से कम उपलब्ध हो जाते हैं।"
+risk.ph_out_of_band.yield_impact:
+  en: "Fertilizer applied under an unfavourable pH is used less efficiently by the crop, so yield response can fall short of what the dose would normally give."
+  hi: "प्रतिकूल pH में डाला गया उर्वरक फसल द्वारा कम प्रभावी ढंग से उपयोग होता है, इसलिए उपज में वृद्धि सामान्य से कम हो सकती है।"
+
+risk.runoff.reason:
+  en: "{rainfall} mm of rain is forecast around the time nitrogen would be applied."
+  hi: "जिस समय नाइट्रोजन डाला जाना है उसके आसपास {rainfall} मिमी बारिश का अनुमान है।"
+risk.runoff.soil_health_impact:
+  en: "Nitrogen applied just before heavy rain is prone to washing off the field or leaching past the root zone instead of being taken up."
+  hi: "भारी बारिश से ठीक पहले डाला गया नाइट्रोजन खेत से बह जाने या जड़ क्षेत्र से नीचे निकल जाने की संभावना रखता है, बजाय पौधे द्वारा अवशोषित होने के।"
+risk.runoff.yield_impact:
+  en: "Nitrogen lost to runoff before the crop can use it means less of the applied dose actually reaches the plant."
+  hi: "फसल द्वारा उपयोग किए जाने से पहले बह जाने वाला नाइट्रोजन का मतलब है कि डाली गई खुराक का कम हिस्सा पौधे तक पहुंच पाता है।"
+
+risk.healthy.reason:
+  en: "Applied and needed amounts are close across all nutrients, with no soil-health or runoff concerns flagged."
+  hi: "सभी पोषक तत्वों में लगाई गई और आवश्यक मात्रा लगभग बराबर है, और कोई मिट्टी-स्वास्थ्य या बहाव संबंधी चिंता नहीं पाई गई।"
+risk.healthy.soil_health_impact:
+  en: "This application pattern is not expected to degrade soil health."
+  hi: "इस आवेदन पैटर्न से मिट्टी के स्वास्थ्य को नुकसान पहुंचने की उम्मीद नहीं है।"
+risk.healthy.yield_impact:
+  en: "This dose is expected to support the crop's yield potential without wasted input."
+  hi: "इस खुराक से बिना किसी बर्बादी के फसल की उपज क्षमता को समर्थन मिलने की उम्मीद है।"
