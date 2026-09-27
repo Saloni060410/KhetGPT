@@ -5,6 +5,13 @@ this goes any further than the standalone module below.** Nothing in `docs/api-c
 `docs/backend-api.md` has been touched — those need both owners' sign-off per `AGENTS.md`, and
 this doc is that sign-off request.
 
+**Not a contradiction of `ml/data/README.md`'s decision log (Round 1):** SoilGrids was earlier
+rejected as a *bulk training-dataset source* in favor of ISRIC SOTWIS (more stable, India-region
+static extract, fetched once). That's a different use case from this one -- a *live,
+per-request* lookup at recommendation time, where SoilGrids' beta status and occasional gaps
+(see below) are tolerable for an optional pre-fill in a way they wouldn't be for training data
+baked into the classifier.
+
 ## What exists today
 
 `ml/src/data_pipeline/soil_reference.py` + `ml/tests/test_soil_reference.py` (7 tests, passing).
