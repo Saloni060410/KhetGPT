@@ -50,7 +50,10 @@ def test_recommend_real_mode_matches_the_response_shape(use_settings):
     body = response.json()
     RecommendResponse.model_validate(body)
     assert "mop" in {item["fertilizer_type"] for item in body["recommendation"]["schedule"]}
-    assert "mop" not in {line["fertilizer_type"] for line in body["cost"]["breakdown"]}
+    # MOP is priced now (PIB Release ID 2237470) -- included in the breakdown like any other
+    # product; see test_recommendation_engine.py's test_recommend_now_prices_mop... for the
+    # full before/after story.
+    assert "mop" in {line["fertilizer_type"] for line in body["cost"]["breakdown"]}
 
 
 # ---------- /risk-score: shape round-trip, both modes ----------

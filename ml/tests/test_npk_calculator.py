@@ -149,11 +149,29 @@ def test_an_old_application_outside_the_credit_window_is_not_credited():
     assert result["n"]["prior_credit_kg_ha"] == 0.0
 
 
-def test_a_missing_efficiency_skips_the_credit_with_a_trace_entry():
-    # rice/p and rice/k only have a "default" nutrient_efficiency.csv row, and it is
-    # TODO(data) for both -- so a P application must not be credited, and must say why.
+def test_p_credit_now_uses_the_sourced_national_average_efficiency():
+    # nutrient_efficiency.csv's default/p row used to be TODO(data), so a P application was
+    # never credited. Now sourced (PIB Release ID 2237709, 10 Mar 2026, citing ICAR: national
+    # NUE for P is 15-25%, 0.20 used as the range's midpoint) -- P applications are credited
+    # like N's already were.
     usage = [{"type": "dap", "quantity_kg_per_acre": 80.0, "applied_on": "2026-11-10"}]
     result, trace = balance("rice", soil={**FIXTURE_SOIL, "p": 5.0}, prior_usage=usage)  # p "low", dose applies
+    expected_credit = 80.0 * 0.46 * ACRES_PER_HECTARE * 0.20
+    assert result["p"]["prior_credit_kg_ha"] == pytest.approx(expected_credit, rel=1e-3)
+    assert any(entry["rule_id"] == "prior_credit" and entry["nutrient"] == "p" for entry in trace)
+
+
+def test_a_missing_efficiency_skips_the_credit_with_a_trace_entry():
+    # General, crop-and-nutrient-agnostic version of the coverage the P-specific test above
+    # used to provide before nutrient_efficiency.csv's P gap closed -- kept independent of any
+    # one real row so it can't go stale the same way again. Strips every P row (crop-specific
+    # and default) from a copy of TABLES to simulate "no efficiency data exists at all".
+    no_p_efficiency = [row for row in TABLES.nutrient_efficiency if row["nutrient"] != "p"]
+    synthetic_tables = dataclasses.replace(TABLES, nutrient_efficiency=no_p_efficiency)
+    usage = [{"type": "dap", "quantity_kg_per_acre": 80.0, "applied_on": "2026-11-10"}]
+    result, trace = compute_balance(
+        "rice", None, "irrigated", "nursery_sowing", {**FIXTURE_SOIL, "p": 5.0}, usage, synthetic_tables, TODAY,
+    )
     assert result["p"]["prior_credit_kg_ha"] == 0.0
     assert any(entry["rule_id"] == "credit_skipped_no_efficiency" and entry["nutrient"] == "p" for entry in trace)
 
@@ -292,18 +310,52 @@ def test_a_chickpea_plan_never_touches_potash():
     assert "mop" not in {item["fertilizer_type"] for item in schedule}
 
 
-def test_a_crop_with_no_split_schedule_rows_raises_instead_of_a_fake_empty_plan():
-    # Barley has a real reference dose (compute_balance succeeds, a real N/P need comes back)
-    # but zero split_schedule.csv rows (ready_crops() calls this out by name: "no split_schedule
-    # rows", the reason it's excluded from /reference/crops). Before this test existed,
-    # to_products() didn't check for this at all: p_lines/k_lines/n_lines all came back empty,
-    # every branch was skipped, and it silently returned schedule=[] -- a confident "nothing
-    # needed" plan for a crop that very much needs fertilizer. Verified live via POST
-    # /recommend before this fix landed.
+def test_barley_now_has_a_real_split_schedule_and_produces_a_real_plan():
+    # Barley used to have a real reference dose but zero split_schedule.csv rows -- this test
+    # originally locked in that to_products() raises ReferenceDataIncomplete rather than
+    # silently returning schedule=[] for that gap (a real bug, fixed separately). The gap
+    # itself is now closed: PAU POP Rabi 2025-26 p.25 ("Drill all fertilizers at sowing")
+    # gives barley the same single-stage full-N/P/K-at-sowing pattern as chickpea, added to
+    # split_schedule.csv. Barley is no longer a "not ready" example -- see
+    # test_a_crop_with_no_split_schedule_rows_raises_instead_of_a_fake_empty_plan below for
+    # the general (now crop-agnostic) regression coverage for that bug.
     result, _ = balance("barley", growth_stage="sowing")
     assert result["n"]["fertilizer_needed_kg_ha"] > 0  # a real need exists
+    schedule = to_products(result, "barley", "sowing", date(2026, 10, 20), {"rainfall_mm_forecast": 0}, TABLES, TODAY)
+    assert schedule  # a real plan, not the old silent empty-schedule bug
+    assert all(item["stage"] == "sowing" for item in schedule)  # full N/P/K at sowing, per the source
+
+
+def test_a_crop_with_no_split_schedule_rows_raises_instead_of_a_fake_empty_plan():
+    # General, crop-agnostic version of the barley regression above: a synthetic crop with a
+    # real reference dose and growth stage but zero split_schedule.csv rows must still raise
+    # ReferenceDataIncomplete, not silently return schedule=[]. Kept independent of any real
+    # crop's data so this doesn't go stale again the next time a real "not ready" crop gets a
+    # source and becomes ready (exactly what happened to the barley version of this test).
+    synthetic_dose = {
+        "crop_id": "test_not_ready_crop", "variety_id": "generic", "irrigation": "irrigated",
+        "region": "Punjab", "n_kg_ha": "100", "p2o5_kg_ha": "50", "k2o_kg_ha": "0",
+        "source": "test fixture", "notes": "",
+    }
+    synthetic_stage = {
+        "crop_id": "test_not_ready_crop", "stage_id": "sowing", "name_en": "Sowing", "name_hi": "बुवाई",
+        "order": "1", "das_start": "0", "das_end": "0", "source": "test fixture",
+    }
+    synthetic_tables = dataclasses.replace(
+        TABLES,
+        reference_doses=[*TABLES.reference_doses, synthetic_dose],
+        growth_stages=[*TABLES.growth_stages, synthetic_stage],
+        # deliberately NOT added to split_schedule -- that's the gap under test
+    )
+    result, _ = compute_balance(
+        "test_not_ready_crop", None, "irrigated", "sowing", FIXTURE_SOIL, [], synthetic_tables, TODAY,
+    )
+    assert result["n"]["fertilizer_needed_kg_ha"] > 0  # a real need exists
     with pytest.raises(ReferenceDataIncomplete, match="split_schedule"):
-        to_products(result, "barley", "sowing", date(2026, 10, 20), {"rainfall_mm_forecast": 0}, TABLES, TODAY)
+        to_products(
+            result, "test_not_ready_crop", "sowing", date(2026, 10, 20),
+            {"rainfall_mm_forecast": 0}, synthetic_tables, TODAY,
+        )
 
 
 # ---------- region ambiguity: reference_dose_row / stcr_dose ----------

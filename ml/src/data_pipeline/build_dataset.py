@@ -19,21 +19,30 @@ downstream that cares (e.g. clean.py's real-row N/P/K NaN policy), it just no lo
 which split a row can land in.
 """
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 from src.data_pipeline.clean import run as run_clean
-from src.data_pipeline.feature_engineering import CLASSIFIER_TARGET, FEATURE_COLUMNS
+from src.data_pipeline.feature_engineering import CLASSIFIER_TARGET, FEATURE_COLUMNS, build_features
 
-PROCESSED_DIR = Path(__file__).resolve().parents[2] / "data" / "processed"
-EXTERNAL_DIR = Path(__file__).resolve().parents[2] / "data" / "external"
+ML_ROOT = Path(__file__).resolve().parents[2]
+PROCESSED_DIR = ML_ROOT / "data" / "processed"
+EXTERNAL_DIR = ML_ROOT / "data" / "external"
+DEFAULT_CONFIG_PATH = ML_ROOT / "configs" / "data.yaml"
 
-SEED = 42
-SPLIT_RATIOS = {"train": 0.70, "val": 0.15, "test": 0.15}
-MIN_ROWS_TO_SPLIT_ACROSS_ALL_THREE = 3  # a class with fewer rows can't appear in all 3 splits
+# Loaded once at import time so every existing caller of run() with no arguments (including
+# the test suite, which imports these three names directly) keeps working unchanged --
+# configs/data.yaml is the single source of truth for these values now, this just mirrors it
+# into module constants rather than duplicating the numbers.
+_DEFAULT_CONFIG = yaml.safe_load(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
+SEED = _DEFAULT_CONFIG["seed"]
+SPLIT_RATIOS = _DEFAULT_CONFIG["split_ratios"]
+MIN_ROWS_TO_SPLIT_ACROSS_ALL_THREE = _DEFAULT_CONFIG["min_rows_to_split_across_all_three"]
 
 
 def _stratified_split(df: pd.DataFrame, target_col: str, seed: int, ratios: dict[str, float]) -> pd.Series:
@@ -84,8 +93,23 @@ def _feature_schema_hash() -> str:
     ).hexdigest()[:16]
 
 
-def run() -> dict:
-    run_clean()  # regenerate clean.csv fresh so train.csv is never built from a stale file
+def run(config: dict | None = None, verbose: bool = False) -> dict:
+    """Runs the full data pipeline: ingest (via run_clean's own verify_all() call) -> clean ->
+    features (build_features() exercised over the whole pool, so a schema break is caught here,
+    not first at train time) -> split. `config` defaults to configs/data.yaml's values (the
+    same ones already mirrored into this module's SEED/SPLIT_RATIOS/
+    MIN_ROWS_TO_SPLIT_ACROSS_ALL_THREE constants at import time) -- pass one explicitly only to
+    override them (e.g. a different seed for an experiment)."""
+    config = config or _DEFAULT_CONFIG
+    seed = config["seed"]
+    split_ratios = config["split_ratios"]
+
+    def _stage(name: str) -> None:
+        if verbose:
+            print(f"[{name}]")
+
+    _stage("1/4 ingest + 2/4 clean")
+    run_clean()  # regenerate clean.csv fresh so train.csv is never built from a stale file; calls ingest.verify_all() itself
     clean = pd.read_csv(PROCESSED_DIR / "clean.csv")
     clean = clean.rename(columns={"product_id": CLASSIFIER_TARGET})
 
@@ -95,6 +119,14 @@ def run() -> dict:
     if "data_source" not in clean.columns:
         raise ValueError("clean.csv has no data_source column -- clean.py must tag every row real/synthetic")
 
+    _stage("3/4 features")
+    # Exercises the real feature-building path (the same one train.py/recommendation_engine.py
+    # use) over every row now, not just at train time -- an unknown crop_id/variety_id or a
+    # FEATURE_COLUMNS/clean.csv drift raises here, loudly, as part of the reproducible build,
+    # rather than silently surfacing later inside a training run.
+    build_features(clean[FEATURE_COLUMNS].to_dict(orient="records"))
+
+    _stage("4/4 split")
     # The whole pool (real + synthetic) is split together -- see the module docstring for why
     # data_source no longer gates this. test_ids.json's frozen ids are just row indices into
     # this pool; nothing about the freeze mechanism itself needed to change.
@@ -108,12 +140,12 @@ def run() -> dict:
         # otherwise train/val sizes drift on every rerun even though test stays frozen.
         remainder = clean[clean["split"].isna()]
         remainder_ratios = {
-            "train": SPLIT_RATIOS["train"] / (SPLIT_RATIOS["train"] + SPLIT_RATIOS["val"]),
-            "val": SPLIT_RATIOS["val"] / (SPLIT_RATIOS["train"] + SPLIT_RATIOS["val"]),
+            "train": split_ratios["train"] / (split_ratios["train"] + split_ratios["val"]),
+            "val": split_ratios["val"] / (split_ratios["train"] + split_ratios["val"]),
         }
-        clean.loc[remainder.index, "split"] = _stratified_split(remainder, CLASSIFIER_TARGET, SEED, remainder_ratios)
+        clean.loc[remainder.index, "split"] = _stratified_split(remainder, CLASSIFIER_TARGET, seed, remainder_ratios)
     else:
-        clean["split"] = _stratified_split(clean, CLASSIFIER_TARGET, SEED, SPLIT_RATIOS)
+        clean["split"] = _stratified_split(clean, CLASSIFIER_TARGET, seed, split_ratios)
         test_ids_path.write_text(
             json.dumps({"test_row_ids": sorted(clean.index[clean["split"] == "test"].tolist())}, indent=2),
             encoding="utf-8",
@@ -126,14 +158,18 @@ def run() -> dict:
     clean.to_csv(PROCESSED_DIR / "train.csv", index=False)
 
     split_sizes = clean["split"].value_counts().to_dict()
+    content_hash = _content_hash(clean)
+    dataset_version = f"{config['version']}+{content_hash[:8]}"
     manifest_entry = {
         "description": "Built train/val/test table for the fertilizer-type classifier",
         "path": "data/processed/train.csv",
         "committed": False,
-        "seed": SEED,
-        "split_ratios": SPLIT_RATIOS,
+        "dataset_version": dataset_version,
+        "pipeline_version": config["version"],
+        "seed": seed,
+        "split_ratios": split_ratios,
         "split_sizes": split_sizes,
-        "content_hash": _content_hash(clean),
+        "content_hash": content_hash,
         "feature_schema_hash": _feature_schema_hash(),
         "feature_columns": FEATURE_COLUMNS,
         "classifier_target": CLASSIFIER_TARGET,
@@ -148,9 +184,21 @@ def run() -> dict:
     manifest["train_dataset_version"] = manifest_entry
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
+    if verbose:
+        print(f"dataset_version: {dataset_version}")
+
     return manifest_entry
 
 
-if __name__ == "__main__":
-    entry = run()
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
+    args = parser.parse_args()
+
+    config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
+    entry = run(config=config, verbose=True)
     print(json.dumps(entry, indent=2))
+
+
+if __name__ == "__main__":
+    main()

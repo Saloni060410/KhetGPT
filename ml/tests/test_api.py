@@ -53,20 +53,21 @@ def test_fixtures_match_the_schemas():
     RiskScoreResponse.model_validate(load("risk_score_response.json"))
 
 
-def test_recommend_in_real_mode_is_implemented_and_still_recommends_the_unpriced_mop(use_settings):
-    # S6: real mode is implemented now. The fixture's soil.k=90 genuinely needs potash, and
-    # MOP has no verified price yet in the merged fertilizer_products.csv (Richa re-checked
-    # 2026-09-27: IFFCO's own price list doesn't carry it, market listings too inconsistent to
-    # cite). Per the current product decision, that no longer blocks the recommendation: MOP
-    # is still recommended with a real quantity, just excluded from the cost breakdown and
-    # flagged in data_notes instead of the whole request failing.
+def test_recommend_in_real_mode_is_implemented_and_prices_mop(use_settings):
+    # S6: real mode is implemented now. The fixture's soil.k=90 genuinely needs potash. MOP
+    # used to have no verified price (Richa's first two re-checks: IFFCO's own price list
+    # doesn't carry it, market listings too inconsistent to cite) -- a real dated retail price
+    # was found on a third pass (PIB Release ID 2237470, 10 Mar 2026), so MOP now prices
+    # normally like any other product, no data_notes caveat needed for it. The underlying
+    # "an unpriced product still gets recommended, just excluded from cost" capability is
+    # still covered generically at the unit level (test_cost.py's ssp-based tests).
     use_settings(predict_mode="real")
     response = client.post("/recommend", json=load("recommend_request.json"))
     assert response.status_code == 200
     body = response.json()
     assert "mop" in {item["fertilizer_type"] for item in body["recommendation"]["schedule"]}
-    assert "mop" not in {line["fertilizer_type"] for line in body["cost"]["breakdown"]}
-    assert any("mop" in note.lower() for note in body["explanation"]["data_notes"])
+    assert "mop" in {line["fertilizer_type"] for line in body["cost"]["breakdown"]}
+    assert not any("mop" in note.lower() for note in body["explanation"]["data_notes"])
 
 
 def test_risk_score_in_real_mode_is_implemented(use_settings):

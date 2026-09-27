@@ -1,0 +1,8 @@
+# Hash-verified data files (ml/data/external/dataset_manifest.json's sha256 checks) must be
+# byte-identical on every checkout regardless of OS/git config, or ingest.py's verify_all()
+# spuriously fails with a "drifted" hash that's actually just a CRLF/LF difference -- exactly
+# what happened between a Windows checkout (core.autocrlf converts to CRLF) and another
+# platform's checkout (LF) of the same, unchanged file. Force LF everywhere for these.
+ml/data/**/*.csv text eol=lf
+ml/data/**/*.json text eol=lf
+ml/data/**/*.yaml text eol=lf
