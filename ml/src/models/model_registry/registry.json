@@ -202,7 +202,51 @@
             0.547924060054873
           ]
         },
-        "n_rows": 421
+        "n_rows": 421,
+        "per_crop": {
+          "barley": {
+            "accuracy": 0.43333333333333335,
+            "balanced_accuracy": 0.3803418803418803,
+            "macro_f1": 0.312645979312646,
+            "n": 60
+          },
+          "chickpea": {
+            "accuracy": 0.39655172413793105,
+            "balanced_accuracy": 0.3333333333333333,
+            "macro_f1": 0.19166666666666665,
+            "n": 58
+          },
+          "cotton": {
+            "accuracy": 0.647887323943662,
+            "balanced_accuracy": 0.326241134751773,
+            "macro_f1": 0.2621082621082621,
+            "n": 71
+          },
+          "maize": {
+            "accuracy": 0.4666666666666667,
+            "balanced_accuracy": 0.3333333333333333,
+            "macro_f1": 0.3230359828763161,
+            "n": 60
+          },
+          "rice": {
+            "accuracy": 0.8703703703703703,
+            "balanced_accuracy": 0.3333333333333333,
+            "macro_f1": 0.31023102310231027,
+            "n": 54
+          },
+          "sugarcane": {
+            "accuracy": 0.7627118644067796,
+            "balanced_accuracy": 0.38605442176870747,
+            "macro_f1": 0.3059090909090909,
+            "n": 59
+          },
+          "wheat": {
+            "accuracy": 0.5084745762711864,
+            "balanced_accuracy": 0.3474903474903475,
+            "macro_f1": 0.2937062937062937,
+            "n": 59
+          }
+        }
       },
       "dataset_source": "real",
       "dataset_hash": "9eb97903",
