@@ -3,7 +3,6 @@ import { Link, NavLink, useLocation, useNavigate, useParams } from 'react-router
 import { Menu, X, LogOut } from 'lucide-react'
 import { useUserStore } from '../../store/useUserStore.js'
 import { useT } from '../../i18n/useT.js'
-import LanguageToggle from '../ui/LanguageToggle.jsx'
 import { WheatIcon } from '../icons/CropIcons.jsx'
 import * as endpoints from '../../services/endpoints.js'
 import {
@@ -146,10 +145,8 @@ export default function Navbar() {
             ))}
           </nav>
 
-          {/* Desktop Right Controls (Language + User Profile + Logout) */}
+          {/* Desktop Right Controls (User Profile + Logout) */}
           <div className="hidden sm:flex items-center gap-2 sm:gap-3 shrink-0">
-            <LanguageToggle dark={true} />
-
             {isAuthenticated ? (
               <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-[#3E382E] shrink-0">
                 <div className="text-right leading-tight max-w-[85px] sm:max-w-[100px] xl:max-w-[120px]">
@@ -184,9 +181,8 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Controls (Language + Hamburger) */}
+          {/* Mobile Controls (Hamburger) */}
           <div className="flex items-center lg:hidden gap-2 shrink-0">
-            <LanguageToggle dark={true} />
             <button
               type="button"
               onClick={() => setIsDrawerOpen(!isDrawerOpen)}

@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import SoilScroll from '../components/SoilScroll.jsx';
-import LanguageToggle from '../components/ui/LanguageToggle.jsx';
 import {
   WheatIcon,
 } from '../components/icons/CropIcons.jsx';
@@ -82,7 +81,6 @@ export default function HomePage({ onNavigate }) {
 
           {/* Header Controls */}
           <div className="flex items-center gap-3">
-            <LanguageToggle />
             <button
               type="button"
               onClick={(e) => handleNav(e, '/dashboard')}
@@ -378,10 +376,7 @@ export default function HomePage({ onNavigate }) {
 
             <div className="space-y-3">
               <div className="font-semibold text-[#B8791E] uppercase tracking-wider text-xs">
-                Language &amp; Tools
-              </div>
-              <div className="pt-1">
-                <LanguageToggle />
+                Tools
               </div>
               <ul className="space-y-1.5 text-[#C5BBAA] text-xs pt-1">
                 <li><a href="/dashboard" onClick={(e) => handleNav(e, '/dashboard')} className="hover:text-white transition-colors">Farmer Field Ledger</a></li>

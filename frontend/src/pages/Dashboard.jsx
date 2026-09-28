@@ -136,6 +136,9 @@ export default function Dashboard() {
         setPlots([...plots, { farm, field }]);
         setIsAddOpen(false);
         setNewPlotName('');
+        // A brand-new plot has no soil test yet, so every recommendation for it would be
+        // guesswork -- send the farmer straight there instead of back to the ledger.
+        navigate(`/fields/${field.id}/soil`);
       } catch (fieldErr) {
         // The farm above was genuinely created -- don't leave an empty, invisible-in-the-UI
         // farm behind if the field it was for failed to create.
