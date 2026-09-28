@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Menu, X, LogOut } from 'lucide-react'
 import { useUserStore } from '../../store/useUserStore.js'
 import { useT } from '../../i18n/useT.js'
 import LanguageToggle from '../ui/LanguageToggle.jsx'
 import { WheatIcon } from '../icons/CropIcons.jsx'
+import * as endpoints from '../../services/endpoints.js'
 import {
   HomeIcon,
   DashboardIcon,
@@ -26,12 +27,44 @@ export default function Navbar() {
   // nav item used to hardcode it, so following them 404'd fetchField/fetchRecommendations
   // silently (Recommendation.jsx's catch swallows the error) and the page fell back to fully
   // static demo content with no visible error, looking like "the model isn't wired up" when the
-  // actual bug was here: the link never pointed at a real field. Use the CURRENT route's own
-  // :fieldId when we're already on a field-scoped page (so sibling tabs stay on that same real
-  // field); otherwise there's no field to link to yet, so send these to /dashboard, where a
-  // real one can be picked or registered, rather than guessing an id that's guaranteed to be
-  // wrong.
-  const { fieldId } = useParams()
+  // actual bug was here: the link never pointed at a real field.
+  const { fieldId: routeFieldId } = useParams()
+
+  // When we're already on a field-scoped page, stay on that same real field for the sibling
+  // tabs. Otherwise (Home, Dashboard, just logged in) there's no field in the URL to read --
+  // but the user may well already HAVE one, so fetch their first real field once rather than
+  // unconditionally sending Fields/Soil Test/Prescription/Schedule/History to /dashboard
+  // regardless. A first version of this fix did exactly that, and it made every one of those
+  // links "do nothing new" for any user who wasn't already on a field page -- looked identical
+  // to broken, even though the click itself worked. Only a genuinely field-less account (a
+  // brand-new registration, before "Register Plot") has nowhere real to send these, and still
+  // falls back to /dashboard.
+  const [fallbackFieldId, setFallbackFieldId] = useState(null)
+  useEffect(() => {
+    if (routeFieldId || !isAuthenticated) return
+    let cancelled = false
+    async function loadFirstRealField() {
+      try {
+        const farmsRes = await endpoints.getFarms()
+        for (const farm of farmsRes?.items || []) {
+          const fieldsRes = await endpoints.getFields(farm.id)
+          const first = (fieldsRes?.items || [])[0]
+          if (first) {
+            if (!cancelled) setFallbackFieldId(first.id)
+            return
+          }
+        }
+      } catch {
+        // Not reachable, or genuinely no fields yet -- nav items fall back to /dashboard below.
+      }
+    }
+    loadFirstRealField()
+    return () => {
+      cancelled = true
+    }
+  }, [routeFieldId, isAuthenticated])
+
+  const fieldId = routeFieldId || fallbackFieldId
   const fieldPath = (suffix) => (fieldId ? `/fields/${fieldId}${suffix}` : '/dashboard')
 
   // `id` is the React key -- NOT `to`, since without a real fieldId every field-scoped item
