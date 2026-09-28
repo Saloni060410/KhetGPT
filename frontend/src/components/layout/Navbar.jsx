@@ -34,14 +34,20 @@ export default function Navbar() {
   const { fieldId } = useParams()
   const fieldPath = (suffix) => (fieldId ? `/fields/${fieldId}${suffix}` : '/dashboard')
 
+  // `id` is the React key -- NOT `to`, since without a real fieldId every field-scoped item
+  // below now resolves to the same '/dashboard' path (see fieldPath above). Keying on `to`
+  // gave five nav items the identical key whenever there was no fieldId (e.g. on the public
+  // HomePage), which made React's reconciliation drop/misattribute their click handlers --
+  // the whole navbar looked broken there, not just mis-routed. A real bug, caught by actually
+  // loading the homepage after the fieldPath fix, not assumed safe.
   const navItems = [
-    { to: '/', label: isHindi ? 'होम' : 'Home', icon: HomeIcon, exact: true },
-    { to: '/dashboard', label: isHindi ? 'लेजर' : 'Ledger', icon: DashboardIcon },
-    { to: fieldPath(''), label: isHindi ? 'खेत' : 'Fields', icon: FieldProfileIcon },
-    { to: fieldPath('/soil'), label: isHindi ? 'मृदा परीक्षण' : 'Soil Test', icon: SoilTestIcon },
-    { to: fieldPath('/recommendation'), label: isHindi ? 'सिफारिश' : 'Prescription', icon: PrescriptionIcon },
-    { to: fieldPath('/schedule'), label: isHindi ? 'अनुसूची' : 'Schedule', icon: ScheduleIcon },
-    { to: fieldPath('/history'), label: isHindi ? 'इतिहास' : 'History', icon: HistoryIcon },
+    { id: 'home', to: '/', label: isHindi ? 'होम' : 'Home', icon: HomeIcon, exact: true },
+    { id: 'ledger', to: '/dashboard', label: isHindi ? 'लेजर' : 'Ledger', icon: DashboardIcon },
+    { id: 'fields', to: fieldPath(''), label: isHindi ? 'खेत' : 'Fields', icon: FieldProfileIcon },
+    { id: 'soil', to: fieldPath('/soil'), label: isHindi ? 'मृदा परीक्षण' : 'Soil Test', icon: SoilTestIcon },
+    { id: 'recommendation', to: fieldPath('/recommendation'), label: isHindi ? 'सिफारिश' : 'Prescription', icon: PrescriptionIcon },
+    { id: 'schedule', to: fieldPath('/schedule'), label: isHindi ? 'अनुसूची' : 'Schedule', icon: ScheduleIcon },
+    { id: 'history', to: fieldPath('/history'), label: isHindi ? 'इतिहास' : 'History', icon: HistoryIcon },
   ]
 
   const [prevPathname, setPrevPathname] = useState(location.pathname)
@@ -82,7 +88,7 @@ export default function Navbar() {
           <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 text-xs font-sans font-medium min-w-0">
             {navItems.map((item) => (
               <NavLink
-                key={item.to}
+                key={item.id}
                 to={item.to}
                 end={item.exact}
                 className={({ isActive }) => `
@@ -165,7 +171,7 @@ export default function Navbar() {
           <div className="lg:hidden border-t border-[#3E382E] mt-3 pt-3 space-y-1 font-sans animate-in fade-in duration-150">
             {navItems.map((item) => (
               <NavLink
-                key={item.to}
+                key={item.id}
                 to={item.to}
                 end={item.exact}
                 className={({ isActive }) => `
