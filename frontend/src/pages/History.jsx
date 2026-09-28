@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -30,8 +30,41 @@ function formatSaving(saving) {
 }
 
 export default function History() {
-  const { fieldId = '1' } = useParams();
+  // No "|| '1'" fallback -- that was the same class of bug Navbar/HomePage/Dashboard already
+  // had (a fake field id that's guaranteed not to exist), just not yet caught here. The route
+  // always supplies a real :fieldId; if it somehow doesn't, the plot switcher below and the
+  // loadError/empty states handle it honestly instead of silently fetching field "1".
+  const { fieldId } = useParams();
+  const navigate = useNavigate();
   useDocumentTitle('Season Archive & Soil Ledger — KhetGPT');
+
+  // Plot switcher -- every field the user owns, across all their farms, same pattern as
+  // Schedule.jsx/SoilInput.jsx. Missing here was exactly why switching plots elsewhere didn't
+  // visibly change History: this page had no way to pick a plot itself, so it only ever showed
+  // whatever field happened to already be in the URL.
+  const [plots, setPlots] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPlots() {
+      try {
+        const farmsRes = await endpoints.getFarms();
+        const withFields = await Promise.all(
+          (farmsRes?.items || []).map(async (farm) => {
+            const fieldsRes = await endpoints.getFields(farm.id);
+            const f = (fieldsRes?.items || [])[0];
+            return f ? { farm, field: f } : null;
+          }),
+        );
+        if (!cancelled) setPlots(withFields.filter(Boolean));
+      } catch {
+        if (!cancelled) setPlots([]);
+      }
+    }
+    loadPlots();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [entries, setEntries] = useState([]);
   const [field, setField] = useState(null);
@@ -39,6 +72,7 @@ export default function History() {
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
+    if (!fieldId) return;
     let cancelled = false;
     async function load() {
       setIsLoading(true);
@@ -100,6 +134,26 @@ export default function History() {
 
   return (
     <div className="space-y-8 font-sans text-[#1C1B18]">
+
+      {/* Plot switcher -- pick which real field's history this page shows */}
+      {plots.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 animate-reveal">
+          {plots.map(({ farm, field: p }, i) => (
+            <button
+              key={farm.id}
+              type="button"
+              onClick={() => navigate(`/fields/${p.id}/history`)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                p.id === fieldId
+                  ? 'bg-[#2D5430] text-white shadow-xs'
+                  : 'bg-white border border-[#D8CEBC] text-[#615C52] hover:border-[#1C1B18]'
+              }`}
+            >
+              Plot {String.fromCharCode(65 + i)} · {p.cropType}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 1. Header with Staggered Reveal */}
       <div className="animate-reveal flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[#E8E2D5]">

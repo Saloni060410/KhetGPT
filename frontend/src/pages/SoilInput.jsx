@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -18,6 +18,63 @@ export default function SoilInput() {
   const { fieldId = '1' } = useParams();
   const navigate = useNavigate();
   useDocumentTitle('Soil Health Calibration — KhetGPT');
+
+  // Plot switcher -- every field the user owns, across all their farms, same pattern as
+  // Schedule.jsx's. Was missing here entirely, which is exactly why there was no way to
+  // calibrate a specific plot other than whatever fieldId happened to already be in the URL.
+  const [plots, setPlots] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPlots() {
+      try {
+        const farmsRes = await endpoints.getFarms();
+        const withFields = await Promise.all(
+          (farmsRes?.items || []).map(async (farm) => {
+            const fieldsRes = await endpoints.getFields(farm.id);
+            const f = (fieldsRes?.items || [])[0];
+            return f ? { farm, field: f } : null;
+          }),
+        );
+        if (!cancelled) setPlots(withFields.filter(Boolean));
+      } catch {
+        if (!cancelled) setPlots([]);
+      }
+    }
+    loadPlots();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // The real field + the real crop list, so "crop type" can be picked here rather than only
+  // ever inherited from whatever the field was registered with on Dashboard. cropType is sent
+  // as an explicit override on generateRecommendation below -- POST /fields/:id/recommendations
+  // already accepts one per docs/backend-api.md, it just had no UI anywhere calling it with one.
+  const [field, setField] = useState(null);
+  const [crops, setCrops] = useState([]);
+  const [selectedCropId, setSelectedCropId] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFieldAndCrops() {
+      try {
+        const [fieldRes, cropsRes] = await Promise.all([
+          endpoints.getFieldById(fieldId),
+          endpoints.getReferenceCrops(),
+        ]);
+        if (cancelled) return;
+        setField(fieldRes);
+        setCrops(cropsRes);
+        setSelectedCropId(fieldRes?.cropType || cropsRes[0]?.id || '');
+      } catch {
+        // Field/crops unavailable -- form still works with whatever crop the field already
+        // has; the dropdown just stays empty rather than blocking soil entry.
+      }
+    }
+    loadFieldAndCrops();
+    return () => {
+      cancelled = true;
+    };
+  }, [fieldId]);
 
   // Core NPK parameters (PRD FR3)
   const [n, setN] = useState('210');
@@ -96,7 +153,7 @@ export default function SoilInput() {
         organicCarbon: parseFloat(oc) || 0,
         moisture: numMoisture,
       });
-      await generateRecommendation(fieldId, {});
+      await generateRecommendation(fieldId, selectedCropId ? { cropType: selectedCropId } : {});
       navigate(`/fields/${fieldId}/recommendation`);
     } catch (err) {
       // Stays on the form with the entered values rather than navigating to a recommendation
@@ -108,10 +165,30 @@ export default function SoilInput() {
 
   return (
     <div className="space-y-8 font-sans text-[#1C1B18]">
-      
+
+      {/* Plot switcher -- pick which real field this calibration is for */}
+      {plots.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 animate-reveal">
+          {plots.map(({ farm, field: p }, i) => (
+            <button
+              key={farm.id}
+              type="button"
+              onClick={() => navigate(`/fields/${p.id}/soil`)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                p.id === fieldId
+                  ? 'bg-[#2D5430] text-white shadow-xs'
+                  : 'bg-white border border-[#D8CEBC] text-[#615C52] hover:border-[#1C1B18]'
+              }`}
+            >
+              Plot {String.fromCharCode(65 + i)} · {p.cropType}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 1. Header with Staggered Reveal */}
-      <div className="animate-reveal pb-6 border-b border-[#E8E2D5] space-y-2">
-        <Link 
+      <div className="animate-reveal pb-6 border-b border-[#E8E2D5] space-y-3">
+        <Link
           to={`/fields/${fieldId}`}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-[#756F63] hover:text-[#1C1B18] transition-colors"
         >
@@ -122,8 +199,29 @@ export default function SoilInput() {
           Soil Health Calibration
         </h1>
         <p className="text-sm text-[#756F63]">
-          Plot A (8.5 Acres) · Enter test values from your laboratory soil card to calibrate exact fertilizer bags.
+          {field ? `${field.name} (${field.areaAcres} Acres)` : 'Loading field…'} · Enter test values from your laboratory soil card to calibrate exact fertilizer bags.
         </p>
+
+        {/* Crop type this calibration is for -- defaults to the field's own registered crop,
+            but can be overridden per calibration (POST /fields/:id/recommendations already
+            accepts a cropType override; nothing in the UI ever let anyone pick one). */}
+        {crops.length > 0 && (
+          <div className="flex items-center gap-2 pt-1">
+            <label htmlFor="crop-select" className="text-xs font-medium text-[#615C52]">
+              Crop for this calibration:
+            </label>
+            <select
+              id="crop-select"
+              value={selectedCropId}
+              onChange={(e) => setSelectedCropId(e.target.value)}
+              className="px-3 py-1.5 text-xs rounded-lg border border-[#D8CEBC] bg-white focus:outline-none focus:ring-2 focus:ring-[#2D5430] cursor-pointer"
+            >
+              {crops.map((c) => (
+                <option key={c.id} value={c.id}>{c.name_en}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* 2. Quick Soil Presets & Soil Health Card OCR Upload (PRD FR3 Stretch) */}

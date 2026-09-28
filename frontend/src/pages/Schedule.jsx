@@ -6,6 +6,8 @@ import {
   Printer,
   Sun,
   FileText,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle.js';
 import * as endpoints from '../services/endpoints.js';
@@ -65,8 +67,11 @@ export default function Schedule() {
   const [recommendation, setRecommendation] = useState(null);
   const [weather, setWeather] = useState(null);
   const [fertilizerMeta, setFertilizerMeta] = useState({});
+  const [fertilizerLogs, setFertilizerLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [markingDoneKey, setMarkingDoneKey] = useState(null);
+  const [markDoneError, setMarkDoneError] = useState(null);
 
   useEffect(() => {
     if (!fieldId) return;
@@ -75,11 +80,12 @@ export default function Schedule() {
       setIsLoading(true);
       setLoadError(false);
       try {
-        const [fieldRes, recsRes, fertilizers, weatherRes] = await Promise.all([
+        const [fieldRes, recsRes, fertilizers, weatherRes, logsRes] = await Promise.all([
           endpoints.getFieldById(fieldId),
           endpoints.getRecommendations(fieldId, { limit: 1 }),
           endpoints.getReferenceFertilizers(),
           endpoints.getFieldWeather(fieldId).catch(() => null),
+          endpoints.getFertilizerLogs(fieldId, { limit: 100 }),
         ]);
         if (cancelled) return;
         const meta = {};
@@ -88,6 +94,7 @@ export default function Schedule() {
         setField(fieldRes);
         setRecommendation((recsRes?.items || [])[0] || null);
         setWeather(weatherRes);
+        setFertilizerLogs(logsRes?.items || []);
       } catch {
         if (!cancelled) setLoadError(true);
       } finally {
@@ -102,8 +109,32 @@ export default function Schedule() {
 
   const handlePrint = () => window.print();
 
+  // "Done" doesn't invent a new field to track completion in -- it creates a real
+  // FertilizerLog, the schema's own existing record of what was actually applied. That's not
+  // just cosmetic: a real log here genuinely credits against the NEXT recommendation's prior-
+  // usage calculation, and shows up for real in History, unlike a fake local "completed" flag
+  // that would reset on reload and mean nothing to the rest of the app.
+  const handleMarkDone = async (line, key) => {
+    setMarkingDoneKey(key);
+    setMarkDoneError(null);
+    try {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const newLog = await endpoints.createFertilizerLog(fieldId, {
+        type: line.fertilizer_type,
+        quantityKgPerAcre: line.quantity_kg_per_acre,
+        appliedOn: todayIso,
+      });
+      setFertilizerLogs((prev) => [newLog, ...prev]);
+    } catch {
+      setMarkDoneError('Could not log this application. Try again.');
+    } finally {
+      setMarkingDoneKey(null);
+    }
+  };
+
   const schedule = recommendation?.schedule || [];
   const today = new Date();
+  const recommendationCreatedAt = recommendation ? new Date(recommendation.createdAt) : null;
   const steps = schedule.map((line, i) => {
     const status = computeStepStatus(line.apply_by, today);
     const meta = fertilizerMeta[line.fertilizer_type];
@@ -111,14 +142,24 @@ export default function Schedule() {
     const bags = meta?.bag_size_kg && field?.areaAcres
       ? `≈ ${((line.quantity_kg_per_acre * field.areaAcres) / meta.bag_size_kg).toFixed(1)} bags (${meta.bag_size_kg}kg) across ${field.areaAcres} acres`
       : `${line.quantity_kg_per_acre} kg/acre`;
+    // A real fertilizer log of the same product, logged on or after this recommendation was
+    // made, counts this step as applied -- a real join, not a guess, but an honest one: with
+    // more than one schedule line for the same product (e.g. two urea top-dresses), this can't
+    // tell them apart and will mark both done together. Stated here, not hidden.
+    const key = `${line.stage}-${line.fertilizer_type}-${i}`;
+    const isApplied = fertilizerLogs.some(
+      (log) => log.type === line.fertilizer_type && recommendationCreatedAt && new Date(log.appliedOn) >= recommendationCreatedAt,
+    );
     return {
-      key: `${line.stage}-${line.fertilizer_type}-${i}`,
+      key,
+      isApplied,
       step: String(i + 1).padStart(2, '0'),
       title: `${stageLabel(line.stage)} — ${productName}`,
       timing: `${line.quantity_kg_per_acre} kg/acre`,
       fertilizers: productName,
       rate: bags,
       instruction: line.timing_note || `Apply at the ${stageLabel(line.stage).toLowerCase()} stage.`,
+      line,
       ...status,
     };
   });
@@ -216,6 +257,10 @@ export default function Schedule() {
               Real Application Schedule ({steps.length} step{steps.length === 1 ? '' : 's'})
             </div>
 
+            {markDoneError && (
+              <div className="text-xs text-[#B91C1C] px-2">{markDoneError}</div>
+            )}
+
             <div className="divide-y divide-[#EAE4D5] border border-[#D8CEBC] rounded-2xl bg-white/80 backdrop-blur-xs overflow-hidden shadow-xs">
               {steps.map((item) => (
                 <div
@@ -240,12 +285,14 @@ export default function Schedule() {
                         </h2>
                         <span
                           className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                            item.isCurrent
+                            item.isApplied
+                              ? 'bg-[#DCFCE7] text-[#166534]'
+                              : item.isCurrent
                               ? 'bg-[#FEF3C7] text-[#92400E]'
                               : 'bg-[#F4F1EA] text-[#756F63]'
                           }`}
                         >
-                          {item.statusText}
+                          {item.isApplied ? 'Applied ✓' : item.statusText}
                         </span>
                       </div>
 
@@ -263,14 +310,31 @@ export default function Schedule() {
                     </div>
                   </div>
 
-                  {item.isCurrent && weather && (
-                    <div className="sm:text-right shrink-0">
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    {item.isCurrent && weather && (
                       <span className="inline-flex items-center gap-1.5 text-xs text-[#2D5430] font-medium bg-[#DCFCE7]/70 px-3 py-1 rounded-full">
                         <Sun className="w-3.5 h-3.5" />
                         {weather.rainfallMmForecast}mm rain forecast ({weather.source})
                       </span>
-                    </div>
-                  )}
+                    )}
+
+                    {!item.isApplied && (
+                      <button
+                        type="button"
+                        onClick={() => handleMarkDone(item.line, item.key)}
+                        disabled={markingDoneKey === item.key}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#2D5430] hover:bg-[#234226] disabled:opacity-60 text-white text-xs font-medium transition-all cursor-pointer active:scale-95 shadow-2xs"
+                        title="Logs this exact product and quantity as a real fertilizer application for today"
+                      >
+                        {markingDoneKey === item.key ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5" />
+                        )}
+                        <span>Done</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
