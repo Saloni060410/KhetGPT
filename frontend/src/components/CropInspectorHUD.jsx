@@ -12,6 +12,7 @@ import {
   Play,
   RotateCcw,
   TrendingDown,
+  TrendingUp,
   MapPin,
   Printer,
   FileText,
@@ -45,11 +46,15 @@ export default function CropInspectorHUD({
   const [isExpanded, setIsExpanded] = useState(false);
   const [simulated, setSimulated] = useState(false);
 
-  // Cross-reference crop with DOCKET_DATA
+  // `crop` (the activeCrop prop from Recommendation.jsx) already IS the right docket-shaped
+  // object -- either the static DOCKET_DATA entry, or, when a real recommendation exists for
+  // this field's crop, buildRealDocketCrop()'s real-data-merged version of it (see
+  // Recommendation.jsx's `crops` useMemo). This used to re-look-up crop.id in the static
+  // DOCKET_DATA import directly, silently discarding any real-data override the caller had
+  // already built -- a real bug, not a hypothetical, caught by actually testing the wiring in
+  // a browser rather than trusting that passing the right prop was enough.
   const docketCrop = useMemo(() => {
-    if (!crop) return DOCKET_DATA.crops[0];
-    const found = DOCKET_DATA.crops.find((c) => c.id === crop.id);
-    return found || DOCKET_DATA.crops[0];
+    return crop || DOCKET_DATA.crops[0];
   }, [crop]);
 
   if (!crop) return null;
@@ -344,12 +349,24 @@ export default function CropInspectorHUD({
              ======================================================== */}
           <div className="bg-[#FAF8F5] text-slate-900 rounded-3xl p-4 sm:p-5 border border-[#E8E3DA] shadow-xl flex flex-col gap-3.5">
             <div className="flex items-start sm:items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-100/90 text-emerald-800 flex items-center justify-center flex-shrink-0 shadow-xs">
-                <TrendingDown className="w-5 h-5 text-emerald-700" />
+              <div
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-xs ${
+                  docketCrop.estimatedSavings.isPositive === false
+                    ? 'bg-amber-100/90 text-amber-800'
+                    : 'bg-emerald-100/90 text-emerald-800'
+                }`}
+              >
+                {docketCrop.estimatedSavings.isPositive === false ? (
+                  <TrendingUp className="w-5 h-5 text-amber-700" />
+                ) : (
+                  <TrendingDown className="w-5 h-5 text-emerald-700" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <h4 className="font-serif font-bold text-base sm:text-lg text-slate-900 leading-snug">
-                  Estimated {docketCrop.estimatedSavings.amount} Saved in Unnecessary Fertilizer
+                  {docketCrop.estimatedSavings.isPositive === false
+                    ? `Estimated ${docketCrop.estimatedSavings.amount} More Than Last Applied`
+                    : `Estimated ${docketCrop.estimatedSavings.amount} Saved in Unnecessary Fertilizer`}
                 </h4>
                 <p className="text-xs text-slate-600 font-sans mt-0.5 leading-relaxed">
                   {docketCrop.estimatedSavings.description}

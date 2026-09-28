@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import gsap from 'gsap';
 import {
   Sparkles,
@@ -18,20 +18,75 @@ import Field2DMap from '../components/Field2DMap';
 import { DOCKET_DATA } from '../data/docketData';
 import { CROPS_DATA } from '../data/cropsData';
 import { useT } from '../i18n/useT.js';
+import { useFarmStore } from '../store/useFarmStore.js';
+import { useRecommendationStore } from '../store/useRecommendationStore.js';
+import * as endpoints from '../services/endpoints.js';
+import { buildRealDocketCrop } from '../data/realDocket.js';
 
 export default function Recommendation() {
   useDocumentTitle('Agronomic Prescription Docket — KhetGPT');
   const { isHindi } = useT();
   const [searchParams] = useSearchParams();
+  const { fieldId } = useParams();
 
   const sceneRefs = useRef({});
   const [, setSceneReady] = useState(false);
 
-  // URL query param support (e.g. ?crop=rice)
+  // Real data for this field, if any -- see realDocket.js for exactly which fields are real
+  // vs. left as the static PAU reference content (no backend equivalent exists for those).
+  const { currentField, fetchField } = useFarmStore();
+  const { recommendations, fetchRecommendations } = useRecommendationStore();
+  const [fertilizerNames, setFertilizerNames] = useState({});
+  const [hasLoadedReal, setHasLoadedReal] = useState(false);
+
+  useEffect(() => {
+    if (!fieldId) return;
+    let cancelled = false;
+    async function loadReal() {
+      try {
+        await fetchField(fieldId);
+        await fetchRecommendations(fieldId, { limit: 1 });
+        const fertilizers = await endpoints.getReferenceFertilizers();
+        if (!cancelled) {
+          const names = {};
+          for (const f of fertilizers) names[f.id] = f.name_en || f.id;
+          setFertilizerNames(names);
+        }
+      } catch {
+        // No real field/recommendation yet -- the page falls back to the static PAU
+        // reference explorer below, same as it always has.
+      } finally {
+        if (!cancelled) setHasLoadedReal(true);
+      }
+    }
+    loadReal();
+    return () => {
+      cancelled = true;
+    };
+  }, [fieldId, fetchField, fetchRecommendations]);
+
+  const realRecommendation = recommendations[0];
+
+  // URL query param support (e.g. ?crop=rice) -- still honored if given explicitly; otherwise,
+  // once the real field has loaded, default to showing ITS crop rather than always wheat.
   const initialCropParam = searchParams.get('crop')?.toLowerCase();
-  const validInitialCrop = initialCropParam && CROPS_DATA.find((c) => c.id === initialCropParam) ? initialCropParam : 'wheat';
+  const fallbackCrop = (hasLoadedReal && currentField?.cropType) || 'wheat';
+  const validInitialCrop = initialCropParam && CROPS_DATA.find((c) => c.id === initialCropParam) ? initialCropParam : fallbackCrop;
   const [selectedCropId, setSelectedCropId] = useState(validInitialCrop);
   const [isDocketOpen, setIsDocketOpen] = useState(Boolean(initialCropParam));
+
+  // Once the real field/recommendation finish loading (they're fetched async, after first
+  // render), jump the picker to the field's real crop and open its docket -- the whole reason
+  // someone lands on this page from "View Plan"/"Calibrate Fertilizer Plan" is to see THEIR
+  // result, not always wheat by default. Adjusted during render (React's own recommended
+  // pattern for this, see Navbar.jsx's prevPathname), not in an effect, guarded by
+  // appliedRealCropFor so it only fires once per field rather than every render.
+  const [appliedRealCropFor, setAppliedRealCropFor] = useState(null);
+  if (hasLoadedReal && currentField?.cropType && !initialCropParam && appliedRealCropFor !== fieldId) {
+    setAppliedRealCropFor(fieldId);
+    setSelectedCropId(currentField.cropType);
+    setIsDocketOpen(true);
+  }
 
   const [activeNutrientStream, setActiveNutrientStream] = useState(null);
   const [uptakeToast, setUptakeToast] = useState(null);
@@ -71,16 +126,31 @@ export default function Recommendation() {
     },
   ]);
 
-  const { plotMeta, crops } = DOCKET_DATA;
+  const { plotMeta } = DOCKET_DATA;
 
-  // Selected crop details from DOCKET_DATA & CROPS_DATA
+  // The static PAU reference docket for every crop, EXCEPT the one matching this field's real
+  // registered crop when a real recommendation has loaded -- that one entry is replaced with
+  // real numbers (buildRealDocketCrop, see data/realDocket.js for exactly which fields are
+  // real vs. kept from the static reference). Every other crop stays exactly as it was: a
+  // PAU reference explorer, not a claim about your field.
+  const crops = useMemo(() => {
+    if (!hasLoadedReal || !currentField?.cropType || !realRecommendation) return DOCKET_DATA.crops;
+    return DOCKET_DATA.crops.map((c) =>
+      c.id === currentField.cropType
+        ? buildRealDocketCrop(c, currentField, realRecommendation, fertilizerNames)
+        : c
+    );
+  }, [hasLoadedReal, currentField, realRecommendation, fertilizerNames]);
+
+  // Selected crop details from DOCKET_DATA (or the real-data override, see the crops useMemo
+  // above). CropInspectorHUD used to be passed a *different* object here (CROPS_DATA, the 3D
+  // model's own metadata -- localName/idealPh/glowColor, no recommendedAction/schedule/etc.
+  // at all) and silently re-derived its own docket content by id instead of using what it was
+  // given -- two compensating bugs that happened to look fine for static content and both had
+  // to be fixed together to let real data flow through. See CropInspectorHUD.jsx's docketCrop.
   const activeCrop = useMemo(() => {
     return crops.find((c) => c.id === selectedCropId) || crops[0];
   }, [crops, selectedCropId]);
-
-  const activeCrop3D = useMemo(() => {
-    return CROPS_DATA.find((c) => c.id === selectedCropId) || CROPS_DATA[0];
-  }, [selectedCropId]);
 
   // Handle 3D nutrient uptake simulation
   const handleApplyPrescription = useCallback((crop, details) => {
@@ -479,7 +549,7 @@ export default function Recommendation() {
          ======================================================== */}
       {isDocketOpen && (
         <CropInspectorHUD
-          crop={activeCrop3D}
+          crop={activeCrop}
           onClose={() => {
             setIsDocketOpen(false);
             setActiveNutrientStream(null);

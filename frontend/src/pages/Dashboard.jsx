@@ -116,19 +116,32 @@ export default function Dashboard() {
     if (!newPlotName.trim() || !newCrop) return;
 
     try {
+      // Each crop's own first real stage, not a hardcoded 'sowing' -- rice, for one, doesn't
+      // start there (it's transplanted). A real bug caught by actually testing this with rice,
+      // not assumed: 'sowing' only happens to be correct for wheat.
+      const cropMeta = crops.find((c) => c.id === newCrop);
+      const firstStage = cropMeta?.stages?.[0]?.id || 'sowing';
+
       const farm = await createFarm({ name: newPlotName.trim() });
-      const field = await createField(farm.id, {
-        name: newPlotName.trim(),
-        areaAcres: parseFloat(newAcres) || 1,
-        latitude: DEFAULT_LAT,
-        longitude: DEFAULT_LON,
-        cropType: newCrop,
-        growthStage: 'sowing',
-        irrigation: 'irrigated',
-      });
-      setPlots([...plots, { farm, field }]);
-      setIsAddOpen(false);
-      setNewPlotName('');
+      try {
+        const field = await createField(farm.id, {
+          name: newPlotName.trim(),
+          areaAcres: parseFloat(newAcres) || 1,
+          latitude: DEFAULT_LAT,
+          longitude: DEFAULT_LON,
+          cropType: newCrop,
+          growthStage: firstStage,
+          irrigation: 'irrigated',
+        });
+        setPlots([...plots, { farm, field }]);
+        setIsAddOpen(false);
+        setNewPlotName('');
+      } catch (fieldErr) {
+        // The farm above was genuinely created -- don't leave an empty, invisible-in-the-UI
+        // farm behind if the field it was for failed to create.
+        await deleteFarm(farm.id).catch(() => {});
+        throw fieldErr;
+      }
     } catch {
       // The modal stays open with the entered values so the farmer can retry -- no silent
       // "looked like it worked" state when the plot was never actually registered.
