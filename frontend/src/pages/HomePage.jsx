@@ -73,7 +73,7 @@ export default function HomePage({ onNavigate }) {
             </button>
             <button 
               type="button" 
-              onClick={(e) => handleNav(e, '/fields/1/soil')} 
+              onClick={(e) => handleNav(e, '/dashboard')} 
               className="hover:text-white transition-colors cursor-pointer"
             >
               Soil Test
@@ -123,14 +123,14 @@ export default function HomePage({ onNavigate }) {
               <div className="animate-reveal delay-2 flex flex-col sm:flex-row items-center gap-3.5 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={(e) => handleNav(e, '/fields/1/soil')}
+                  onClick={(e) => handleNav(e, '/dashboard')}
                   className="w-full sm:w-auto px-7 py-3 rounded-lg bg-[#2D5430] hover:bg-[#234226] text-white font-medium text-sm tracking-wide shadow-xs transition-all active:scale-95 cursor-pointer text-center"
                 >
                   Calibrate Soil Test →
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => handleNav(e, '/fields/1/recommendation')}
+                  onClick={(e) => handleNav(e, '/dashboard')}
                   className="w-full sm:w-auto px-7 py-3 rounded-lg border border-[#D8CEBC] hover:border-[#1C1B18] bg-white/80 hover:bg-white text-[#1C1B18] font-medium text-sm tracking-wide transition-all active:scale-95 cursor-pointer text-center shadow-2xs flex items-center justify-center gap-2"
                 >
                   <span>View Crop Prescriptions →</span>
@@ -372,7 +372,7 @@ export default function HomePage({ onNavigate }) {
                 <li><button type="button" onClick={() => scrollTo('soil-cross-section')} className="hover:text-white transition-colors cursor-pointer">Soil Cross-Section</button></li>
                 <li><button type="button" onClick={() => scrollTo('formula-story')} className="hover:text-white transition-colors cursor-pointer">Three-Term Formula</button></li>
                 <li><button type="button" onClick={() => scrollTo('coverage')} className="hover:text-white transition-colors cursor-pointer">Verified Scope</button></li>
-                <li><a href="/fields/1/soil" onClick={(e) => handleNav(e, '/fields/1/soil')} className="hover:text-white transition-colors">Soil Health Calibration</a></li>
+                <li><a href="/dashboard" onClick={(e) => handleNav(e, '/dashboard')} className="hover:text-white transition-colors">Soil Health Calibration</a></li>
               </ul>
             </div>
 
@@ -385,7 +385,7 @@ export default function HomePage({ onNavigate }) {
               </div>
               <ul className="space-y-1.5 text-[#C5BBAA] text-xs pt-1">
                 <li><a href="/dashboard" onClick={(e) => handleNav(e, '/dashboard')} className="hover:text-white transition-colors">Farmer Field Ledger</a></li>
-                <li><a href="/fields/1/soil" onClick={(e) => handleNav(e, '/fields/1/soil')} className="hover:text-white transition-colors">Soil Test Calibration</a></li>
+                <li><a href="/dashboard" onClick={(e) => handleNav(e, '/dashboard')} className="hover:text-white transition-colors">Soil Test Calibration</a></li>
               </ul>
             </div>
           </div>

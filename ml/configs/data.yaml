@@ -1,0 +1,19 @@
+# Data pipeline config. Read by
+# `python -m src.data_pipeline.build_dataset --config configs/data.yaml`.
+#
+# version: bump this (semver) whenever a deliberate change to the pipeline's own logic or
+# inputs would change train.csv's content in a way worth naming -- it is not auto-derived from
+# the code, and is combined with the run's content_hash to make the printed dataset version
+# (e.g. "1.0.0+9c974b21") traceable to both "which pipeline version" and "which exact bytes".
+version: "1.0.0"
+
+seed: 42
+
+split_ratios:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+
+# A class with fewer total rows than this can't appear in all three splits -- see
+# build_dataset.py's _stratified_split() docstring (npk_10_26_26 has only 2 rows).
+min_rows_to_split_across_all_three: 3

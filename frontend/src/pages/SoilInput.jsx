@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Check, 
-  UploadCloud, 
-  Sparkles, 
-  History, 
-  Droplets 
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  UploadCloud,
+  Sparkles,
+  History,
+  Droplets
 } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle.js';
 import RecommendationCard from '../components/RecommendationCard.jsx';
+import * as endpoints from '../services/endpoints.js';
+import { useRecommendationStore } from '../store/useRecommendationStore.js';
 
 export default function SoilInput() {
   const { fieldId = '1' } = useParams();
@@ -80,12 +82,28 @@ export default function SoilInput() {
     }, 6000);
   };
 
-  const handleSave = (e) => {
+  const { generateRecommendation } = useRecommendationStore();
+
+  const handleSave = async (e) => {
     e.preventDefault();
     setIsSaved(true);
-    setTimeout(() => {
+    try {
+      await endpoints.createSoilTest(fieldId, {
+        n: numN,
+        p: numP,
+        k: numK,
+        ph: parseFloat(ph) || 0,
+        organicCarbon: parseFloat(oc) || 0,
+        moisture: numMoisture,
+      });
+      await generateRecommendation(fieldId, {});
       navigate(`/fields/${fieldId}/recommendation`);
-    }, 400);
+    } catch (err) {
+      // Stays on the form with the entered values rather than navigating to a recommendation
+      // that was never actually generated -- no silent "looked like it worked" state.
+      console.error('Calibrate Fertilizer Plan failed for field', fieldId, err);
+      setIsSaved(false);
+    }
   };
 
   return (

@@ -4,7 +4,7 @@ Each person has a prompt pack in `docs/prompt-packs/` with setup, features, orde
 
 ## Saloni: AI/ML core (recommendation engine, model, API)
 Branch `feature/saloni-ml-core`. Owns `ml/src/api/`, `ml/src/engine/`, `ml/src/models/`, `ml/Dockerfile`, `ml/MODEL_CARD.md`.
-- `engine/npk_calculator.py`: the deficit formula. Crop demand minus soil supply, divided by use efficiency, minus credit from recent applications. Returns per-nutrient numbers and a rule trace.
+- `engine/npk_calculator.py`: the dose formula. Standard dose for the crop, plus the soil-test adjustment (or an STCR equation where one exists), minus credit from recent applications. Returns per-nutrient numbers and a rule trace.
 - `engine/recommendation_engine.py`: products, dated split schedule, weather adjustment, cost and saving, and the call to Richa's risk analyzer and explanations.
 - `models/`: trains and versions the product classifier on Richa's dataset.
 - `api/`: `POST /recommend`, `POST /risk-score`, `GET /health`, `GET /reference/*`, mock mode for parallel work.

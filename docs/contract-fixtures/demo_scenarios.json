@@ -1,0 +1,287 @@
+{
+  "_note": "Three demo scenarios (R11). Every recommend_response here was produced by actually running the real engine (src/engine/recommendation_engine.py's recommend(), predict_mode=real) against the paired recommend_request, not hand-calculated. Re-verify by running ml/build_demo.py-style code again if any reference table changes. previous_cost_inr_per_acre/saving_inr_per_acre come from cost.compare_to_history's own computation over previous_fertilizer_usage, not invented.",
+  "scenarios": [
+    {
+      "id": "wheat_over_application",
+      "title": "Wheat field with a history of over-application",
+      "expected_outcome": {
+        "risk_level": "high",
+        "risk_reason_kind": "over-use (nitrogen)",
+        "saving_direction": "positive -- recommended dose costs less than the farmer's own past practice",
+        "recommended_product": "urea",
+        "recommended_quantity_kg_per_acre": 22.417,
+        "saving_inr_per_acre": 755.291,
+        "over_application_reduction_pct": 85.055
+      },
+      "seed": {
+        "farm": {
+          "farm_id": "farm_demo_1",
+          "name": "Demo Farm 1 (Ludhiana)",
+          "owner_note": "Seed farmer/user as needed for your auth schema -- not specified here"
+        },
+        "field": {
+          "field_id": "fld_demo_wheat_overuse",
+          "farm_id": "farm_demo_1",
+          "name": "North wheat field",
+          "area_acres": 4.5,
+          "latitude": 30.911,
+          "longitude": 75.847,
+          "region_note": "Near Ludhiana, Punjab -- same demo region as ml/data/external/seasonal_weather.csv's punjab_ludhiana key"
+        },
+        "soil_test": {
+          "field_id": "fld_demo_wheat_overuse",
+          "tested_on": "2026-10-20",
+          "n": 300, "p": 15, "k": 150, "ph": 7.0, "organic_carbon": 0.6, "moisture": 35,
+          "units_note": "n/p/k in kg/ha (Soil Health Card basis), ph in pH units, organic_carbon and moisture in %"
+        },
+        "fertilizer_logs": [
+          {
+            "field_id": "fld_demo_wheat_overuse",
+            "type": "urea",
+            "quantity_kg_per_acre": 150,
+            "applied_on": "2026-11-05"
+          }
+        ]
+      },
+      "recommend_request": {
+        "field_id": "fld_demo_wheat_overuse",
+        "crop_type": "wheat",
+        "variety": null,
+        "irrigation": "irrigated",
+        "growth_stage": "second_irrigation",
+        "sowing_date": "2026-11-01",
+        "soil": { "n": 300, "p": 15, "k": 150, "ph": 7.0, "organic_carbon": 0.6, "moisture": 35 },
+        "weather": { "temperature_c": 15, "humidity_pct": 75, "rainfall_mm_forecast": 5, "source": "live" },
+        "previous_fertilizer_usage": [
+          { "type": "urea", "quantity_kg_per_acre": 150, "applied_on": "2026-11-05" }
+        ]
+      },
+      "demo_today": "2026-12-25",
+      "recommend_response": {
+        "recommendation": {
+          "fertilizer_type": "urea",
+          "quantity_kg_per_acre": 22.417,
+          "schedule": [
+            { "stage": "second_irrigation", "fertilizer_type": "urea", "quantity_kg_per_acre": 22.417, "apply_by": "2026-12-21", "timing_note": null }
+          ]
+        },
+        "risk": {
+          "level": "high",
+          "reason": "Applied N is 170.5 kg/ha, 335% of the 51.0 kg/ha the crop needs.",
+          "soil_health_impact": "Nitrogen applied well beyond crop need can acidify the soil over time and leach into groundwater rather than being taken up by the plant.",
+          "yield_impact": "Extra fertilizer beyond what the crop can use adds cost without adding yield -- money spent for no extra grain.",
+          "over_application_pct": 234.6
+        },
+        "explanation": {
+          "top_factors": [
+            "The standard irrigated dose for wheat is 123.6 kg/ha of N.",
+            "You already applied about 170.5059 kg/ha of N-containing fertilizer recently; at this crop's nutrient-use efficiency, that credits 72.6 kg/ha against the new dose.",
+            "The standard irrigated dose for wheat is 61.8 kg/ha of P2O5."
+          ],
+          "nutrient_balance": {
+            "n": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 123.6, "soil_adjustment_kg_ha": 0.0, "prior_credit_kg_ha": 72.636, "fertilizer_needed_kg_ha": 50.964 },
+            "p": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 61.8, "soil_adjustment_kg_ha": 0.0, "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 61.8 },
+            "k": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 0.0, "soil_adjustment_kg_ha": 0.0, "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 0.0 }
+          },
+          "formula": "fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications",
+          "data_notes": []
+        },
+        "cost": {
+          "estimated_cost_inr_per_acre": 132.709,
+          "previous_cost_inr_per_acre": 888.0,
+          "saving_inr_per_acre": 755.291,
+          "prices_as_of": "2025-01-01",
+          "breakdown": [
+            { "fertilizer_type": "urea", "quantity_kg_per_acre": 22.417, "cost_inr_per_acre": 132.709 }
+          ]
+        },
+        "impact": { "over_application_reduction_pct": 85.055 }
+      }
+    },
+    {
+      "id": "rice_low_n_rain_hold",
+      "title": "Rice field with low soil nitrogen and heavy rain forecast",
+      "expected_outcome": {
+        "risk_level": "medium",
+        "risk_reason_kind": "under-use (nitrogen, soil tests low)",
+        "schedule_visible_effect": "both nitrogen top-dress stages delayed 2 days ('Delayed 2 days for forecast rain')",
+        "recommended_product": "urea",
+        "recommended_quantity_kg_per_acre": 60.908,
+        "saving_inr_per_acre": null,
+        "saving_note": "null, not invented -- no previous_fertilizer_usage logged, so there is no baseline to compare cost against (docs/api-contract.md: 'never invent a baseline')"
+      },
+      "seed": {
+        "farm": {
+          "farm_id": "farm_demo_2",
+          "name": "Demo Farm 2 (Ludhiana)"
+        },
+        "field": {
+          "field_id": "fld_demo_rice_rainhold",
+          "farm_id": "farm_demo_2",
+          "name": "Low paddy field",
+          "area_acres": 3.0,
+          "latitude": 30.889,
+          "longitude": 75.862,
+          "region_note": "Near Ludhiana, Punjab"
+        },
+        "soil_test": {
+          "field_id": "fld_demo_rice_rainhold",
+          "tested_on": "2026-05-25",
+          "n": 150, "p": 15, "k": 150, "ph": 7.0, "organic_carbon": 0.6, "moisture": 45
+        },
+        "fertilizer_logs": []
+      },
+      "recommend_request": {
+        "field_id": "fld_demo_rice_rainhold",
+        "crop_type": "rice",
+        "variety": null,
+        "irrigation": "irrigated",
+        "growth_stage": "active_tillering",
+        "sowing_date": "2026-06-05",
+        "soil": { "n": 150, "p": 15, "k": 150, "ph": 7.0, "organic_carbon": 0.6, "moisture": 45 },
+        "weather": { "temperature_c": 29, "humidity_pct": 78, "rainfall_mm_forecast": 25, "source": "live" },
+        "previous_fertilizer_usage": []
+      },
+      "demo_today": "2026-07-25",
+      "recommend_response": {
+        "recommendation": {
+          "fertilizer_type": "urea",
+          "quantity_kg_per_acre": 60.908,
+          "schedule": [
+            { "stage": "active_tillering", "fertilizer_type": "urea", "quantity_kg_per_acre": 30.408, "apply_by": "2026-06-28", "timing_note": "Delayed 2 days for forecast rain" },
+            { "stage": "panicle_initiation", "fertilizer_type": "urea", "quantity_kg_per_acre": 30.5, "apply_by": "2026-07-12", "timing_note": "Delayed 2 days for forecast rain" }
+          ]
+        },
+        "risk": {
+          "level": "medium",
+          "reason": "Soil N tests low, and only 0.0 kg/ha was applied against the 103.8 kg/ha needed (0%).",
+          "soil_health_impact": "Consistently under-supplying a nutrient the soil is already low in draws down soil fertility further over successive seasons.",
+          "yield_impact": "A nutrient shortfall this large is likely to limit crop growth and reduce yield below what the field could otherwise produce.",
+          "over_application_pct": null
+        },
+        "explanation": {
+          "top_factors": [
+            "The standard irrigated dose for rice is 103.8 kg/ha of N.",
+            "The standard irrigated dose for rice is 29.7 kg/ha of P2O5.",
+            "Your soil P2O5 tests medium (15.0 kg/ha), so -29.7 kg/ha is adjusted into the dose."
+          ],
+          "nutrient_balance": {
+            "n": { "method": "reference_dose", "soil_rating": "low", "standard_dose_kg_ha": 103.8, "soil_adjustment_kg_ha": 0.0, "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 103.8 },
+            "p": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 29.7, "soil_adjustment_kg_ha": -29.7, "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 0.0 },
+            "k": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 29.7, "soil_adjustment_kg_ha": -29.7, "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 0.0 }
+          },
+          "formula": "fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications",
+          "data_notes": []
+        },
+        "cost": {
+          "estimated_cost_inr_per_acre": 360.575,
+          "previous_cost_inr_per_acre": null,
+          "saving_inr_per_acre": null,
+          "prices_as_of": "2025-01-01",
+          "breakdown": [
+            { "fertilizer_type": "urea", "quantity_kg_per_acre": 60.908, "cost_inr_per_acre": 360.575 }
+          ]
+        },
+        "impact": { "over_application_reduction_pct": null }
+      }
+    },
+    {
+      "id": "maize_healthy",
+      "title": "Healthy maize field",
+      "expected_outcome": {
+        "risk_level": "high",
+        "risk_reason_kind": "over-use (nitrogen) -- corrected 2026-09-28, was wrongly 'low' due to a risk_analyzer date bug (see docs/demo-scenarios.md §3)",
+        "recommended_products": ["dap", "mop", "urea"],
+        "note_on_p_and_k": "P and K now DO get prior-usage credit -- nutrient_efficiency.csv's default P (0.20) and K (0.55) rows were sourced (PIB Release ID 2237709, 10 Mar 2026) after this scenario was first written, so the DAP already applied genuinely credits against the new P dose now. This is a real behavior change from the scenario's original version, not a rerun with the same story.",
+        "mop_priced_note": "MOP now has a real verified price (PIB Release ID 2237470, 10 Mar 2026) and is included in the cost breakdown like any other product -- it used to be excluded with a data_notes caveat. data_notes is now empty for this scenario.",
+        "saving_inr_per_acre": -126.327,
+        "saving_note": "Now NEGATIVE -- the recommended plan (which now includes MOP's real cost) costs more than what the farmer previously applied (urea+dap only, no MOP logged). This is the honest number, not the old positive one."
+      },
+      "seed": {
+        "farm": {
+          "farm_id": "farm_demo_3",
+          "name": "Demo Farm 3 (Ludhiana)"
+        },
+        "field": {
+          "field_id": "fld_demo_maize_healthy",
+          "farm_id": "farm_demo_3",
+          "name": "Healthy maize plot",
+          "area_acres": 2.5,
+          "latitude": 30.902,
+          "longitude": 75.831,
+          "region_note": "Near Ludhiana, Punjab"
+        },
+        "soil_test": {
+          "field_id": "fld_demo_maize_healthy",
+          "tested_on": "2026-06-10",
+          "n": 300, "p": 15, "k": 150, "ph": 7.0, "organic_carbon": 0.6, "moisture": 40
+        },
+        "fertilizer_logs": [
+          { "field_id": "fld_demo_maize_healthy", "type": "urea", "quantity_kg_per_acre": 100, "applied_on": "2026-06-16" },
+          { "field_id": "fld_demo_maize_healthy", "type": "dap", "quantity_kg_per_acre": 50, "applied_on": "2026-06-16" }
+        ]
+      },
+      "recommend_request": {
+        "field_id": "fld_demo_maize_healthy",
+        "crop_type": "maize",
+        "variety": null,
+        "irrigation": "irrigated",
+        "growth_stage": "sowing",
+        "sowing_date": "2026-06-15",
+        "soil": { "n": 300, "p": 15, "k": 150, "ph": 7.0, "organic_carbon": 0.6, "moisture": 40 },
+        "weather": { "temperature_c": 30, "humidity_pct": 65, "rainfall_mm_forecast": 5, "source": "live" },
+        "previous_fertilizer_usage": [
+          { "type": "urea", "quantity_kg_per_acre": 100, "applied_on": "2026-06-16" },
+          { "type": "dap", "quantity_kg_per_acre": 50, "applied_on": "2026-06-16" }
+        ]
+      },
+      "demo_today": "2026-07-01",
+      "recommend_response": {
+        "recommendation": {
+          "fertilizer_type": "dap",
+          "quantity_kg_per_acre": 42.168,
+          "schedule": [
+            { "stage": "sowing", "fertilizer_type": "dap", "quantity_kg_per_acre": 42.168, "apply_by": "2026-06-15", "timing_note": null },
+            { "stage": "sowing", "fertilizer_type": "mop", "quantity_kg_per_acre": 20.032, "apply_by": "2026-06-15", "timing_note": null },
+            { "stage": "sowing", "fertilizer_type": "urea", "quantity_kg_per_acre": 2.747, "apply_by": "2026-06-15", "timing_note": null },
+            { "stage": "knee_high", "fertilizer_type": "urea", "quantity_kg_per_acre": 19.248, "apply_by": null, "timing_note": "At Knee-high Stage" },
+            { "stage": "pre_tasseling", "fertilizer_type": "urea", "quantity_kg_per_acre": 19.305, "apply_by": null, "timing_note": "At Pre-tasseling Stage" }
+          ]
+        },
+        "risk": {
+          "level": "high",
+          "reason": "Applied N is 135.9 kg/ha, 207% of the 65.7 kg/ha the crop needs.",
+          "soil_health_impact": "Nitrogen applied well beyond crop need can acidify the soil over time and leach into groundwater rather than being taken up by the plant.",
+          "yield_impact": "Extra fertilizer beyond what the crop can use adds cost without adding yield -- money spent for no extra grain.",
+          "over_application_pct": 106.9
+        },
+        "explanation": {
+          "top_factors": [
+            "The standard irrigated dose for maize is 123.6 kg/ha of N.",
+            "The standard irrigated dose for maize is 59.3 kg/ha of P2O5.",
+            "You already applied about 135.9105 kg/ha of N-containing fertilizer recently; at this crop's nutrient-use efficiency, that credits 57.9 kg/ha against the new dose."
+          ],
+          "nutrient_balance": {
+            "n": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 123.6, "soil_adjustment_kg_ha": 0.0, "prior_credit_kg_ha": 57.898, "fertilizer_needed_kg_ha": 65.702 },
+            "p": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 59.3, "soil_adjustment_kg_ha": 0.0, "prior_credit_kg_ha": 11.367, "fertilizer_needed_kg_ha": 47.933 },
+            "k": { "method": "reference_dose", "soil_rating": "medium", "standard_dose_kg_ha": 29.7, "soil_adjustment_kg_ha": 0.0, "prior_credit_kg_ha": 0.0, "fertilizer_needed_kg_ha": 29.7 }
+          },
+          "formula": "fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications",
+          "data_notes": []
+        },
+        "cost": {
+          "estimated_cost_inr_per_acre": 2068.327,
+          "previous_cost_inr_per_acre": 1942.0,
+          "saving_inr_per_acre": -126.327,
+          "prices_as_of": "2025-01-01",
+          "breakdown": [
+            { "fertilizer_type": "dap", "quantity_kg_per_acre": 42.168, "cost_inr_per_acre": 1138.536 },
+            { "fertilizer_type": "mop", "quantity_kg_per_acre": 20.032, "cost_inr_per_acre": 685.295 },
+            { "fertilizer_type": "urea", "quantity_kg_per_acre": 41.3, "cost_inr_per_acre": 244.496 }
+          ]
+        },
+        "impact": { "over_application_reduction_pct": 25.635 }
+      }
+    }
+  ]
+}

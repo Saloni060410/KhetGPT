@@ -20,8 +20,23 @@ services:
     env_file:
       - path: ./ml/.env
         required: false
+    environment:
+      PREDICT_MODE: real
     ports:
       - "8001:8001"
+    # Bind-mounted, not baked into the image: the model artifact is a build output
+    # (python -m src.models.train), not application code, and shouldn't need an image
+    # rebuild to pick up a freshly trained version. Read-only -- this container only serves
+    # predictions, it never writes to models_artifacts/. Empty/missing locally is fine: the
+    # /health endpoint reports "degraded" rather than failing to start (see ml/src/api/config.py),
+    # so `docker compose up` still reaches a healthy stack even before anyone has trained a
+    # model on this machine.
+    volumes:
+      - ./ml/models_artifacts:/app/models_artifacts:ro
+    # No healthcheck: block here -- ml/Dockerfile already declares a HEALTHCHECK
+    # (python urllib against /health), and compose uses the image's own definition for
+    # `condition: service_healthy` below unless overridden. Not duplicated here so the two
+    # can't drift out of sync with each other.
 
   backend:
     build: ./backend
@@ -31,13 +46,41 @@ services:
     environment:
       DATABASE_URL: postgresql://khetgpt:khetgpt@postgres:5432/khetgpt
       ML_SERVICE_URL: http://ml:8001
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
     ports:
       - "4000:4000"
+    volumes:
+      # Mounted at the container's root, mirroring docs/ being a sibling of backend/ on the
+      # host: prisma/seed.js's own relative path (__dirname/../../docs/...) then resolves the
+      # same way whether it's run from the host or docker compose exec'd inside this container.
+      # Read-only, docs-only content, not application code -- the backend image's own build
+      # context is ./backend and never sees a repo-root docs/ sibling otherwise (the same class
+      # of gap S9/S11 already found and fixed for the ml service's own docs/ dependency).
+      - ./docs:/docs:ro
     depends_on:
       postgres:
         condition: service_healthy
       ml:
+        condition: service_healthy
+
+  # Optional: only built/started with `docker compose --profile web up`. Not part of the
+  # default stack (postgres/ml/backend) -- most local development runs the frontend with
+  # `npm run dev` against the backend directly, which reloads faster than a container rebuild.
+  # This exists for a one-command full-stack demo run instead.
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Browser-facing: the frontend is served to the host browser, which reaches the
+        # backend at localhost, not through the compose network's service name.
+        VITE_API_BASE_URL: http://localhost:4000/api
+        VITE_USE_MOCK: "false"
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
         condition: service_started
+    profiles: ["web"]
 
 volumes:
   pgdata:

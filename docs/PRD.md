@@ -33,7 +33,7 @@ Sep 26, 2026 · Owner: @saloni
 - FR4: User can select crop type, optional variety (only where our data has varieties), sowing date and current growth stage.
 - FR5: User can log previous fertilizer usage for that field.
 - FR6: System fetches current + short-range weather forecast for the field's location.
-- FR7: System returns a fertilizer recommendation computed with the NPK-deficit formula (crop demand minus soil supply): type(s), quantity (kg/acre), and a split-application schedule with dates.
+- FR7: System returns a fertilizer recommendation computed from the standard dose for the crop plus a soil-test adjustment: type(s), quantity (kg/acre), and a split-application schedule with dates.
 - FR8: System shows an over- and under-application risk indicator with the plain-language impact on soil health and crop productivity.
 - FR9: User can view recommendation history for a field.
 - FR10: System shows the estimated cost and cost-saving vs. the farmer's logged previous usage.
@@ -46,7 +46,7 @@ Sep 26, 2026 · Owner: @saloni
 - NFR1: Recommendation response time under 3s for the ML call (excluding cold weather-API calls).
 - NFR2: Works on low-end Android devices / patchy connectivity (lightweight frontend bundle, graceful degradation).
 - NFR3: Model and rule tables versioned so recommendations are reproducible and auditable.
-- NFR7: Every recommendation shows its formula inputs (demand, supply, deficit), not only a number.
+- NFR7: Every recommendation shows its inputs (standard dose, soil adjustment, credit), not only a number.
 - NFR8: Weather degrades gracefully: live, then cached, then a seasonal average.
 - NFR4: Auth tokens (JWT) expire and refresh; passwords hashed (bcrypt/argon2).
 - NFR5: Region/crop/fertilizer reference data kept in config/data files, not hardcoded, so the team can extend crop coverage without code changes.
@@ -83,7 +83,7 @@ Sep 26, 2026 · Owner: @saloni
 | --- | --- | --- |
 | Language | Python 3.11+ | Standard for the ML ecosystem |
 | Data handling | pandas, numpy | Cleaning / feature engineering |
-| Core engine | Rule-based NPK-deficit calculator | Transparent, explainable, matches the agronomic formula the success metric checks |
+| Core engine | Rule-based NPK dose calculator (standard dose + soil-test adjustment, STCR where available) | Transparent, explainable, built on published doses the team can source |
 | Modeling | scikit-learn + XGBoost | Refines the product choice on top of the engine; easy to explain via feature importance |
 | Model serving | FastAPI | Async, typed request/response schemas (Pydantic), easy to containerize |
 | Weather data | Open-Meteo API | Free, no API key, current + forecast (non-commercial use) |
@@ -113,7 +113,7 @@ Sep 26, 2026 · Owner: @saloni
                                    (Postgres)
 ```
 
-**Flow:** Farmer enters soil, crop, stage, sowing date and previous usage in the frontend -> backend persists it, fetches weather for the field's coordinates and calls the ML service with the assembled payload -> ML service computes the nutrient deficit, picks products, dates a split schedule, scores risk and cost, and returns everything with the formula inputs and a model version -> backend stores the recommendation and returns it -> frontend renders the schedule, risk indicator, cost saving and reasons (and the 3D soil-health visualization).
+**Flow:** Farmer enters soil, crop, stage, sowing date and previous usage in the frontend -> backend persists it, fetches weather for the field's coordinates and calls the ML service with the assembled payload -> ML service computes the nutrient dose from the soil test, picks products, dates a split schedule, scores risk and cost, and returns everything with the formula inputs and a model version -> backend stores the recommendation and returns it -> frontend renders the schedule, risk indicator, cost saving and reasons (and the 3D soil-health visualization).
 
 The ML service is a separate deployable unit on purpose, so Saloni/Richa can iterate on the model without touching the backend, and Josh can mock its response contract early and build against that mock while the model is still being trained.
 
@@ -124,7 +124,7 @@ The ML service is a separate deployable unit on purpose, so Saloni/Richa can ite
 1. Soil health input (N, P, K, pH, organic carbon, moisture)
 2. Crop type, optional variety, sowing date and growth-stage selection
 3. Weather integration (current + forecast, by field location, with fallback)
-4. Fertilizer type + quantity recommendation from the deficit formula
+4. Fertilizer type + quantity recommendation from the standard dose plus soil-test adjustment
 5. Application schedule (what, how much, when, including split doses)
 6. Over-/under-fertilization warning with soil-health and yield impact
 7. Previous fertilizer usage log, used in every later recommendation
@@ -133,7 +133,7 @@ The ML service is a separate deployable unit on purpose, so Saloni/Richa can ite
 
 8. Cost estimate + savings vs. the farmer's logged previous usage
 9. Recommendation history and nutrient trends per field
-10. Plain-language "why this recommendation" with the deficit numbers
+10. Plain-language "why this recommendation" with the dose numbers
 11. Printable schedule and PDF
 12. "Check my own dose" what-if risk warning
 13. Hindi/regional-language UI toggle
@@ -155,8 +155,9 @@ Richa finds, judges and chooses the datasets herself, using the criteria in her 
 
 Reference tables the engine needs (all in `ml/data/external/`, every value with a source):
 
-- **Crop requirements:** crop nutrient demand (kg/ha of N, P2O5, K2O) per crop and, where the data has varieties, per variety. ICAR and state agriculture university sources.
-- **Soil supply and use efficiency factors:** how much of the soil's available nutrient the crop can use, and what share of applied fertilizer it recovers.
+- **Reference doses:** the published standard dose (kg/ha of N, P2O5, K2O) per crop, irrigation type and, where the data has varieties, per variety (`generic` is the fallback). ICAR and state agriculture university sources such as the PAU Package of Practices.
+- **Soil-test adjustments:** published rules that raise or lower the dose by soil rating (for example extra potash on low-K soil), and STCR targeted-yield equations where a published one exists for the crop and zone.
+- **Use efficiency per crop and nutrient:** only used to credit recent applications.
 - **Split schedules and growth stages** per crop.
 - **Fertilizer products:** nutrient content and current retail price with date and source.
 - **Soil test ratings:** the low and high cut-offs Soil Health Cards use.
@@ -237,7 +238,7 @@ git push origin feature/<your-branch>
 
 | Person | Focus | Owns (files/folders) | Key deliverables |
 | --- | --- | --- | --- |
-| **Saloni** | AI/ML: engine, model, serving | `ml/src/engine/*`, `ml/src/models/*`, `ml/src/api/*`, model card | NPK-deficit engine, dated schedule, cost, product model, `/recommend` and `/risk-score`, `docs/api-contract.md` (with Josh) |
+| **Saloni** | AI/ML: engine, model, serving | `ml/src/engine/*`, `ml/src/models/*`, `ml/src/api/*`, model card | NPK dose engine, dated schedule, cost, product model, `/recommend` and `/risk-score`, `docs/api-contract.md` (with Josh) |
 | **Richa** | AI/ML: data, weather, risk, evaluation | `ml/data/*`, `ml/src/data_pipeline/*`, `ml/src/weather/*`, `ml/src/degradation/*`, `ml/src/evaluation/*` | Chosen and validated datasets, sourced reference tables, weather client, risk analyzer, explanations, metrics |
 | **Josh** | Backend: auth, DB, API, infra | `backend/**`, `docker-compose.yml`, `.github/workflows/` | Auth, Prisma schema, REST routes, weather and geocoding, recommendation orchestration, trends, compose and CI |
 | **Darsh** | Frontend: UI, 3D, animation | `frontend/**` | All pages and forms, stores, API layer, schedule and PDF view, 3D visualization, Hindi toggle. Full design freedom within the API and basics |
@@ -252,7 +253,7 @@ The step-by-step packs, co-requisites and integration gates are in `docs/prompt-
 
 ## 10. Success Metrics & Evaluation Criteria
 
-- **Engine:** recommended nutrient totals match the NPK-deficit formula within the tolerance in `agronomy_rules.yaml`, checked by an automated sanity test over every crop and soil combination.
+- **Engine:** recommended nutrient totals match an independent recomputation of the dose formula within the tolerance in `agronomy_rules.yaml`, checked by an automated sanity test over every crop and soil combination.
 - **Model:** the product classifier is reported against baselines with confidence intervals on a held-out test split, and its limits are stated honestly (the public datasets are small).
 - **Product:** end-to-end demo runs (signup → soil input → recommendation → schedule) without manual intervention.
 - **Impact framing for judges:** estimated % reduction in fertilizer over-application and estimated cost saving per acre, shown quantitatively on the recommendation screen — this maps directly to the PS's stated goal of reducing input cost, preventing soil degradation, and improving farmer income.

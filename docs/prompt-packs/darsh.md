@@ -122,7 +122,7 @@ Expected: Run every prompt below from the repo root.
 | FR11 / Should-have 11 | Printable schedule and PDF | D8 |
 | FR9 / Should-have 9 | Field profile, history and nutrient trends | D9 |
 | FR12 / Should-have 12 | Check my own dose | D10 |
-| Should-have 10 | Show the reasons and the deficit numbers | D7 |
+| Should-have 10 | Show the reasons and the dose numbers | D7 |
 | Should-have 13 | Hindi and English toggle | D12 |
 | Could-have 14 | The standout 3D and animated visualization | D11 |
 | Could-have 15 | Offline-friendly last recommendation | D14 |
@@ -169,7 +169,7 @@ Recommendation {
   schedule: [{ stage, fertilizerType, quantityKgPerAcre, applyBy }],
   risk: { level: "low" | "medium" | "high", reason, soilHealthImpact, yieldImpact, overApplicationPct | null },
   topFactors: [string],
-  nutrientBalance: { n|p|k: { cropDemandKgHa, soilSupplyKgHa, deficitKgHa, useEfficiency, priorCreditKgHa, fertilizerNeededKgHa } },
+  nutrientBalance: { n|p|k: { method: "reference_dose" | "stcr", soilRating, standardDoseKgHa, soilAdjustmentKgHa, priorCreditKgHa, fertilizerNeededKgHa } },
   formula: string,
   cost: { estimatedCostPerAcre, previousCostPerAcre | null, savingPerAcre | null, savingTotal | null },
   impact: { overApplicationReductionPct | null },
@@ -244,14 +244,14 @@ One request travels the whole chain with fake numbers: frontend, backend, databa
 
 ### G2 — Data to engine handoff (end of Phase 2)
 
-Richa's tables and feature module feed Saloni's deficit engine and trainer, and the app stores real farm data.
+Richa's tables and feature module feed Saloni's dose engine and trainer, and the app stores real farm data.
 
 **Your steps at this gate:** D5 (Farms and fields, and setting a location), D6 (Soil input, crop and variety selection, fertilizer log)
 
 **Who delivers what**
 
 - Richa: feature module, dataset build, frozen test split, weather client and seasonal fallback on main (R6, R7)
-- Saloni: first trained model v0.1.0 (S3) and a passing NPK-deficit calculator on Richa's tables (S4)
+- Saloni: first trained model v0.1.0 (S3) and a passing NPK dose calculator on Richa's tables (S4)
 - Josh: CRUD, reference proxy, weather and geocoding on main (J5, J6, J7)
 - Darsh: farm, field, soil, crop and fertilizer log screens saving real data (D5, D6)
 
@@ -272,7 +272,7 @@ Mock mode is off. A real engine, real weather and real stored data produce the r
 - Josh: full recommendation orchestration and history, risk check and trends (J8, J9)
 - Darsh: full recommendation screen, schedule page, history and trends (D7, D8, D9)
 
-**Acceptance test:** Signup, farm, field, soil test, crop and stage, Get recommendation. The result shows a real model_version, a dated schedule, the risk with its soil and yield impact, cost and the deficit numbers. History and the schedule page show it afterwards.
+**Acceptance test:** Signup, farm, field, soil test, crop and stage, Get recommendation. The result shows a real model_version, a dated schedule, the risk with its soil and yield impact, cost and the dose numbers. History and the schedule page show it afterwards.
 
 **If it slips:** Ship G3 with mock mode and label it in the UI as sample output. Do not hide that it is a mock.
 
@@ -318,7 +318,7 @@ Rehearsed on two machines. Fallbacks work. Model card and evaluation report are 
 | C2 | Reference data API: Crops, varieties, growth stages, soil rating cut-offs, fertilizer products and the seasonal-weather fallback. Richa authors the files, Saloni serves them, Josh proxies them, Darsh reads them. Nothing is hardcoded in the UI or the backend. | `ml/data/external/*, ML /reference/*, backend /api/reference/*` | Richa, Saloni, Josh, Darsh | G0 (shape), G2 (real data) |
 | C3 | Backend REST API: Every endpoint the frontend calls: auth, farms, fields, soil tests, fertilizer logs, weather, geocoding, recommendations, risk check, trends, reference. | `docs/backend-api.md` | Josh, Darsh | G0 |
 | C4 | Feature module and loaders: The single feature code path used by training and serving, and the loader that reads the reference tables once. | `ml/src/data_pipeline/feature_engineering.py, soil_data_loader.py` | Richa, Saloni | G2 |
-| C5 | Reference table schemas: Crop requirements, use efficiencies, split schedules, fertilizer products and prices, soil rating cut-offs, agronomy rules, seasonal weather. Column schemas are agreed in R1, values arrive in R3. | `ml/data/external/` | Richa, Saloni | G0 (schemas), G1 (v0 values) |
+| C5 | Reference table schemas: Reference doses, soil adjustments, optional STCR equations, use efficiencies, split schedules, fertilizer products and prices, soil rating cut-offs, agronomy rules, seasonal weather. Column schemas are agreed in R1, values arrive in R3. A crop is ready only when every required cell for it is filled. The engine returns a clear error for a crop that is not ready, and /reference/crops lists only ready crops. | `ml/data/external/` | Richa, Saloni | G0 (schemas), G1 (v0 values) |
 | C6 | Rule trace, risk and explanations: Saloni's engine emits a nutrient balance and a rule trace. Richa's risk analyzer and explain() turn them into a risk level, soil and yield impact text and reasons. | `ml/src/degradation/risk_analyzer.py, ml/src/evaluation/explainability.py` | Saloni, Richa | G2 |
 | C7 | Evaluation and run records: Richa's metric functions, Saloni's run record format. Both feed the model card. | `ml/src/evaluation/metrics.py, models_artifacts/runs/` | Richa, Saloni | G3 |
 
@@ -327,7 +327,7 @@ Rehearsed on two machines. Fallbacks work. Model card and evaluation report are 
 1. Soil schema is fixed by the problem statement: n, p, k, ph, organic_carbon, moisture. It is not extended.
 2. Request adds optional variety (only if Richa's data has varieties) and optional sowing_date. The backend stores them as Field.cropVariety and Field.sowingDate. They are already in the Prisma schema.
 3. Endpoints: POST /recommend, POST /risk-score (score a planned dose), GET /health, GET /reference/*.
-4. Core method: fertilizer needed = (crop demand - soil supply) / use efficiency - credit from recent applications. The response returns these inputs per nutrient in explanation.nutrient_balance.
+4. Core method: fertilizer needed = standard dose for the crop + soil-test adjustment - credit for recent applications. The standard dose is the published dose for the crop, the adjustment comes from published soil-test rules or an STCR equation (a x target yield - b x soil test) where one exists. The response returns the inputs per nutrient in explanation.nutrient_balance, with the method used.
 5. Each schedule[] item carries fertilizer_type. Top-level fertilizer_type is the primary product and its quantity_kg_per_acre is that product's total across the schedule.
 6. risk has level, reason, soil_health_impact and yield_impact. The impact texts state the consequence in plain language, as the problem statement asks.
 7. weather.source is live, cached or seasonal_average. The backend sends it, the ML service echoes what it used.
@@ -345,7 +345,7 @@ Recommendation {
   schedule: [{ stage, fertilizerType, quantityKgPerAcre, applyBy }],
   risk: { level: "low" | "medium" | "high", reason, soilHealthImpact, yieldImpact, overApplicationPct | null },
   topFactors: [string],
-  nutrientBalance: { n|p|k: { cropDemandKgHa, soilSupplyKgHa, deficitKgHa, useEfficiency, priorCreditKgHa, fertilizerNeededKgHa } },
+  nutrientBalance: { n|p|k: { method: "reference_dose" | "stcr", soilRating, standardDoseKgHa, soilAdjustmentKgHa, priorCreditKgHa, fertilizerNeededKgHa } },
   formula: string,
   cost: { estimatedCostPerAcre, previousCostPerAcre | null, savingPerAcre | null, savingTotal | null },
   impact: { overApplicationReductionPct | null },
@@ -374,11 +374,13 @@ soil_data_loader.validate_soil(soil: dict) -> dict   # bounds check on the fixed
 crops.csv                 crop_id,name_en,name_hi,dataset_label,season,source
 crop_varieties.csv        crop_id,variety_id,name_en,name_hi,source   (header only if the data has no varieties)
 growth_stages.csv         crop_id,stage_id,name_en,name_hi,order,das_start,das_end,source
-crop_requirements.csv     crop_id,variety_id,irrigation,n_kg_ha,p2o5_kg_ha,k2o_kg_ha,source,notes   (seasonal crop demand)
-nutrient_efficiency.csv   nutrient,soil_supply_factor,fertilizer_use_efficiency,source,notes
+reference_doses.csv        crop_id,variety_id,irrigation,region,n_kg_ha,p2o5_kg_ha,k2o_kg_ha,source,notes   (published standard dose; variety_id generic = fallback)
+soil_adjustments.csv      crop_id,nutrient,soil_rating,adjustment_kg_ha,source,notes   (signed, from published soil-test rules)
+stcr_equations.csv        crop_id,variety_id,region,applies_to,nutrient,a,b,target_yield_default_q_ha,source,notes   (optional: needed = a x target yield - b x soil test)
+nutrient_efficiency.csv   crop_id,nutrient,fertilizer_use_efficiency,source,notes   (crop_id default = fallback; used only to credit recent applications)
 split_schedule.csv        crop_id,stage_id,n_fraction,p_fraction,k_fraction   (fractions sum to 1 per crop)
-fertilizer_products.csv   product_id,name,n_pct,p2o5_pct,k2o_pct,price_inr_per_kg,price_date,source
-soil_test_ratings.csv     parameter,unit,low_below,high_above,source
+fertilizer_products.csv   product_id,name,dataset_label,n_pct,p2o5_pct,k2o_pct,price_inr_per_kg,price_date,source   (the engine only selects priced products)
+soil_test_ratings.csv     parameter,unit,very_low_below,low_below,high_above,source   (very_low_below optional)
 seasonal_weather.csv      region_key,month,temperature_c,humidity_pct,rainfall_mm_5day,source
 agronomy_rules.yaml       credit window days, rain_hold_mm / rain_hold_days, over_application_ratio_medium / _high,
                           under_application_ratio, formula tolerance. Every key has a source comment.
@@ -389,7 +391,7 @@ explanation_templates.yaml  template id -> en and hi sentence (rule sentences, r
 
 ```text
 # Saloni's engine returns:
-nutrient_balance: { n|p|k: { crop_demand_kg_ha, soil_supply_kg_ha, deficit_kg_ha, use_efficiency, prior_credit_kg_ha, fertilizer_needed_kg_ha } }
+nutrient_balance: { n|p|k: { method, soil_rating, standard_dose_kg_ha, soil_adjustment_kg_ha, prior_credit_kg_ha, fertilizer_needed_kg_ha } }   # P as P2O5, K as K2O
 rule_trace item: { rule_id, nutrient: "n"|"p"|"k"|null, value, threshold, effect, params: {} }
 
 # Richa's modules:
@@ -406,7 +408,7 @@ render_template(template_id: str, **params) -> str      # explanation_templates.
 evaluate_classifier(y_true, y_pred, y_proba=None, classes=None, groups=None, n_boot=1000, seed=42) -> dict
 cv_summary(fold_scores: list[dict]) -> dict              # mean and std per metric
 baseline_report(y_train, y_test) -> dict
-formula_conformity(recs, tables, tol) -> dict            # share whose fertilizer_needed matches an independent recomputation of the deficit formula, plus violators
+formula_conformity(recs, tables, tol) -> dict            # share whose fertilizer_needed matches an independent recomputation of the dose formula, plus violators
 per_slice(y_true, y_pred, slice_col) -> dict
 run record (Saloni): { run_id, name, tags, git_sha, config_hash, dataset_hash, env, params, metrics, wall_clock_s }
 ```
@@ -565,7 +567,7 @@ Must handle: inline validation, no double submit, input preserved on error. Test
 Upgrade the recommendation screen for the real engine. How it is laid out and presented is my decision. What it must communicate to a non-technical farmer, using the Recommendation object from D4 (now including risk.soilHealthImpact, risk.yieldImpact, nutrientBalance, formula, weatherSource):
 - what to apply, how much and when, with split doses visible, and any rain delay mentioned by the reasons,
 - the risk level, its reason, and the two impact sentences (what it does to soil health and to yield), understandable without colour,
-- the working: for each of nitrogen, phosphorus and potassium, the crop demand, what the soil supplies, the deficit and the fertilizer needed (nutrientBalance and formula), so the number is never a black box,
+- the working: for each of nitrogen, phosphorus and potassium, the standard dose for the crop, the soil-test adjustment (which method was used), any credit for recent applications, and the fertilizer needed (nutrientBalance and formula), so the number is never a black box,
 - cost per acre, the previous cost, the saving per acre and the field total when area exists. When saving is null show a prompt to log previous fertilizer use instead of a number. When saving is negative explain that this plan costs more than recent use and why, using the top factors,
 - the 2 to 3 reasons (topFactors) as readable sentences,
 - the weather that was used, from GET /fields/:id/weather { temperatureC, humidityPct, rainfallMmForecast, source, fetchedAt, stale }, with a clear note when the source is cached or a seasonal average,
@@ -628,7 +630,7 @@ Must have: a way to enter one or more products (from GET /reference/fertilizers)
 ````text
 Load the threejs-r3f-mastery skill if you have it. Before writing code, propose two or three concepts for an explorable visualization of a field's nutrient balance and let me choose. The concept, look and interaction are mine.
 
-Data you have: the soil test values (n, p, k in kg/ha, ph, organicCarbon and moisture in percent), the low and high cut-offs from GET /reference/soil-ratings, and from the recommendation the working per nutrient: nutrientBalance { n|p|k: { cropDemandKgHa, soilSupplyKgHa, deficitKgHa, useEfficiency, priorCreditKgHa, fertilizerNeededKgHa } } plus the risk. Demand versus supply versus deficit is the story the scene can tell. It should animate when the soil test or recommendation changes (GSAP with useGSAP so timelines are cleaned up by the hook).
+Data you have: the soil test values (n, p, k in kg/ha, ph, organicCarbon and moisture in percent), the low and high cut-offs from GET /reference/soil-ratings, and from the recommendation the working per nutrient: nutrientBalance { n|p|k: { method, soilRating, standardDoseKgHa, soilAdjustmentKgHa, priorCreditKgHa, fertilizerNeededKgHa } } plus the risk. Standard dose versus soil adjustment versus credit, and the fertilizer that is left to apply, is the story the scene can tell. It should animate when the soil test or recommendation changes (GSAP with useGSAP so timelines are cleaned up by the hook).
 
 Fixed by the project:
 - Lazy-load the scene (React.lazy with Suspense and a real skeleton). The initial JS bundle must not grow.
@@ -702,10 +704,10 @@ Write frontend/DEMO.md with the 2 minute demo path and a screenshot of each scre
 - The soil schema is fixed by the problem statement: n, p, k, ph, organic_carbon, moisture. Never add, remove or rename soil fields.
 - Work on your own branch. Never commit to main directly, except docs-only contract PRs that both owners have approved.
 - Stay inside your folders (root AGENTS.md). If you need a change in someone else's folder, ask them or record it in the contract doc.
-- Commit messages use the form <area>: <what changed>, for example ml: add NPK deficit calculator. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
+- Commit messages use the form <area>: <what changed>, for example ml: add NPK dose calculator. No AI co-author trailers and no "Generated with" lines in commits or PR descriptions.
 - Never commit .env, raw datasets, models_artifacts/, node_modules or .venv. Add new variables to that service's .env.example.
 - Before a PR: git pull origin main --rebase, lint and tests pass, and the PR description states the change, the reason and how to test it. UI PRs include screenshots. One teammate reviews before merge.
 - Open a PR only when a feature works end to end. Small, focused commits, one logical change each.
 - Run every prompt in Claude Code from the repo root on your own branch. Each prompt begins by reading the project context files.
-- Reference numbers (crop demand, efficiencies, prices, thresholds) live in data or config files, never in application code, and every value has a source.
+- Reference numbers (reference doses, adjustments, efficiencies, prices, thresholds) live in data or config files, never in application code, and every value has a source.
 - No cloud deployment is in scope. The demo runs locally with docker-compose.

@@ -1,10 +1,11 @@
-import { useState } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Menu, X, LogOut } from 'lucide-react'
 import { useUserStore } from '../../store/useUserStore.js'
 import { useT } from '../../i18n/useT.js'
 import LanguageToggle from '../ui/LanguageToggle.jsx'
 import { WheatIcon } from '../icons/CropIcons.jsx'
+import * as endpoints from '../../services/endpoints.js'
 import {
   HomeIcon,
   DashboardIcon,
@@ -22,14 +23,64 @@ export default function Navbar() {
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useUserStore()
 
+  // Field id "1" never exists in the real database (real ids are UUIDs) -- every field-scoped
+  // nav item used to hardcode it, so following them 404'd fetchField/fetchRecommendations
+  // silently (Recommendation.jsx's catch swallows the error) and the page fell back to fully
+  // static demo content with no visible error, looking like "the model isn't wired up" when the
+  // actual bug was here: the link never pointed at a real field.
+  const { fieldId: routeFieldId } = useParams()
+
+  // When we're already on a field-scoped page, stay on that same real field for the sibling
+  // tabs. Otherwise (Home, Dashboard, just logged in) there's no field in the URL to read --
+  // but the user may well already HAVE one, so fetch their first real field once rather than
+  // unconditionally sending Fields/Soil Test/Prescription/Schedule/History to /dashboard
+  // regardless. A first version of this fix did exactly that, and it made every one of those
+  // links "do nothing new" for any user who wasn't already on a field page -- looked identical
+  // to broken, even though the click itself worked. Only a genuinely field-less account (a
+  // brand-new registration, before "Register Plot") has nowhere real to send these, and still
+  // falls back to /dashboard.
+  const [fallbackFieldId, setFallbackFieldId] = useState(null)
+  useEffect(() => {
+    if (routeFieldId || !isAuthenticated) return
+    let cancelled = false
+    async function loadFirstRealField() {
+      try {
+        const farmsRes = await endpoints.getFarms()
+        for (const farm of farmsRes?.items || []) {
+          const fieldsRes = await endpoints.getFields(farm.id)
+          const first = (fieldsRes?.items || [])[0]
+          if (first) {
+            if (!cancelled) setFallbackFieldId(first.id)
+            return
+          }
+        }
+      } catch {
+        // Not reachable, or genuinely no fields yet -- nav items fall back to /dashboard below.
+      }
+    }
+    loadFirstRealField()
+    return () => {
+      cancelled = true
+    }
+  }, [routeFieldId, isAuthenticated])
+
+  const fieldId = routeFieldId || fallbackFieldId
+  const fieldPath = (suffix) => (fieldId ? `/fields/${fieldId}${suffix}` : '/dashboard')
+
+  // `id` is the React key -- NOT `to`, since without a real fieldId every field-scoped item
+  // below now resolves to the same '/dashboard' path (see fieldPath above). Keying on `to`
+  // gave five nav items the identical key whenever there was no fieldId (e.g. on the public
+  // HomePage), which made React's reconciliation drop/misattribute their click handlers --
+  // the whole navbar looked broken there, not just mis-routed. A real bug, caught by actually
+  // loading the homepage after the fieldPath fix, not assumed safe.
   const navItems = [
-    { to: '/', label: isHindi ? 'होम' : 'Home', icon: HomeIcon, exact: true },
-    { to: '/dashboard', label: isHindi ? 'लेजर' : 'Ledger', icon: DashboardIcon },
-    { to: '/fields/1', label: isHindi ? 'खेत' : 'Fields', icon: FieldProfileIcon },
-    { to: '/fields/1/soil', label: isHindi ? 'मृदा परीक्षण' : 'Soil Test', icon: SoilTestIcon },
-    { to: '/fields/1/recommendation', label: isHindi ? 'सिफारिश' : 'Prescription', icon: PrescriptionIcon },
-    { to: '/fields/1/schedule', label: isHindi ? 'अनुसूची' : 'Schedule', icon: ScheduleIcon },
-    { to: '/fields/1/history', label: isHindi ? 'इतिहास' : 'History', icon: HistoryIcon },
+    { id: 'home', to: '/', label: isHindi ? 'होम' : 'Home', icon: HomeIcon, exact: true },
+    { id: 'ledger', to: '/dashboard', label: isHindi ? 'लेजर' : 'Ledger', icon: DashboardIcon },
+    { id: 'fields', to: fieldPath(''), label: isHindi ? 'खेत' : 'Fields', icon: FieldProfileIcon },
+    { id: 'soil', to: fieldPath('/soil'), label: isHindi ? 'मृदा परीक्षण' : 'Soil Test', icon: SoilTestIcon },
+    { id: 'recommendation', to: fieldPath('/recommendation'), label: isHindi ? 'सिफारिश' : 'Prescription', icon: PrescriptionIcon },
+    { id: 'schedule', to: fieldPath('/schedule'), label: isHindi ? 'अनुसूची' : 'Schedule', icon: ScheduleIcon },
+    { id: 'history', to: fieldPath('/history'), label: isHindi ? 'इतिहास' : 'History', icon: HistoryIcon },
   ]
 
   const [prevPathname, setPrevPathname] = useState(location.pathname)
@@ -70,7 +121,7 @@ export default function Navbar() {
           <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 text-xs font-sans font-medium min-w-0">
             {navItems.map((item) => (
               <NavLink
-                key={item.to}
+                key={item.id}
                 to={item.to}
                 end={item.exact}
                 className={({ isActive }) => `
@@ -153,7 +204,7 @@ export default function Navbar() {
           <div className="lg:hidden border-t border-[#3E382E] mt-3 pt-3 space-y-1 font-sans animate-in fade-in duration-150">
             {navItems.map((item) => (
               <NavLink
-                key={item.to}
+                key={item.id}
                 to={item.to}
                 end={item.exact}
                 className={({ isActive }) => `
