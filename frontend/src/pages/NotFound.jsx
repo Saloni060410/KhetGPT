@@ -55,15 +55,15 @@ export default function NotFound() {
         <div className="pt-4 border-t border-border-subtle text-xs text-ink-muted">
           <p className="font-semibold text-ink-secondary mb-2">Common Agronomic Links</p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link to="/fields/1/recommendation" className="text-primary-700 hover:underline">
+            <Link to="/dashboard" className="text-primary-700 hover:underline">
               Sample Recommendation
             </Link>
             <span>•</span>
-            <Link to="/fields/1/schedule" className="text-primary-700 hover:underline">
+            <Link to="/dashboard" className="text-primary-700 hover:underline">
               Dealer Schedule
             </Link>
             <span>•</span>
-            <Link to="/fields/1/risk-check" className="text-primary-700 hover:underline">
+            <Link to="/dashboard" className="text-primary-700 hover:underline">
               Plan Risk Check
             </Link>
           </div>

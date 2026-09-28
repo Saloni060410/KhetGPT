@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Menu, X, LogOut } from 'lucide-react'
 import { useUserStore } from '../../store/useUserStore.js'
 import { useT } from '../../i18n/useT.js'
@@ -22,14 +22,26 @@ export default function Navbar() {
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useUserStore()
 
+  // Field id "1" never exists in the real database (real ids are UUIDs) -- every field-scoped
+  // nav item used to hardcode it, so following them 404'd fetchField/fetchRecommendations
+  // silently (Recommendation.jsx's catch swallows the error) and the page fell back to fully
+  // static demo content with no visible error, looking like "the model isn't wired up" when the
+  // actual bug was here: the link never pointed at a real field. Use the CURRENT route's own
+  // :fieldId when we're already on a field-scoped page (so sibling tabs stay on that same real
+  // field); otherwise there's no field to link to yet, so send these to /dashboard, where a
+  // real one can be picked or registered, rather than guessing an id that's guaranteed to be
+  // wrong.
+  const { fieldId } = useParams()
+  const fieldPath = (suffix) => (fieldId ? `/fields/${fieldId}${suffix}` : '/dashboard')
+
   const navItems = [
     { to: '/', label: isHindi ? 'होम' : 'Home', icon: HomeIcon, exact: true },
     { to: '/dashboard', label: isHindi ? 'लेजर' : 'Ledger', icon: DashboardIcon },
-    { to: '/fields/1', label: isHindi ? 'खेत' : 'Fields', icon: FieldProfileIcon },
-    { to: '/fields/1/soil', label: isHindi ? 'मृदा परीक्षण' : 'Soil Test', icon: SoilTestIcon },
-    { to: '/fields/1/recommendation', label: isHindi ? 'सिफारिश' : 'Prescription', icon: PrescriptionIcon },
-    { to: '/fields/1/schedule', label: isHindi ? 'अनुसूची' : 'Schedule', icon: ScheduleIcon },
-    { to: '/fields/1/history', label: isHindi ? 'इतिहास' : 'History', icon: HistoryIcon },
+    { to: fieldPath(''), label: isHindi ? 'खेत' : 'Fields', icon: FieldProfileIcon },
+    { to: fieldPath('/soil'), label: isHindi ? 'मृदा परीक्षण' : 'Soil Test', icon: SoilTestIcon },
+    { to: fieldPath('/recommendation'), label: isHindi ? 'सिफारिश' : 'Prescription', icon: PrescriptionIcon },
+    { to: fieldPath('/schedule'), label: isHindi ? 'अनुसूची' : 'Schedule', icon: ScheduleIcon },
+    { to: fieldPath('/history'), label: isHindi ? 'इतिहास' : 'History', icon: HistoryIcon },
   ]
 
   const [prevPathname, setPrevPathname] = useState(location.pathname)

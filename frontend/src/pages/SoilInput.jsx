@@ -98,9 +98,10 @@ export default function SoilInput() {
       });
       await generateRecommendation(fieldId, {});
       navigate(`/fields/${fieldId}/recommendation`);
-    } catch {
+    } catch (err) {
       // Stays on the form with the entered values rather than navigating to a recommendation
       // that was never actually generated -- no silent "looked like it worked" state.
+      console.error('Calibrate Fertilizer Plan failed for field', fieldId, err);
       setIsSaved(false);
     }
   };

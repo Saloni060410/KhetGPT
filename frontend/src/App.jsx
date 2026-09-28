@@ -44,8 +44,12 @@ export default function App() {
           {/* Current UI as the Home Page & Field Optimizer */}
           <Route path="/" element={<HomePage />} />
           <Route path="/optimizer" element={<OptimizerPage />} />
-          <Route path="/recommendation" element={<Navigate to="/fields/1/recommendation" replace />} />
-          <Route path="/prescription" element={<Navigate to="/fields/1/recommendation" replace />} />
+          {/* Field id "1" never exists in the real database (real ids are UUIDs) -- these used
+              to redirect straight to a field-scoped page that's guaranteed to 404, which
+              silently fell back to fully static demo content with no visible error. /dashboard
+              is where a real field is actually picked or registered. */}
+          <Route path="/recommendation" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/prescription" element={<Navigate to="/dashboard" replace />} />
 
           {/* Core KhetGPT App Pages with standard Shell & Navigation */}
           <Route

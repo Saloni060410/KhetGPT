@@ -288,25 +288,31 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 3. Soil Calibration Quick Callout (Clean Editorial Docket) */}
-      <div className="animate-reveal delay-2 p-6 rounded-2xl border border-[#D8CEBC] bg-white/60 backdrop-blur-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="font-serif text-lg text-[#1C1B18]">
-            Recalibrate Doses with Recent Soil Test
+      {/* 3. Soil Calibration Quick Callout (Clean Editorial Docket) -- only once a real plot
+          exists to calibrate. The "|| '1'" fallback this used to have for a brand-new,
+          zero-plot account pointed at a field id that's guaranteed not to exist (real ids are
+          UUIDs), so "Calibrate Fertilizer Plan" 404'd silently instead of ever computing a
+          real dose. */}
+      {plots.length > 0 && (
+        <div className="animate-reveal delay-2 p-6 rounded-2xl border border-[#D8CEBC] bg-white/60 backdrop-blur-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="font-serif text-lg text-[#1C1B18]">
+              Recalibrate Doses with Recent Soil Test
+            </div>
+            <div className="text-sm text-[#756F63]">
+              Adjust exact fertilizer bag counts based on your latest Punjab government soil health card.
+            </div>
           </div>
-          <div className="text-sm text-[#756F63]">
-            Adjust exact fertilizer bag counts based on your latest Punjab government soil health card.
-          </div>
-        </div>
 
-        <Link
-          to={`/fields/${plots[0]?.field.id || '1'}/soil`}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FAF8F5] border border-[#D8CEBC] hover:border-[#1C1B18] text-xs font-medium text-[#1C1B18] transition-all self-start sm:self-auto cursor-pointer shadow-2xs"
-        >
-          <span>Enter Soil Values</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
-      </div>
+          <Link
+            to={`/fields/${plots[0].field.id}/soil`}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FAF8F5] border border-[#D8CEBC] hover:border-[#1C1B18] text-xs font-medium text-[#1C1B18] transition-all self-start sm:self-auto cursor-pointer shadow-2xs"
+          >
+            <span>Enter Soil Values</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
 
       {/* Add Plot Modal */}
       {isAddOpen && (

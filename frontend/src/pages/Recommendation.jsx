@@ -52,9 +52,15 @@ export default function Recommendation() {
           for (const f of fertilizers) names[f.id] = f.name_en || f.id;
           setFertilizerNames(names);
         }
-      } catch {
+      } catch (err) {
         // No real field/recommendation yet -- the page falls back to the static PAU
-        // reference explorer below, same as it always has.
+        // reference explorer below, same as it always has. Logged, not fully silent: a real
+        // bug here (an invalid fieldId in the URL, an expired session, the backend being down)
+        // used to be indistinguishable from "this field genuinely has no data yet" -- both
+        // looked identical, a static demo page with no error. See Navbar.jsx/App.jsx/
+        // Dashboard.jsx's own fixes for the actual bug this masked (hardcoded links to a
+        // field id that never exists in the real database).
+        console.error('Recommendation: falling back to static reference data for field', fieldId, err);
       } finally {
         if (!cancelled) setHasLoadedReal(true);
       }
