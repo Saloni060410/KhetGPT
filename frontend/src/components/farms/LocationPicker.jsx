@@ -210,7 +210,7 @@ export default function LocationPicker({
             pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5
             ${
               activeTab === 'gps'
-                ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-ink-muted hover:text-ink-primary'
             }
           `}
@@ -228,7 +228,7 @@ export default function LocationPicker({
             pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5
             ${
               activeTab === 'search'
-                ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-ink-muted hover:text-ink-primary'
             }
           `}
@@ -246,7 +246,7 @@ export default function LocationPicker({
             pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5
             ${
               activeTab === 'manual'
-                ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-ink-muted hover:text-ink-primary'
             }
           `}
@@ -257,7 +257,7 @@ export default function LocationPicker({
       </div>
 
       {/* Tab Panels */}
-      <div className="p-3.5 sm:p-4 rounded-xl border border-border-default bg-bg-surface/50">
+      <div className="p-3.5 sm:p-4 rounded-lg border border-border-default bg-bg-surface/50">
         {/* Tab 1: Current GPS */}
         {activeTab === 'gps' && (
           <div className="space-y-3">
@@ -334,7 +334,7 @@ export default function LocationPicker({
                             w-full text-left p-2.5 rounded-lg border text-xs flex items-center justify-between gap-2 transition-all cursor-pointer
                             ${
                               isSelected
-                                ? 'bg-primary-50 border-primary-500 text-primary-900 font-semibold dark:bg-primary-950/40 dark:text-primary-200'
+                                ? 'bg-primary-50 border-primary-500 text-primary-900 font-semibold'
                                 : 'bg-bg-surface border-border-default hover:border-primary-300 hover:bg-bg-subtle text-ink-primary'
                             }
                           `}
@@ -373,7 +373,7 @@ export default function LocationPicker({
 
         {/* Tab 3: Manual Lat / Lng */}
         {activeTab === 'manual' && (
-          <form onSubmit={handleApplyManualCoords} className="space-y-3">
+          <div className="space-y-3">
             <p className="text-xs text-ink-secondary leading-relaxed">
               Enter known GPS latitude and longitude in decimal degrees (e.g. 28.6139 and 77.2090).
             </p>
@@ -406,19 +406,19 @@ export default function LocationPicker({
               </div>
             )}
 
-            <Button type="submit" variant="secondary" className="w-full sm:w-auto">
+            <Button type="button" onClick={handleApplyManualCoords} variant="secondary" className="w-full sm:w-auto">
               Set Coordinates
             </Button>
-          </form>
+          </div>
         )}
       </div>
 
       {/* Confirmation Display: Shows chosen place and coordinates back to user before saving */}
       {hasSelectedCoords ? (
-        <div className="p-4 rounded-xl border-2 border-emerald-500/50 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-2 animate-in fade-in duration-normal">
+        <div className="p-4 rounded-lg border-2 border-primary-500/60 bg-primary-50 space-y-2 animate-in fade-in duration-normal">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
-              <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="flex items-center gap-2 text-primary-700">
+              <CheckCircle2 className="w-5 h-5 shrink-0 text-primary-600" />
               <span className="text-xs font-bold uppercase tracking-wider">
                 Confirmed Location for Weather & Soil
               </span>
@@ -444,7 +444,7 @@ export default function LocationPicker({
                 Latitude: <strong className="text-ink-primary">{latitude}°</strong> • Longitude: <strong className="text-ink-primary">{longitude}°</strong>
               </div>
             </div>
-            <span className="inline-flex items-center text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full self-start sm:self-auto">
+            <span className="inline-flex items-center text-[11px] font-medium text-primary-700 bg-primary-100 px-2 py-0.5 rounded-full self-start sm:self-auto">
               Ready for Weather Sync
             </span>
           </div>
@@ -454,7 +454,7 @@ export default function LocationPicker({
           </p>
         </div>
       ) : (
-        <div className="p-3 rounded-lg border border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/40 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+        <div className="p-3 rounded-lg border border-dashed border-risk-med-border bg-risk-med-bg text-xs text-risk-med-text flex items-start gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
           <div className="leading-snug">
             <strong>Location required:</strong> A field must end up with latitude and longitude so Open-Meteo can provide local rain and temperature forecasts. Use GPS, search by place, or enter coordinates above.
