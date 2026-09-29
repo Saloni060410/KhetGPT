@@ -1,8 +1,5 @@
-import terraYieldPreset from './terrayield.tailwind.preset.js';
-
 /** @type {import('tailwindcss').Config} */
 export default {
-  presets: [terraYieldPreset],
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
@@ -13,6 +10,11 @@ export default {
           subtle: 'var(--color-bg-subtle)',
           muted: 'var(--color-bg-muted)',
           elevated: 'var(--color-bg-elevated)',
+          kraft: 'var(--color-bg-kraft)',
+          forest: 'var(--color-bg-forest)',
+          sidebar: 'var(--color-bg-sidebar)',
+          'sidebar-soft': 'var(--color-bg-sidebar-soft)',
+          sky: 'var(--color-bg-sky)',
         },
         paper: 'var(--color-bg-base)',
         ink: {
@@ -20,6 +22,7 @@ export default {
           secondary: 'var(--color-text-secondary)',
           muted: 'var(--color-text-muted)',
           inverse: 'var(--color-text-inverse)',
+          sidebar: 'var(--color-text-on-sidebar)',
           DEFAULT: 'var(--color-text-primary)',
         },
         border: {
@@ -37,17 +40,21 @@ export default {
           900: 'var(--color-primary-900)',
           DEFAULT: 'var(--color-primary-600)',
         },
-        field: {
-          50: 'var(--color-primary-50)',
-          100: 'var(--color-primary-100)',
-          500: 'var(--color-primary-500)',
-          700: 'var(--color-primary-700)',
-          900: 'var(--color-primary-900)',
+        terracotta: {
+          50: 'var(--color-terracotta-50)',
+          100: 'var(--color-terracotta-100)',
+          500: 'var(--color-terracotta-500)',
+          600: 'var(--color-terracotta-600)',
+          700: 'var(--color-terracotta-700)',
+          DEFAULT: 'var(--color-terracotta-600)',
         },
         accent: {
+          sun: 'var(--color-accent-sun)',
           ochre: 'var(--color-accent-ochre)',
           maize: 'var(--color-accent-maize)',
           amber: 'var(--color-accent-amber)',
+          water: 'var(--color-accent-water)',
+          'water-soft': 'var(--color-accent-water-soft)',
         },
         risk: {
           low: 'var(--color-risk-low-text)',
@@ -68,20 +75,10 @@ export default {
           text: 'var(--color-info-text)',
           border: 'var(--color-info-border)',
         },
-        khet: {
-          paper: '#F6F1E4',
-          ink: '#221F19',
-          leaf: '#33512E',
-          turmeric: '#B8791E',
-          sky: '#3F6273',
-          terracotta: '#9C4530',
-        },
       },
       fontFamily: {
-        display: ['DM Serif Display', 'Georgia', 'serif'],
-        serif: ['DM Serif Display', 'Georgia', 'serif'],
-        body: ['Outfit', 'Noto Sans Devanagari', 'system-ui', 'sans-serif'],
-        sans: ['Outfit', 'Noto Sans Devanagari', 'system-ui', 'sans-serif'],
+        display: ['Poppins', 'system-ui', 'sans-serif'],
+        sans: ['Poppins', 'system-ui', 'sans-serif'],
         mono: ['ui-monospace', 'monospace'],
       },
       minHeight: {
@@ -96,12 +93,14 @@ export default {
         md: 'var(--radius-md)',
         lg: 'var(--radius-lg)',
         xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-xl)',
         full: 'var(--radius-full)',
       },
       boxShadow: {
         sm: 'var(--shadow-sm)',
         md: 'var(--shadow-md)',
         lg: 'var(--shadow-lg)',
+        'card-edge': 'var(--shadow-card-edge)',
         focus: 'var(--shadow-focus)',
         'focus-danger': 'var(--shadow-focus-danger)',
       },

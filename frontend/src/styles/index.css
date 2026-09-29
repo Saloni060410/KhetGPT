@@ -1,9 +1,8 @@
-/* Self-hosted English font via Fontsource (woff2, font-display: swap) */
-/* Devanagari font is loaded dynamically on demand when Hindi is selected (PRD Feature 11) */
-@import '@fontsource/plus-jakarta-sans/400.css';
-@import '@fontsource/plus-jakarta-sans/500.css';
-@import '@fontsource/plus-jakarta-sans/600.css';
-@import '@fontsource/plus-jakarta-sans/700.css';
+/* Self-hosted Poppins (woff2, font-display: swap) */
+@import '@fontsource/poppins/400.css';
+@import '@fontsource/poppins/500.css';
+@import '@fontsource/poppins/600.css';
+@import '@fontsource/poppins/700.css';
 
 @import './tokens.css';
 
@@ -19,9 +18,6 @@
     overflow-x: clip;
     scroll-behavior: smooth;
   }
-  html[lang="hi"] {
-    font-family: 'Noto Sans Devanagari', 'Plus Jakarta Sans', system-ui, sans-serif;
-  }
   body {
     background-color: var(--color-bg-base);
     color: var(--color-text-primary);
@@ -30,6 +26,24 @@
     overflow-x: clip;
     overflow-wrap: break-word;
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 {
+    letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary-600);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
@@ -37,16 +51,65 @@
   @keyframes revealUp {
     from {
       opacity: 0;
-      transform: translateY(16px);
+      transform: translateY(14px);
     }
     to {
       opacity: 1;
       transform: translateY(0);
     }
   }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-2.2deg); }
+    50% { transform: rotate(2.2deg); }
+  }
+  @keyframes drift {
+    from { transform: translateX(0); }
+    to { transform: translateX(40px); }
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  @keyframes tractorRumble {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-1.5px); }
+  }
+  @keyframes spinSlow {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes gaugeSweep {
+    from { stroke-dashoffset: var(--gauge-len); }
+  }
+  @keyframes sunPulse {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.06); opacity: 1; }
+  }
 
   .animate-reveal {
-    animation: revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: revealUp 0.55s var(--ease-out) both;
+  }
+  .animate-sway {
+    transform-origin: 50% 100%;
+    animation: sway 4.5s ease-in-out infinite;
+  }
+  .animate-drift {
+    animation: drift 24s ease-in-out infinite alternate;
+  }
+  .animate-bob {
+    animation: bob 4s ease-in-out infinite;
+  }
+  .animate-rumble {
+    animation: tractorRumble 0.5s ease-in-out infinite;
+  }
+  .animate-spin-slow {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: spinSlow 6s linear infinite;
+  }
+  .animate-sun {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: sunPulse 5s ease-in-out infinite;
   }
 
   .delay-1 { animation-delay: 80ms; }
@@ -55,17 +118,122 @@
   .delay-4 { animation-delay: 320ms; }
   .delay-5 { animation-delay: 400ms; }
 
-  .bg-soil-atmosphere {
-    background-color: #F8F5EE;
-    background-image: 
-      radial-gradient(circle at 12% 15%, rgba(184, 121, 30, 0.05) 0%, transparent 45%),
-      radial-gradient(circle at 88% 85%, rgba(45, 84, 48, 0.06) 0%, transparent 50%),
-      radial-gradient(#D5CBB9 0.75px, transparent 0.75px);
-    background-size: 100% 100%, 100% 100%, 28px 28px;
+  /* Kraft-paper backdrop used behind the login card */
+  .bg-kraft-paper {
+    background-color: var(--color-bg-kraft);
+    background-image:
+      radial-gradient(rgba(120, 92, 48, 0.1) 1px, transparent 1px),
+      radial-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+    background-size: 5px 5px, 9px 9px;
+    background-position: 0 0, 2px 3px;
   }
 
-  .ledger-border {
-    border: 1px solid rgba(216, 206, 188, 0.75);
+  /* Warm paper backdrop for app pages */
+  .bg-paper-warm {
+    background-color: var(--color-bg-base);
+    background-image:
+      radial-gradient(circle at 10% 0%, rgba(244, 197, 66, 0.16), transparent 42%),
+      radial-gradient(circle at 100% 100%, rgba(107, 142, 63, 0.12), transparent 46%);
+  }
+
+  /* Stacked-cards look for the selected crop card */
+  .card-stack {
+    box-shadow:
+      6px 6px 0 -1px #f4e9d3,
+      6px 6px 0 0 var(--color-border-default),
+      12px 12px 0 -1px #efe1c8,
+      12px 12px 0 0 var(--color-border-default),
+      var(--shadow-md);
+  }
+
+  /* Slider used for the soil parameters. --p is the filled percentage, --c the fill colour. */
+  .ab-range {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  .ab-range::-webkit-slider-runnable-track {
+    height: 12px;
+    border-radius: 9999px;
+    background: linear-gradient(to right, var(--c, #6b8e3f) var(--p, 50%), #e4dccb var(--p, 50%));
+  }
+  .ab-range::-moz-range-track {
+    height: 12px;
+    border-radius: 9999px;
+    background: linear-gradient(to right, var(--c, #6b8e3f) var(--p, 50%), #e4dccb var(--p, 50%));
+  }
+  .ab-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    margin-top: -8px;
+    border-radius: 9999px;
+    background: #f6f2e8;
+    border: 3px solid #a39c88;
+    box-shadow: 0 2px 4px rgba(84, 62, 28, 0.3);
+  }
+  .ab-range::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    background: #f6f2e8;
+    border: 3px solid #a39c88;
+    box-shadow: 0 2px 4px rgba(84, 62, 28, 0.3);
+  }
+  .ab-range:focus-visible {
+    outline: none;
+  }
+  .ab-range:focus-visible::-webkit-slider-thumb {
+    border-color: var(--color-primary-600);
+    box-shadow: 0 0 0 4px rgba(88, 122, 52, 0.3);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Card-flip primitives (crop cards) */
+  .flip-scene {
+    perspective: 1400px;
+  }
+  .flip-card {
+    transform-style: preserve-3d;
+    transition: transform 0.7s var(--ease-spring);
+  }
+  .flip-card[data-flipped='true'] {
+    transform: rotateY(180deg);
+  }
+  .flip-face {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .flip-back {
+    transform: rotateY(180deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .flip-card {
+      transition: none;
+    }
   }
 }
 
+/* Print: the schedule and history pages are meant to be saved as PDF */
+@media print {
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}
+.print-only {
+  display: none;
+}

@@ -47,7 +47,7 @@ export default function Modal({
         aria-labelledby={title ? 'modal-title' : undefined}
         aria-describedby={description ? 'modal-desc' : undefined}
         className={`
-          w-full max-w-lg bg-white dark:bg-bg-surface border border-border-default rounded-2xl shadow-xl
+          w-full max-w-lg bg-bg-base border border-border-default rounded-xl shadow-lg
           p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-fast
           ${className}
         `}

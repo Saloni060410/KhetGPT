@@ -27,13 +27,13 @@ const Input = forwardRef(function Input(
         disabled={disabled}
         aria-invalid={hasError ? 'true' : undefined}
         className={`
-          w-full min-h-touch rounded-lg border bg-bg-surface text-ink-primary placeholder:text-ink-muted
+          w-full min-h-touch rounded-md border-2 bg-bg-surface text-ink-primary placeholder:text-ink-muted
           text-base transition-colors duration-fast ease-default
           py-2.5 ${LeftIcon ? 'pl-11' : 'pl-3.5'} ${RightIcon ? 'pr-11' : 'pr-3.5'}
           ${
             hasError
-              ? 'border-risk-high-text focus-visible:ring-2 focus-visible:ring-risk-high-text focus-visible:outline-none'
-              : 'border-border-default hover:border-border-strong focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:outline-none'
+              ? 'border-risk-high-text focus-visible:outline-none'
+              : 'border-border-default hover:border-border-strong focus-visible:border-primary-600 focus-visible:outline-none'
           }
           disabled:opacity-50 disabled:bg-bg-muted disabled:cursor-not-allowed
           ${className}
