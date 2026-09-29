@@ -1,316 +1,125 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import {
-  ArrowLeft,
-  ArrowRight,
-  FlaskConical,
-} from 'lucide-react';
-import useDocumentTitle from '../hooks/useDocumentTitle.js';
-import * as endpoints from '../services/endpoints.js';
+import { useMemo, useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
+import { Download, FlaskConical, Sparkles, Droplets, Ruler } from 'lucide-react'
+import useDocumentTitle from '../hooks/useDocumentTitle.js'
+import { useFieldHistory } from '../hooks/useFieldHistory.js'
+import { buildHistoryEvents } from '../utils/historyEvents.js'
+import { soilHealthScore, soilHealthBand } from '../utils/soilHealth.js'
+import { formatDate } from '../utils/format.js'
+import HistoryTimeline from '../components/reco/HistoryTimeline.jsx'
+import FilterSelect from '../components/reco/FilterSelect.jsx'
+import PlotSwitcher from '../components/layout/PlotSwitcher.jsx'
+import { RingGauge } from '../components/ui/Gauges.jsx'
+import { BRAND } from '../components/brand/brand.js'
 
-// Every fertilizer product's schedule entry is snake_case, passed through as-is from the ML
-// service (see data/realDocket.js's own note on this same thing) -- summarized here rather
-// than rendering the raw keys.
-function summarizeSchedule(schedule) {
-  if (!schedule || schedule.length === 0) return null;
-  const totals = {};
-  for (const line of schedule) {
-    totals[line.fertilizer_type] = (totals[line.fertilizer_type] || 0) + line.quantity_kg_per_acre;
-  }
-  return Object.entries(totals)
-    .map(([type, qty]) => `${qty.toFixed(1)} kg/acre ${type}`)
-    .join(' · ');
+function Stat({ icon: Icon, label, value, note }) {
+  return (
+    <div className="bg-white rounded-lg border border-border-default shadow-sm p-4 flex items-start gap-3">
+      <span className="w-10 h-10 rounded-md bg-primary-100 text-primary-700 inline-flex items-center justify-center shrink-0">
+        <Icon className="w-5 h-5" aria-hidden="true" />
+      </span>
+      <div className="leading-tight min-w-0">
+        <div className="text-xs text-ink-secondary">{label}</div>
+        <div className="text-lg font-semibold text-ink-primary mt-0.5">{value}</div>
+        {note && <div className="text-xs text-ink-muted mt-0.5">{note}</div>}
+      </div>
+    </div>
+  )
 }
 
-function formatSaving(saving) {
-  if (saving == null) return null;
-  return saving >= 0
-    ? { text: `₹${Math.abs(saving).toFixed(0)} Saved`, positive: true }
-    : { text: `₹${Math.abs(saving).toFixed(0)} More Than Last Applied`, positive: false };
-}
-
+/** Full-width log for one field, with a printable summary. */
 export default function History() {
-  // No "|| '1'" fallback -- that was the same class of bug Navbar/HomePage/Dashboard already
-  // had (a fake field id that's guaranteed not to exist), just not yet caught here. The route
-  // always supplies a real :fieldId; if it somehow doesn't, the plot switcher below and the
-  // loadError/empty states handle it honestly instead of silently fetching field "1".
-  const { fieldId } = useParams();
-  const navigate = useNavigate();
-  useDocumentTitle('Season Archive & Soil Ledger — KhetGPT');
+  const { fieldId } = useParams()
+  const h = useFieldHistory(fieldId)
+  useDocumentTitle(`Field History — ${BRAND.name}`)
+  const [filter, setFilter] = useState('all')
 
-  // Plot switcher -- every field the user owns, across all their farms, same pattern as
-  // Schedule.jsx/SoilInput.jsx. Missing here was exactly why switching plots elsewhere didn't
-  // visibly change History: this page had no way to pick a plot itself, so it only ever showed
-  // whatever field happened to already be in the URL.
-  const [plots, setPlots] = useState([]);
-  useEffect(() => {
-    let cancelled = false;
-    async function loadPlots() {
-      try {
-        const farmsRes = await endpoints.getFarms();
-        const withFields = await Promise.all(
-          (farmsRes?.items || []).map(async (farm) => {
-            const fieldsRes = await endpoints.getFields(farm.id);
-            const f = (fieldsRes?.items || [])[0];
-            return f ? { farm, field: f } : null;
-          }),
-        );
-        if (!cancelled) setPlots(withFields.filter(Boolean));
-      } catch {
-        if (!cancelled) setPlots([]);
-      }
-    }
-    loadPlots();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const events = useMemo(
+    () => buildHistoryEvents({ ...h, cropName: h.cropName, fertName: h.fertName }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [h.field, h.soilTests, h.logs, h.recommendations, h.ratings, h.crops, h.fertilizers],
+  )
+  const visible = filter === 'all' ? events : events.filter((e) => e.kind === filter)
 
-  const [entries, setEntries] = useState([]);
-  const [field, setField] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const latestSoil = h.soilTests[0] || null
+  const score = soilHealthScore(latestSoil, h.ratings)
+  const band = soilHealthBand(score)
+  const rec = h.recommendations[0]
+  const fieldName = h.field?.name || 'Field'
 
-  useEffect(() => {
-    if (!fieldId) return;
-    let cancelled = false;
-    async function load() {
-      setIsLoading(true);
-      setLoadError(false);
-      try {
-        const [fieldRes, recsRes, soilRes] = await Promise.all([
-          endpoints.getFieldById(fieldId),
-          endpoints.getRecommendations(fieldId, { limit: 50 }),
-          endpoints.getSoilTests(fieldId, { limit: 50 }),
-        ]);
-        if (cancelled) return;
-
-        const soilById = new Map((soilRes?.items || []).map((s) => [s.id, s]));
-        const recommendations = recsRes?.items || [];
-
-        // Each recommendation already carries its own soilTestId -- joined here to the exact
-        // soil test it was actually computed from, not just "whichever one is closest in time".
-        const built = recommendations.map((rec) => {
-          const soil = soilById.get(rec.soilTestId);
-          return {
-            id: rec.id,
-            createdAt: rec.createdAt,
-            crop: rec.cropType,
-            variety: rec.cropVariety,
-            growthStage: rec.growthStage,
-            prescribedApplication:
-              summarizeSchedule(rec.schedule) || `${rec.quantityKgPerAcre} kg/acre ${rec.fertilizerType}`,
-            soilSummary: soil
-              ? `pH ${soil.ph} · OC ${soil.organicCarbon}% · N ${soil.n} · P ${soil.p} · K ${soil.k} kg/ha`
-              : null,
-            risk: rec.risk,
-            saving: formatSaving(rec.estimatedSaving),
-            estimatedCost: rec.estimatedCost,
-          };
-        });
-
-        setField(fieldRes);
-        setEntries(built);
-      } catch {
-        if (!cancelled) setLoadError(true);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [fieldId]);
-
-  // Real aggregates only -- no fabricated "yield" or "3-year improvement" narrative (the
-  // schema has no yield field at all; see realDocket.js's own note on the same limitation for
-  // Recommendation.jsx). Savings only sums entries that actually have one (a field with no
-  // logged prior usage never gets an invented baseline, same rule as the backend itself).
-  const totalLogged = entries.length;
-  const savingsKnown = entries.filter((e) => e.saving != null);
-  const netSaving = savingsKnown.reduce((acc, e) => acc + (e.saving.positive ? 1 : -1) * parseFloat(e.saving.text.replace(/[^\d.]/g, '')), 0);
-  const latestRisk = entries[0]?.risk?.level;
+  // Only savings the model actually computed against a logged baseline; never invented.
+  const savings = h.recommendations.map((r) => r.estimatedSaving).filter((v) => v != null)
+  const net = savings.reduce((a, b) => a + b, 0)
 
   return (
-    <div className="space-y-8 font-sans text-[#1C1B18]">
-
-      {/* Plot switcher -- pick which real field's history this page shows */}
-      {plots.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 animate-reveal">
-          {plots.map(({ farm, field: p }, i) => (
-            <button
-              key={farm.id}
-              type="button"
-              onClick={() => navigate(`/fields/${p.id}/history`)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                p.id === fieldId
-                  ? 'bg-[#2D5430] text-white shadow-xs'
-                  : 'bg-white border border-[#D8CEBC] text-[#615C52] hover:border-[#1C1B18]'
-              }`}
-            >
-              Plot {String.fromCharCode(65 + i)} · {p.cropType}
-            </button>
-          ))}
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 no-print">
+        <h1 className="text-2xl sm:text-[2rem] font-bold text-primary-900 leading-tight">{fieldName} &middot; Field History</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <PlotSwitcher fieldId={fieldId} suffix="/history" />
+          <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 min-h-[46px] px-5 rounded-full bg-bg-muted hover:bg-border-default font-semibold text-sm cursor-pointer transition-colors">
+            <Download className="w-4 h-4 text-terracotta-600" aria-hidden="true" /> Download PDF summary
+          </button>
         </div>
-      )}
-
-      {/* 1. Header with Staggered Reveal */}
-      <div className="animate-reveal flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[#E8E2D5]">
-        <div>
-          <Link
-            to="/dashboard"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#756F63] hover:text-[#1C1B18] transition-colors mb-2"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Field Operations</span>
-          </Link>
-          <h1 className="font-serif text-3xl sm:text-4xl text-[#1C1B18] tracking-tight">
-            Season Archive &amp; Soil Ledger
-          </h1>
-          <p className="text-sm text-[#756F63] mt-1.5">
-            {field ? `${field.name} · ${field.areaAcres} Acres` : 'Loading field…'} · {totalLogged} recommendation{totalLogged === 1 ? '' : 's'} logged
-          </p>
-        </div>
-
-        <Link
-          to={`/fields/${fieldId}/soil`}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#DCD6C7] hover:border-[#1C1B18] text-[#1C1B18] text-xs font-medium bg-white/80 hover:bg-white transition-all shadow-2xs cursor-pointer self-start sm:self-auto"
-        >
-          <FlaskConical className="w-3.5 h-3.5 text-[#756F63]" />
-          <span>Enter New Soil Test</span>
-        </Link>
+      </div>
+      <div className="print-only">
+        <h1 className="text-2xl font-bold">{BRAND.name} &middot; {fieldName}</h1>
+        <p className="text-sm">Field history summary, printed {formatDate(new Date())}</p>
       </div>
 
-      {isLoading && (
-        <div className="text-sm text-[#756F63] py-8 text-center">Loading real history for this field…</div>
-      )}
-
-      {!isLoading && loadError && (
-        <div className="p-6 rounded-2xl border border-[#D8CEBC] bg-white/70 text-sm text-[#756F63] text-center">
-          Could not load this field&apos;s history right now. Try again shortly.
+      {h.status === 'error' && (
+        <div role="alert" className="p-4 rounded-md bg-risk-high-bg border border-risk-high-border text-risk-high-text text-sm flex justify-between gap-3">
+          <span>{h.error}</span>
+          <button type="button" onClick={h.reload} className="font-semibold underline cursor-pointer">Try again</button>
         </div>
       )}
 
-      {!isLoading && !loadError && totalLogged === 0 && (
-        <div className="p-8 rounded-2xl border border-[#D8CEBC] bg-white/70 text-center space-y-3">
-          <div className="font-serif text-xl text-[#1C1B18]">No soil tests logged yet for this field</div>
-          <p className="text-sm text-[#756F63]">
-            Enter a soil test and calibrate a fertilizer plan to start this field&apos;s real history.
-          </p>
-          <Link
-            to={`/fields/${fieldId}/soil`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#2D5430] hover:bg-[#234226] text-white text-xs font-medium transition-all shadow-xs active:scale-95 cursor-pointer"
-          >
-            <FlaskConical className="w-3.5 h-3.5" />
-            <span>Enter Soil Test</span>
-          </Link>
+      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg border border-border-default shadow-sm p-4 flex items-center gap-4">
+          <RingGauge value={(score ?? 0) / 100} color={band.color} size={84} stroke={9} label={score != null ? `Soil health ${score} percent` : 'No soil test yet'}>
+            <span className="text-lg font-semibold">{score != null ? `${score}%` : '–'}</span>
+          </RingGauge>
+          <div className="leading-tight">
+            <div className="text-xs text-ink-secondary">Soil health</div>
+            <div className="font-semibold" style={{ color: band.color }}>{band.label}</div>
+            {latestSoil && <div className="text-xs text-ink-muted mt-0.5">Tested {formatDate(latestSoil.testedOn)}</div>}
+          </div>
         </div>
-      )}
-
-      {!isLoading && !loadError && totalLogged > 0 && (
-        <>
-          {/* 2. Lifetime Impact Docket -- real aggregates only */}
-          <div className="animate-reveal delay-1 p-6 rounded-2xl border border-[#D8CEBC] bg-white/80 backdrop-blur-xs grid grid-cols-1 sm:grid-cols-3 gap-6 shadow-xs">
-            <div>
-              <div className="text-xs text-[#756F63] uppercase tracking-wider">Total Logged</div>
-              <div className="font-serif text-2xl text-[#1C1B18] mt-1">{totalLogged} Recommendation{totalLogged === 1 ? '' : 's'}</div>
-              <div className="text-xs text-[#756F63] mt-0.5">Real calibrations for this field</div>
-            </div>
-
-            <div>
-              <div className="text-xs text-[#756F63] uppercase tracking-wider">Net Cost Difference</div>
-              <div className={`font-serif text-2xl mt-1 ${netSaving >= 0 ? 'text-[#2D5430]' : 'text-[#9E6015]'}`}>
-                {savingsKnown.length > 0 ? `₹${Math.abs(netSaving).toFixed(0)} ${netSaving >= 0 ? 'Saved' : 'More'}` : '—'}
-              </div>
-              <div className="text-xs text-[#756F63] mt-0.5">
-                {savingsKnown.length > 0 ? `Across ${savingsKnown.length} logged application${savingsKnown.length === 1 ? '' : 's'}` : 'No prior usage logged yet to compare against'}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-xs text-[#756F63] uppercase tracking-wider">Latest Risk Level</div>
-              <div className={`font-serif text-2xl mt-1 ${latestRisk === 'HIGH' ? 'text-[#B91C1C]' : latestRisk === 'MEDIUM' ? 'text-[#9E6015]' : 'text-[#2D5430]'}`}>
-                {latestRisk || '—'}
-              </div>
-              <div className="text-xs text-[#756F63] mt-0.5">From the most recent calibration</div>
-            </div>
-          </div>
-
-          {/* 3. Season Log Journal Rows -- real recommendations, newest first */}
-          <div className="animate-reveal delay-2 space-y-3">
-            <div className="text-xs font-medium uppercase tracking-wider text-[#756F63] px-2">
-              Calibration History
-            </div>
-
-            <div className="divide-y divide-[#EAE4D5] border border-[#D8CEBC] rounded-2xl bg-white/80 backdrop-blur-xs shadow-xs overflow-hidden">
-              {entries.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-5 sm:p-6 hover:bg-[#FAF8F5] transition-colors space-y-3"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className="font-serif text-xl text-[#1C1B18] capitalize">
-                        {item.crop}{item.variety ? ` (${item.variety})` : ''}
-                      </span>
-                      <span className="text-sm font-medium text-[#756F63]">
-                        · {new Date(item.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
-                      </span>
-                      {item.risk?.level && (
-                        <span
-                          className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                            item.risk.level === 'HIGH'
-                              ? 'bg-[#FEE2E2] text-[#B91C1C]'
-                              : item.risk.level === 'MEDIUM'
-                              ? 'bg-[#FEF3C7] text-[#92400E]'
-                              : 'bg-[#DCFCE7] text-[#166534]'
-                          }`}
-                        >
-                          {item.risk.level} Risk
-                        </span>
-                      )}
-                    </div>
-
-                    {item.saving && (
-                      <div className={`font-serif text-lg ${item.saving.positive ? 'text-[#2D5430]' : 'text-[#9E6015]'}`}>
-                        {item.saving.text}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs pt-1">
-                    <div>
-                      <span className="text-[#756F63] block">Prescribed Application:</span>
-                      <span className="font-medium text-[#1C1B18]">{item.prescribedApplication}</span>
-                    </div>
-                    <div>
-                      <span className="text-[#756F63] block">Soil Test at Calibration:</span>
-                      <span className="font-medium text-[#1C1B18]">{item.soilSummary || 'Not available'}</span>
-                    </div>
-                    <div>
-                      <span className="text-[#756F63] block">Risk Reason:</span>
-                      <span className="font-medium text-[#1C1B18]">{item.risk?.reason || '—'}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Footer Navigation */}
-      <div className="animate-reveal delay-3 flex justify-end pt-2">
-        <Link
-          to="/dashboard"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#2D5430] hover:bg-[#234226] text-white text-xs font-medium transition-all shadow-xs active:scale-95 cursor-pointer"
-        >
-          <span>Return to Field Operations</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+        <Stat icon={FlaskConical} label="Soil tests on record" value={h.soilTests.length} />
+        <Stat icon={Sparkles} label="Plans generated" value={h.recommendations.length} note={rec ? `Latest: ${titleRisk(rec)}` : undefined} />
+        <Stat
+          icon={savings.length ? Droplets : Ruler}
+          label="Cost vs. what you applied"
+          value={savings.length ? `${net >= 0 ? '₹' : '−₹'}${Math.abs(Math.round(net))} ${net >= 0 ? 'saved' : 'more'}` : '–'}
+          note={savings.length ? `Per acre, across ${savings.length} plan${savings.length === 1 ? '' : 's'} with a logged baseline` : 'Log an application to get a comparison'}
+        />
       </div>
 
+      <section aria-labelledby="full-log" className="rounded-lg bg-bg-subtle border border-border-default shadow-md p-5 sm:p-7">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="full-log" className="text-xl font-bold text-ink-primary">Everything recorded for {fieldName}</h2>
+          <div className="no-print"><FilterSelect value={filter} onChange={setFilter} /></div>
+        </div>
+        <div className="mt-4 max-w-3xl">
+          {h.status === 'loading' ? (
+            <div className="space-y-3 animate-pulse" aria-hidden="true">
+              {[0, 1, 2].map((i) => <div key={i} className="h-20 bg-bg-muted rounded-lg" />)}
+            </div>
+          ) : (
+            <HistoryTimeline events={visible} emptyText="Nothing recorded yet. Enter a soil test to start this field's history." />
+          )}
+        </div>
+        <div className="mt-6 no-print">
+          <Link to={`/fields/${fieldId}/soil`} className="inline-flex items-center gap-2 min-h-[46px] px-6 rounded-full bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-md">
+            <FlaskConical className="w-4 h-4" aria-hidden="true" /> Enter a new soil test
+          </Link>
+        </div>
+      </section>
     </div>
-  );
+  )
+}
+
+function titleRisk(rec) {
+  const l = rec.risk?.level
+  return l ? `${l.charAt(0)}${l.slice(1).toLowerCase()} risk` : 'no risk rating'
 }
