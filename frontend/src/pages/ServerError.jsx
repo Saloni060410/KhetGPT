@@ -1,97 +1,42 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, RotateCcw, Home, LayoutDashboard, ChevronDown, ChevronUp } from 'lucide-react'
-import Button from '../components/ui/Button.jsx'
-import Card from '../components/ui/Card.jsx'
-import Badge from '../components/ui/Badge.jsx'
-import { useT } from '../i18n/useT.js'
+import { RotateCcw, ChevronDown } from 'lucide-react'
+import { SoilBagArt } from '../components/illustrations/SmallArt.jsx'
 
 export default function ServerError({ error, resetErrorBoundary }) {
-  const { t } = useT()
-  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
 
-  const handleRetry = () => {
-    if (resetErrorBoundary) {
-      resetErrorBoundary()
-    } else {
-      window.location.reload()
-    }
+  const retry = () => {
+    if (resetErrorBoundary) resetErrorBoundary()
+    else window.location.reload()
   }
 
   return (
-    <div className="min-h-[75vh] flex items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-lg p-6 sm:p-8 text-center space-y-6 shadow-md border-border-default">
-        {/* Visual Badge & Icon */}
-        <div className="flex flex-col items-center justify-center space-y-3">
-          <div className="w-16 h-16 rounded-2xl bg-risk-high-bg border border-risk-high-border flex items-center justify-center text-risk-high-text shadow-sm">
-            <AlertTriangle className="w-8 h-8 stroke-[2.2]" />
-          </div>
-          <Badge variant="danger" size="sm" className="font-mono tracking-wider font-bold">
-            {t('errors.serverErrorCode')} • {t('errors.serverErrorSubtitle')}
-          </Badge>
-        </div>
-
-        {/* Heading & Explanation */}
-        <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-ink-primary tracking-tight">
-            {t('errors.serverErrorTitle')}
-          </h1>
-          <p className="text-sm text-ink-secondary max-w-md mx-auto leading-relaxed">
-            {t('errors.serverErrorDesc')}
-          </p>
-        </div>
-
-        {/* System Engine Health Indicator */}
-        <div className="bg-bg-subtle border border-border-subtle rounded-xl p-3 text-xs font-mono text-left flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-ink-primary">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{t('errors.systemStatus')}</span>
-          </div>
-          <span className="text-risk-high-text font-bold">HTTP 500</span>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-          <Button
-            variant="primary"
-            size="md"
-            leftIcon={RotateCcw}
-            onClick={handleRetry}
-            className="w-full sm:w-auto justify-center"
-          >
-            {t('errors.retryAction')}
-          </Button>
-          <Link to="/dashboard" className="w-full sm:w-auto">
-            <Button variant="outline" size="md" leftIcon={LayoutDashboard} className="w-full justify-center">
-              {t('errors.goToDashboard')}
-            </Button>
-          </Link>
-          <Link to="/" className="w-full sm:w-auto">
-            <Button variant="ghost" size="md" leftIcon={Home} className="w-full justify-center">
-              {t('errors.backToHome')}
-            </Button>
+    <div className="min-h-[70vh] flex items-center justify-center px-5 py-12 bg-bg-base">
+      <div className="max-w-lg w-full text-center bg-white rounded-xl border border-border-default shadow-md p-8 sm:p-10">
+        <SoilBagArt className="w-44 h-36 mx-auto" />
+        <p className="mt-4 text-sm font-semibold tracking-widest text-risk-high-text">ERROR 500</p>
+        <h1 className="mt-1 text-3xl font-bold text-ink-primary">Something went wrong on our side</h1>
+        <p className="mt-2 text-ink-secondary">The page hit an unexpected problem. Your saved fields and soil tests are safe. Try again in a moment.</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <button type="button" onClick={retry} className="inline-flex items-center gap-2 min-h-[48px] px-6 rounded-full bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-md cursor-pointer">
+            <RotateCcw className="w-4 h-4" aria-hidden="true" /> Try again
+          </button>
+          <Link to="/" className="inline-flex items-center min-h-[48px] px-6 rounded-full border-2 border-primary-600 text-primary-700 hover:bg-primary-50 font-medium">
+            Back to home
           </Link>
         </div>
-
-        {/* Optional Collapsible Technical Trace */}
         {error && (
-          <div className="pt-2 text-left border-t border-border-subtle">
-            <button
-              type="button"
-              onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
-              className="w-full flex items-center justify-between text-xs font-mono text-ink-muted hover:text-ink-primary py-1 transition-colors"
-            >
-              <span>Diagnostic Trace &amp; Error Context</span>
-              {showTechnicalDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          <div className="mt-6 text-left">
+            <button type="button" onClick={() => setShowDetails((v) => !v)} aria-expanded={showDetails} className="inline-flex items-center gap-1 text-sm font-medium text-ink-secondary hover:text-ink-primary cursor-pointer">
+              Technical details <ChevronDown className={`w-4 h-4 transition-transform ${showDetails ? 'rotate-180' : ''}`} aria-hidden="true" />
             </button>
-            {showTechnicalDetails && (
-              <pre className="mt-2 p-3 bg-bg-base border border-border-subtle rounded-lg text-[11px] font-mono text-risk-high-text overflow-x-auto whitespace-pre-wrap">
-                {error.stack || error.message || String(error)}
-              </pre>
+            {showDetails && (
+              <pre className="mt-2 max-h-40 overflow-auto rounded-md bg-bg-subtle p-3 text-xs text-ink-secondary whitespace-pre-wrap break-words">{String(error?.message || error)}</pre>
             )}
           </div>
         )}
-      </Card>
+      </div>
     </div>
   )
 }
