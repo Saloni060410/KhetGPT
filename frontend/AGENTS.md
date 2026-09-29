@@ -17,6 +17,19 @@ conventions. Owner: **Darsh**.
   `useRecommendationStore`) in `src/store/` — don't reach into another page's local state.
 - Icons: `lucide-react` only, for a consistent icon set.
 
+## AgroBloom theme (branch `saloni/frontend`)
+
+The UI is the illustrated AgroBloom design: cream paper, leaf green, terracotta, Poppins. Colours, radii and
+shadows live only in `src/styles/tokens.css` and are exposed through `tailwind.config.js`; components use the
+token classes (`bg-primary-600`, `text-ink-primary`, `rounded-lg`), never raw hex. The product name is one
+constant in `src/components/brand/brand.js`. Illustrations are inline SVG in `src/components/illustrations/`
+(no image requests). The old 3D diorama UI was removed; `three`, R3F, GSAP and framer-motion are no longer
+imported and can be dropped from `package.json` in a follow-up.
+
+Shells: `SidebarShell` (Overview, My Fields, Reports), `TopNavShell` (field pages, `frame="forest"` for the
+recommendation and history screens), `PublicShell` (404/500). Every field link goes through `useActiveField`
+so it always points at a real field id. All fields for the signed-in user come from `usePlotStore`.
+
 ## Folder map
 
 ```
