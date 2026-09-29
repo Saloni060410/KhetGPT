@@ -1,427 +1,231 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Printer,
-  Sun,
-  FileText,
-  Check,
-  Loader2,
-} from 'lucide-react';
-import useDocumentTitle from '../hooks/useDocumentTitle.js';
-import * as endpoints from '../services/endpoints.js';
-import { useUserStore } from '../store/useUserStore.js';
+import { useEffect, useMemo, useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
+import { Printer, Sun, CloudRain, Check, Loader2, FileText, FlaskConical, AlertCircle } from 'lucide-react'
+import useDocumentTitle from '../hooks/useDocumentTitle.js'
+import * as endpoints from '../services/endpoints.js'
+import { useUserStore } from '../store/useUserStore.js'
+import { useFieldHistory } from '../hooks/useFieldHistory.js'
+import { formatDate, titleCase, daysFromToday, roundQty } from '../utils/format.js'
+import ProductIcon from '../components/reco/ProductIcon.jsx'
+import PlotSwitcher from '../components/layout/PlotSwitcher.jsx'
+import { BRAND } from '../components/brand/brand.js'
 
-function stageLabel(stage) {
-  return (stage || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+// There is no execution log for a plan line, only the plan and the real fertilizer logs. Status is
+// computed from apply_by against today, never assumed.
+function stepStatus(applyBy) {
+  const days = daysFromToday(applyBy)
+  if (days == null) return { current: false, text: 'No fixed date for this stage', tone: 'neutral' }
+  if (days < 0) return { current: true, text: `Overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'}`, tone: 'bad' }
+  if (days === 0) return { current: true, text: 'Due today', tone: 'warn' }
+  if (days <= 7) return { current: true, text: `Due in ${days} day${days === 1 ? '' : 's'}`, tone: 'warn' }
+  return { current: false, text: `Scheduled for ${formatDate(applyBy)}`, tone: 'neutral' }
 }
 
-// schedule[].apply_by/timing_note/fertilizer_type/quantity_kg_per_acre are the ML service's own
-// snake_case keys, passed through as-is (see data/realDocket.js's own note on this same thing).
-// No "Applied ✓" status here -- there's no execution log anywhere in the schema, only a plan,
-// so status is computed honestly from apply_by vs today rather than assumed.
-function computeStepStatus(applyBy, today) {
-  if (!applyBy) return { isDone: false, isCurrent: false, statusText: 'No fixed date for this stage' };
-  const applyDate = new Date(`${applyBy}T00:00:00`);
-  const diffDays = Math.round((applyDate - today) / 86_400_000);
-  if (diffDays < 0) return { isDone: false, isCurrent: true, statusText: `Due since ${applyBy} (overdue)` };
-  if (diffDays === 0) return { isDone: false, isCurrent: true, statusText: 'Due today' };
-  if (diffDays <= 7) return { isDone: false, isCurrent: true, statusText: `Due ${applyBy}` };
-  return { isDone: false, isCurrent: false, statusText: `Scheduled for ${applyBy}` };
+const TONE = {
+  applied: 'bg-risk-low-bg text-risk-low-text border-risk-low-border',
+  bad: 'bg-risk-high-bg text-risk-high-text border-risk-high-border',
+  warn: 'bg-risk-med-bg text-risk-med-text border-risk-med-border',
+  neutral: 'bg-bg-muted text-ink-secondary border-border-default',
 }
 
 export default function Schedule() {
-  const { fieldId } = useParams();
-  const navigate = useNavigate();
-  useDocumentTitle('Application Schedule — KhetGPT');
-  const { user } = useUserStore();
+  const { fieldId } = useParams()
+  useDocumentTitle(`Application Schedule — ${BRAND.name}`)
+  const user = useUserStore((s) => s.user)
+  const h = useFieldHistory(fieldId)
 
-  // Plot switcher -- every field the user owns, across all their farms. Clicking one navigates
-  // to that field's own /schedule, which re-runs the fetch below via the changed :fieldId.
-  const [plots, setPlots] = useState([]);
-  useEffect(() => {
-    let cancelled = false;
-    async function loadPlots() {
-      try {
-        const farmsRes = await endpoints.getFarms();
-        const withFields = await Promise.all(
-          (farmsRes?.items || []).map(async (farm) => {
-            const fieldsRes = await endpoints.getFields(farm.id);
-            const f = (fieldsRes?.items || [])[0];
-            return f ? { farm, field: f } : null;
-          }),
-        );
-        if (!cancelled) setPlots(withFields.filter(Boolean));
-      } catch {
-        if (!cancelled) setPlots([]);
-      }
-    }
-    loadPlots();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const [field, setField] = useState(null);
-  const [recommendation, setRecommendation] = useState(null);
-  const [weather, setWeather] = useState(null);
-  const [fertilizerMeta, setFertilizerMeta] = useState({});
-  const [fertilizerLogs, setFertilizerLogs] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [markingDoneKey, setMarkingDoneKey] = useState(null);
-  const [markDoneError, setMarkDoneError] = useState(null);
+  const [weatherState, setWeatherState] = useState({ id: null, weather: null })
+  const [extra, setExtra] = useState({ id: null, list: [] })
+  const [busyKey, setBusyKey] = useState(null)
+  const [markError, setMarkError] = useState(null)
 
   useEffect(() => {
-    if (!fieldId) return;
-    let cancelled = false;
-    async function load() {
-      setIsLoading(true);
-      setLoadError(false);
-      try {
-        const [fieldRes, recsRes, fertilizers, weatherRes, logsRes] = await Promise.all([
-          endpoints.getFieldById(fieldId),
-          endpoints.getRecommendations(fieldId, { limit: 1 }),
-          endpoints.getReferenceFertilizers(),
-          endpoints.getFieldWeather(fieldId).catch(() => null),
-          endpoints.getFertilizerLogs(fieldId, { limit: 100 }),
-        ]);
-        if (cancelled) return;
-        const meta = {};
-        for (const f of fertilizers) meta[f.id] = f;
-        setFertilizerMeta(meta);
-        setField(fieldRes);
-        setRecommendation((recsRes?.items || [])[0] || null);
-        setWeather(weatherRes);
-        setFertilizerLogs(logsRes?.items || []);
-      } catch {
-        if (!cancelled) setLoadError(true);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-    load();
+    let cancelled = false
+    endpoints
+      .getFieldWeather(fieldId)
+      .then((w) => !cancelled && setWeatherState({ id: fieldId, weather: w }))
+      .catch(() => {})
     return () => {
-      cancelled = true;
-    };
-  }, [fieldId]);
+      cancelled = true
+    }
+  }, [fieldId])
 
-  const handlePrint = () => window.print();
+  const weather = weatherState.id === fieldId ? weatherState.weather : null
+  const extraLogs = extra.id === fieldId ? extra.list : []
+  const rec = h.recommendations[0] || null
+  const field = h.field
+  const meta = useMemo(() => Object.fromEntries(h.fertilizers.map((f) => [f.id, f])), [h.fertilizers])
+  const logs = [...extraLogs, ...h.logs]
 
-  // "Done" doesn't invent a new field to track completion in -- it creates a real
-  // FertilizerLog, the schema's own existing record of what was actually applied. That's not
-  // just cosmetic: a real log here genuinely credits against the NEXT recommendation's prior-
-  // usage calculation, and shows up for real in History, unlike a fake local "completed" flag
-  // that would reset on reload and mean nothing to the rest of the app.
-  const handleMarkDone = async (line, key) => {
-    setMarkingDoneKey(key);
-    setMarkDoneError(null);
+  // "Done" writes a real FertilizerLog, so the next recommendation credits it and History shows it.
+  const markDone = async (line, key) => {
+    setBusyKey(key)
+    setMarkError(null)
     try {
-      const todayIso = new Date().toISOString().slice(0, 10);
-      const newLog = await endpoints.createFertilizerLog(fieldId, {
+      const created = await endpoints.createFertilizerLog(fieldId, {
         type: line.fertilizer_type,
         quantityKgPerAcre: line.quantity_kg_per_acre,
-        appliedOn: todayIso,
-      });
-      setFertilizerLogs((prev) => [newLog, ...prev]);
-    } catch {
-      setMarkDoneError('Could not log this application. Try again.');
+        appliedOn: new Date().toISOString().slice(0, 10),
+      })
+      setExtra({ id: fieldId, list: [created, ...extraLogs] })
+    } catch (err) {
+      setMarkError(err?.message || 'Could not log this application. Try again.')
     } finally {
-      setMarkingDoneKey(null);
+      setBusyKey(null)
     }
-  };
-
-  const schedule = recommendation?.schedule || [];
-  const today = new Date();
-  const recommendationCreatedAt = recommendation ? new Date(recommendation.createdAt) : null;
-  const steps = schedule.map((line, i) => {
-    const status = computeStepStatus(line.apply_by, today);
-    const meta = fertilizerMeta[line.fertilizer_type];
-    const productName = meta?.name || line.fertilizer_type;
-    const bags = meta?.bag_size_kg && field?.areaAcres
-      ? `≈ ${((line.quantity_kg_per_acre * field.areaAcres) / meta.bag_size_kg).toFixed(1)} bags (${meta.bag_size_kg}kg) across ${field.areaAcres} acres`
-      : `${line.quantity_kg_per_acre} kg/acre`;
-    // A real fertilizer log of the same product, logged on or after this recommendation was
-    // made, counts this step as applied -- a real join, not a guess, but an honest one: with
-    // more than one schedule line for the same product (e.g. two urea top-dresses), this can't
-    // tell them apart and will mark both done together. Stated here, not hidden.
-    const key = `${line.stage}-${line.fertilizer_type}-${i}`;
-    const isApplied = fertilizerLogs.some(
-      (log) => log.type === line.fertilizer_type && recommendationCreatedAt && new Date(log.appliedOn) >= recommendationCreatedAt,
-    );
-    return {
-      key,
-      isApplied,
-      step: String(i + 1).padStart(2, '0'),
-      title: `${stageLabel(line.stage)} — ${productName}`,
-      timing: `${line.quantity_kg_per_acre} kg/acre`,
-      fertilizers: productName,
-      rate: bags,
-      instruction: line.timing_note || `Apply at the ${stageLabel(line.stage).toLowerCase()} stage.`,
-      line,
-      ...status,
-    };
-  });
-
-  // Real dealer-slip totals: every distinct product across the real schedule, summed -- not a
-  // fixed 3-line list.
-  const productTotals = {};
-  for (const line of schedule) {
-    productTotals[line.fertilizer_type] = (productTotals[line.fertilizer_type] || 0) + line.quantity_kg_per_acre;
   }
 
+  const steps = (rec?.schedule || []).map((line, i) => {
+    const m = meta[line.fertilizer_type]
+    const created = rec ? new Date(rec.createdAt) : null
+    // A log of the same product made after the plan counts the step as applied. With two lines of the
+    // same product this cannot tell them apart and marks both together.
+    const applied = logs.some((l) => l.type === line.fertilizer_type && created && new Date(l.appliedOn) >= new Date(created.toISOString().slice(0, 10)))
+    return {
+      key: `${line.stage}-${line.fertilizer_type}-${i}`,
+      line,
+      applied,
+      status: stepStatus(line.apply_by),
+      product: m?.name || h.fertName(line.fertilizer_type),
+      bags: m?.bag_size_kg && field?.areaAcres ? `≈ ${((line.quantity_kg_per_acre * field.areaAcres) / m.bag_size_kg).toFixed(1)} bags of ${m.bag_size_kg} kg across ${field.areaAcres} acres` : null,
+    }
+  })
+
+  const totals = {}
+  for (const line of rec?.schedule || []) totals[line.fertilizer_type] = (totals[line.fertilizer_type] || 0) + line.quantity_kg_per_acre
+  const rainy = weather && weather.rainfallMmForecast >= 2
+
   return (
-    <div className="space-y-8 font-sans text-[#1C1B18]">
-
-      {/* Plot switcher -- only meaningful with more than one field, but shown whenever at
-          least one real field exists so it's obvious which one this page is about. */}
-      {plots.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 animate-reveal">
-          {plots.map(({ farm, field: p }, i) => (
-            <button
-              key={farm.id}
-              type="button"
-              onClick={() => navigate(`/fields/${p.id}/schedule`)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                p.id === fieldId
-                  ? 'bg-[#2D5430] text-white shadow-xs'
-                  : 'bg-white border border-[#D8CEBC] text-[#615C52] hover:border-[#1C1B18]'
-              }`}
-            >
-              Plot {String.fromCharCode(65 + i)} · {p.cropType}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* 1. Header with Staggered Reveal */}
-      <div className="animate-reveal flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[#E8E2D5]">
+    <div className="max-w-5xl mx-auto px-5 sm:px-8 py-8 space-y-8">
+      <div className="flex flex-wrap items-end justify-between gap-4 no-print">
         <div>
-          <Link
-            to={`/fields/${fieldId}/recommendation`}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#756F63] hover:text-[#1C1B18] transition-colors mb-2"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Prescription Docket</span>
-          </Link>
-          <h1 className="font-serif text-3xl sm:text-4xl text-[#1C1B18] tracking-tight">
-            Application Schedule &amp; Timeline
-          </h1>
-          <p className="text-sm text-[#756F63] mt-1.5">
-            {field ? `${field.name} · ${field.areaAcres} Acres` : 'Loading field…'}
-            {recommendation ? ` · ${recommendation.cropType}` : ''}
-          </p>
+          <p className="text-sm font-semibold text-primary-700">{field ? `${field.name} · ${field.areaAcres ?? '?'} acres` : 'Loading field…'}</p>
+          <h1 className="text-3xl font-bold text-ink-primary mt-0.5">Application Schedule</h1>
         </div>
-
-        <button
-          type="button"
-          onClick={handlePrint}
-          className="px-4 py-2 text-xs font-medium text-[#615C52] hover:text-[#1C1B18] border border-[#DCD6C7] rounded-lg bg-white/80 hover:bg-white transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs self-start sm:self-auto"
-        >
-          <Printer className="w-3.5 h-3.5" />
-          <span>Print Retailer Purchase Slip</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <PlotSwitcher fieldId={fieldId} suffix="/schedule" />
+          <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 min-h-[46px] px-5 rounded-full border-2 border-primary-600 text-primary-700 hover:bg-primary-50 font-medium text-sm cursor-pointer transition-colors">
+            <Printer className="w-4 h-4" aria-hidden="true" /> Print retailer slip
+          </button>
+        </div>
       </div>
 
-      {isLoading && (
-        <div className="text-sm text-[#756F63] py-8 text-center">Loading this field&apos;s real schedule…</div>
-      )}
-
-      {!isLoading && loadError && (
-        <div className="p-6 rounded-2xl border border-[#D8CEBC] bg-white/70 text-sm text-[#756F63] text-center">
-          Could not load this field&apos;s schedule right now. Try again shortly.
+      {h.status === 'error' && (
+        <div role="alert" className="p-4 rounded-md bg-risk-high-bg border border-risk-high-border text-risk-high-text text-sm flex justify-between gap-3">
+          <span>{h.error}</span>
+          <button type="button" onClick={h.reload} className="font-semibold underline cursor-pointer">Try again</button>
         </div>
       )}
 
-      {!isLoading && !loadError && !recommendation && (
-        <div className="p-8 rounded-2xl border border-[#D8CEBC] bg-white/70 text-center space-y-3">
-          <div className="font-serif text-xl text-[#1C1B18]">No recommendation calibrated yet for this field</div>
-          <p className="text-sm text-[#756F63]">
-            Enter a soil test to generate a real application schedule.
-          </p>
-          <Link
-            to={`/fields/${fieldId}/soil`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#2D5430] hover:bg-[#234226] text-white text-xs font-medium transition-all shadow-xs active:scale-95 cursor-pointer"
-          >
-            <span>Enter Soil Test</span>
+      {h.status === 'loading' && (
+        <div className="space-y-4 animate-pulse" aria-hidden="true">
+          {[0, 1].map((i) => <div key={i} className="h-36 rounded-lg bg-white/70 border border-border-default" />)}
+        </div>
+      )}
+
+      {h.status === 'ready' && !rec && (
+        <div className="bg-white rounded-lg border border-border-default shadow-sm p-10 text-center space-y-4">
+          <h2 className="text-xl font-semibold">No plan to schedule yet</h2>
+          <p className="text-sm text-ink-secondary">Enter a soil test to generate a dated application schedule.</p>
+          <Link to={`/fields/${fieldId}/soil`} className="inline-flex items-center gap-2 min-h-[48px] px-7 rounded-full bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-md">
+            <FlaskConical className="w-4 h-4" aria-hidden="true" /> Enter soil test
           </Link>
         </div>
       )}
 
-      {!isLoading && !loadError && recommendation && (
+      {h.status === 'ready' && rec && (
         <>
-          {/* 2. Distinctive Application Stepper -- real schedule, one row per real line */}
-          <div className="animate-reveal delay-1 space-y-3">
-            <div className="text-xs font-medium uppercase tracking-wider text-[#756F63] px-2">
-              Real Application Schedule ({steps.length} step{steps.length === 1 ? '' : 's'})
+          {weather && (
+            <p className={`no-print inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border ${rainy ? 'bg-info-bg text-info-text border-info-border' : 'bg-risk-low-bg text-risk-low-text border-risk-low-border'}`}>
+              {rainy ? <CloudRain className="w-4 h-4" aria-hidden="true" /> : <Sun className="w-4 h-4" aria-hidden="true" />}
+              {weather.rainfallMmForecast} mm rain forecast over 5 days ({weather.source === 'live' ? 'live' : titleCase(weather.source)}).
+              {rainy ? ' Hold top-dressing until it has passed.' : ' A dry window for spreading.'}
+            </p>
+          )}
+
+          {markError && (
+            <div role="alert" className="p-3 rounded-md bg-risk-high-bg border border-risk-high-border text-risk-high-text text-sm flex items-center gap-2 no-print">
+              <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" /> {markError}
             </div>
+          )}
 
-            {markDoneError && (
-              <div className="text-xs text-[#B91C1C] px-2">{markDoneError}</div>
-            )}
-
-            <div className="divide-y divide-[#EAE4D5] border border-[#D8CEBC] rounded-2xl bg-white/80 backdrop-blur-xs overflow-hidden shadow-xs">
-              {steps.map((item) => (
-                <div
-                  key={item.key}
-                  className={`p-5 sm:p-6 transition-colors flex flex-col sm:flex-row sm:items-start justify-between gap-4 ${
-                    item.isCurrent ? 'bg-[#FAF8F5]' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-4">
-                    <span
-                      className={`font-serif text-2xl shrink-0 font-medium ${
-                        item.isCurrent ? 'text-[#B8791E]' : 'text-[#C5BBAA]'
-                      }`}
-                    >
-                      {item.step}
-                    </span>
-
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <h2 className="font-serif text-xl text-[#1C1B18] capitalize">
-                          {item.title}
-                        </h2>
-                        <span
-                          className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                            item.isApplied
-                              ? 'bg-[#DCFCE7] text-[#166534]'
-                              : item.isCurrent
-                              ? 'bg-[#FEF3C7] text-[#92400E]'
-                              : 'bg-[#F4F1EA] text-[#756F63]'
-                          }`}
-                        >
-                          {item.isApplied ? 'Applied ✓' : item.statusText}
+          <ol className="relative space-y-4">
+            <span className="absolute top-6 bottom-6 left-[1.55rem] w-0.5 bg-border-strong/50 no-print" aria-hidden="true" />
+            {steps.map((s, i) => (
+              <li key={s.key} className="relative grid grid-cols-[3.2rem_1fr] gap-x-3">
+                <span className="relative z-10 mt-5 w-11 h-11 rounded-full inline-flex items-center justify-center text-lg font-semibold ring-4 ring-bg-base"
+                  style={{ backgroundColor: s.applied ? '#587a34' : s.status.current ? '#c9683f' : '#efe1c8', color: s.applied || s.status.current ? '#fff' : '#75745e' }}>
+                  {s.applied ? <Check className="w-5 h-5" aria-hidden="true" /> : String(i + 1).padStart(2, '0')}
+                </span>
+                <div className={`rounded-lg border shadow-sm p-5 flex flex-col sm:flex-row gap-4 justify-between ${s.status.current && !s.applied ? 'bg-white border-terracotta-500/60' : 'bg-white/80 border-border-default'}`}>
+                  <div className="flex gap-4 min-w-0">
+                    <ProductIcon type={s.line.fertilizer_type} className="w-14 h-16 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-lg font-semibold text-ink-primary">{titleCase(s.line.stage)}</h2>
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${s.applied ? TONE.applied : TONE[s.status.tone]}`}>
+                          {s.applied ? 'Applied' : s.status.text}
                         </span>
                       </div>
-
-                      <div className="text-sm font-semibold text-[#1C1B18]">
-                        {item.timing} {item.fertilizers}
-                      </div>
-
-                      <div className="text-xs text-[#756F63]">
-                        {item.rate}
-                      </div>
-
-                      <div className="text-xs text-[#8A8477] pt-1">
-                        {item.instruction}
-                      </div>
+                      <p className="mt-1 font-semibold text-ink-primary">{roundQty(s.line.quantity_kg_per_acre)} kg/acre {s.product}</p>
+                      {s.bags && <p className="text-sm text-ink-secondary">{s.bags}</p>}
+                      <p className="text-sm text-ink-muted mt-1.5">{s.line.timing_note || `Apply at the ${titleCase(s.line.stage).toLowerCase()} stage.`}</p>
                     </div>
                   </div>
-
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    {item.isCurrent && weather && (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-[#2D5430] font-medium bg-[#DCFCE7]/70 px-3 py-1 rounded-full">
-                        <Sun className="w-3.5 h-3.5" />
-                        {weather.rainfallMmForecast}mm rain forecast ({weather.source})
-                      </span>
-                    )}
-
-                    {!item.isApplied && (
-                      <button
-                        type="button"
-                        onClick={() => handleMarkDone(item.line, item.key)}
-                        disabled={markingDoneKey === item.key}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#2D5430] hover:bg-[#234226] disabled:opacity-60 text-white text-xs font-medium transition-all cursor-pointer active:scale-95 shadow-2xs"
-                        title="Logs this exact product and quantity as a real fertilizer application for today"
-                      >
-                        {markingDoneKey === item.key ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Check className="w-3.5 h-3.5" />
-                        )}
-                        <span>Done</span>
-                      </button>
-                    )}
-                  </div>
+                  {!s.applied && (
+                    <button
+                      type="button"
+                      onClick={() => markDone(s.line, s.key)}
+                      disabled={busyKey === s.key}
+                      title="Logs this product and quantity as applied today"
+                      className="no-print self-start shrink-0 inline-flex items-center gap-1.5 min-h-[44px] px-5 rounded-full bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white text-sm font-medium shadow-sm cursor-pointer transition-colors"
+                    >
+                      {busyKey === s.key ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Check className="w-4 h-4" aria-hidden="true" />}
+                      Mark done
+                    </button>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
+              </li>
+            ))}
+          </ol>
 
-          {/* 3. Official Cooperative Dealer Slip (Print-Ready Document) -- real totals */}
-          <div className="animate-reveal delay-2 border border-[#D8CEBC] rounded-2xl bg-white p-6 sm:p-8 space-y-5 shadow-xs">
-            <div className="flex items-center justify-between pb-4 border-b border-[#E8E2D5]">
-              <div className="flex items-center gap-2.5">
-                <FileText className="w-5 h-5 text-[#2D5430]" />
+          {/* Retailer slip, print-friendly */}
+          <section aria-labelledby="slip" className="bg-white rounded-lg border border-border-default shadow-md p-6 sm:p-8">
+            <div className="flex items-center justify-between gap-3 pb-4 border-b border-border-default">
+              <div className="flex items-center gap-3">
+                <span className="w-11 h-11 rounded-md bg-primary-100 text-primary-700 inline-flex items-center justify-center"><FileText className="w-6 h-6" aria-hidden="true" /></span>
                 <div>
-                  <span className="font-serif text-xl text-[#1C1B18] block leading-tight">
-                    Fertilizer Dealer Purchase Slip
-                  </span>
-                  <span className="text-xs text-[#756F63]">
-                    ਖਾਦ ਖਰੀਦ ਪਰਚੀ · IFFCO / Cooperative Society
-                  </span>
-                </div>
-              </div>
-              <span className="text-xs text-[#2D5430] font-medium bg-[#DCFCE7] px-2.5 py-1 rounded-full hidden sm:inline">
-                PAU Package of Practices
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs pb-4 border-b border-[#E8E2D5]">
-              <div>
-                <div className="text-[#756F63]">Farmer Name</div>
-                <div className="font-semibold text-sm text-[#1C1B18] mt-0.5">{user?.name || '—'}</div>
-              </div>
-              <div>
-                <div className="text-[#756F63]">Field Plot &amp; Area</div>
-                <div className="font-semibold text-sm text-[#1C1B18] mt-0.5">{field ? `${field.name} (${field.areaAcres} Acres)` : '—'}</div>
-              </div>
-              <div>
-                <div className="text-[#756F63]">Target Crop</div>
-                <div className="font-semibold text-sm text-[#1C1B18] mt-0.5 capitalize">{recommendation.cropType}</div>
-              </div>
-              <div>
-                <div className="text-[#756F63]">Est. Cost</div>
-                <div className="font-serif text-lg font-bold text-[#2D5430] mt-0.5">
-                  {recommendation.estimatedCost != null ? `₹${recommendation.estimatedCost.toFixed(0)}/acre` : '—'}
+                  <h2 id="slip" className="text-xl font-semibold text-ink-primary leading-tight">Fertilizer purchase slip</h2>
+                  <p className="text-xs text-ink-muted">Show this to your dealer. Quantities are per acre and for the whole field.</p>
                 </div>
               </div>
             </div>
-
-            <div className="space-y-2.5 text-xs">
-              {Object.entries(productTotals).map(([productId, qty], i) => {
-                const meta = fertilizerMeta[productId];
+            <dl className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm pb-4 border-b border-border-subtle">
+              <div><dt className="text-ink-muted">Farmer</dt><dd className="font-semibold mt-0.5">{user?.name || '-'}</dd></div>
+              <div><dt className="text-ink-muted">Field</dt><dd className="font-semibold mt-0.5">{field ? `${field.name} (${field.areaAcres} acres)` : '-'}</dd></div>
+              <div><dt className="text-ink-muted">Crop</dt><dd className="font-semibold mt-0.5">{h.cropName(rec.cropType)}</dd></div>
+              <div><dt className="text-ink-muted">Estimated cost</dt><dd className="font-semibold text-primary-700 mt-0.5">{rec.estimatedCost != null ? `₹${Math.round(rec.estimatedCost)}/acre` : '-'}</dd></div>
+            </dl>
+            <ul className="mt-3 text-sm divide-y divide-border-subtle">
+              {Object.entries(totals).map(([id, qty]) => {
+                const m = meta[id]
+                const total = field?.areaAcres ? qty * field.areaAcres : null
                 return (
-                  <div key={productId} className="flex justify-between py-1.5 border-b border-[#F4F1EA] last:border-b-0">
-                    <span className="text-[#4A463D] font-medium">{i + 1}. {meta?.name || productId}</span>
-                    <span className="font-semibold text-[#1C1B18]">
-                      {qty.toFixed(1)} kg/acre
-                      {meta?.bag_size_kg && field?.areaAcres
-                        ? ` (≈ ${((qty * field.areaAcres) / meta.bag_size_kg).toFixed(1)} bags)`
-                        : ''}
+                  <li key={id} className="py-2.5 flex flex-wrap justify-between gap-2">
+                    <span className="font-medium">{m?.name || h.fertName(id)}</span>
+                    <span className="font-semibold">
+                      {roundQty(qty)} kg/acre
+                      {total != null && ` · ${roundQty(total)} kg total`}
+                      {m?.bag_size_kg && total != null ? ` (≈ ${(total / m.bag_size_kg).toFixed(1)} bags)` : ''}
                     </span>
-                  </div>
-                );
+                  </li>
+                )
               })}
-            </div>
-
-            <div className="pt-3 border-t border-[#E8E2D5] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#756F63]">
-              <span>Certified under Punjab Agricultural University Package of Practices.</span>
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="text-[#2D5430] font-semibold hover:underline cursor-pointer"
-              >
-                Click here to print slip
-              </button>
-            </div>
-          </div>
+            </ul>
+            <p className="mt-4 text-xs text-ink-muted">Doses come from published PAU tables adjusted by this field&rsquo;s soil test. Confirm final rates with your local agriculture officer.</p>
+          </section>
         </>
       )}
-
-      {/* Footer Navigation */}
-      <div className="animate-reveal delay-3 flex justify-end pt-2">
-        <Link
-          to={`/fields/${fieldId}/history`}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#2D5430] hover:bg-[#234226] text-white text-xs font-medium transition-all shadow-xs active:scale-95 cursor-pointer"
-        >
-          <span>View Past Season Records</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
-      </div>
-
     </div>
-  );
+  )
 }
