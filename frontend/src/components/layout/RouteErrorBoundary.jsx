@@ -12,6 +12,7 @@ export default class RouteErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
+    // eslint-disable-next-line no-console
     console.error('RouteErrorBoundary caught an error:', error, errorInfo)
   }
 
